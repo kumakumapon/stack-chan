@@ -22,7 +22,7 @@
 ### 1. リポジトリクローン
 
 ```bash
-git clone https://github.com/stack-chan/stack-chan.git
+git clone https://github.com/kumakumapon/stack-chan.git
 cd stack-chan
 ```
 
@@ -561,5 +561,5 @@ CI が自動トリガー：
 cd web
 npm run build
 # dist/ が GitHub Pages で公開
-# https://stack-chan.github.io/stack-chan/web/
+# https://kumakumapon.github.io/stack-chan/web/
 ```

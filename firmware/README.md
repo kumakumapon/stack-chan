@@ -5,7 +5,7 @@
 ## About this firmware
 
 The M5Stack factory firmware preinstalled on M5StackChan and the Stack-chan firmware in this repository are separate firmware implementations.
-Use the [latest release](https://github.com/stack-chan/stack-chan/releases/latest) when you need a stable environment.
+Use the [latest release](https://github.com/kumakumapon/stack-chan/releases/latest) when you need a stable environment.
 The default `develop` branch may change internal structures and APIs while preparing the next release.
 
 AI Stack-chan is a separate Arduino-based application developed primarily by @robo8080.
@@ -15,17 +15,17 @@ If you are comfortable with the Arduino IDE and use PWM servos, [stack-chan-test
 
 ## Try it in a browser
 
-For a first trial, the [Stack-chan browser tools](https://stack-chan.github.io/stack-chan/web/) let you start without installing a local development environment.
+For a first trial, the [Stack-chan browser tools](https://kumakumapon.github.io/stack-chan/web/) let you start without installing a local development environment.
 
 1. Connect M5StackChan to a computer with a data-capable USB cable.
-2. Open the [Web firmware installer](https://stack-chan.github.io/stack-chan/web/flash/) in Chrome or Edge, select "M5StackChan CoreS3," and install the firmware.
-3. Choose a MOD from the [MOD Gallery](https://stack-chan.github.io/stack-chan/web/mod-gallery/) and try it in the simulator or on the device.
+2. Open the [Web firmware installer](https://kumakumapon.github.io/stack-chan/web/flash/) in Chrome or Edge, select "M5StackChan CoreS3," and install the firmware.
+3. Choose a MOD from the [MOD Gallery](https://kumakumapon.github.io/stack-chan/web/mod-gallery/) and try it in the simulator or on the device.
 
 > [!IMPORTANT]
 > Flashing this firmware replaces the factory firmware supplied by M5Stack.
 > To restore it, follow the restore procedure in the [M5Stack product documentation](https://docs.m5stack.com/en/StackChan) and use M5Burner.
 
-[![Web firmware installer](../docs/images/web-tools/firmware-installer-en.png)](https://stack-chan.github.io/stack-chan/web/flash/)
+[![Web firmware installer](../docs/images/web-tools/firmware-installer-en.png)](https://kumakumapon.github.io/stack-chan/web/flash/)
 
 ## Start local development
 
@@ -85,10 +85,10 @@ See [Building and Writing Programs](docs/flashing-firmware.md) for target-specif
 
 ### Use the browser tools
 
-- [Browser tools](https://stack-chan.github.io/stack-chan/web/)
+- [Browser tools](https://kumakumapon.github.io/stack-chan/web/)
 - [Flash firmware from a browser](docs/flashing-firmware-web.md)
 - [Change preferences from a browser](docs/setting-preferences-web.md)
-- [MOD Gallery](https://stack-chan.github.io/stack-chan/web/mod-gallery/)
+- [MOD Gallery](https://kumakumapon.github.io/stack-chan/web/mod-gallery/)
 
 ### Develop locally
 

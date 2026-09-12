@@ -257,7 +257,7 @@ test('JSON Schemaと実装が同じ形式識別子と必須フィールドを持
   )
   assert.equal(schema.properties.format.const, 'tech.stackchan.mod')
   assert.equal(schema.properties.schemaVersion.const, 1)
-  assert.equal(schema.$id, 'https://stack-chan.github.io/stack-chan/web/schemas/stackchan-mod.schema.json')
+  assert.equal(schema.$id, 'https://kumakumapon.github.io/stack-chan/web/schemas/stackchan-mod.schema.json')
   for (const field of [
     'format',
     'schemaVersion',

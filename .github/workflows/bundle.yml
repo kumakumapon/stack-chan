@@ -8,6 +8,7 @@ on:
     paths:
       - "firmware/**"
       - "web/**"
+      - "docs/specs/**"
       - "**/*.kicad_sch"
       - "**/*.kicad_pcb"
       - "schematics/**/*.kibot.yaml"
@@ -22,6 +23,7 @@ on:
     paths:
       - "firmware/**"
       - "web/**"
+      - "docs/specs/**"
       - "**/*.kicad_sch"
       - "**/*.kicad_pcb"
       - "schematics/**/*.kibot.yaml"

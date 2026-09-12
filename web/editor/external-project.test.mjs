@@ -3,16 +3,16 @@ import test from 'node:test'
 
 import { fetchExternalProject, projectUrlFromSearch } from './external-project.mjs'
 
-const pageUrl = 'https://stack-chan.github.io/stack-chan/web/editor/'
+const pageUrl = 'https://kumakumapon.github.io/stack-chan/web/editor/'
 
 test('Galleryの同一オリジンブロックプロジェクトを解決する', () => {
   const project = projectUrlFromSearch(
-    '?project=https%3A%2F%2Fstack-chan.github.io%2Fstack-chan%2Fweb%2Fmod-gallery%2Fsamples%2Fhello%2Fhello.stackchan-blocks.json',
+    '?project=https%3A%2F%2Fkumakumapon.github.io%2Fstack-chan%2Fweb%2Fmod-gallery%2Fsamples%2Fhello%2Fhello.stackchan-blocks.json',
     pageUrl
   )
   assert.equal(
     project.href,
-    'https://stack-chan.github.io/stack-chan/web/mod-gallery/samples/hello/hello.stackchan-blocks.json'
+    'https://kumakumapon.github.io/stack-chan/web/mod-gallery/samples/hello/hello.stackchan-blocks.json'
   )
   assert.equal(projectUrlFromSearch('', pageUrl), null)
 })

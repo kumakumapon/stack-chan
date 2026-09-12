@@ -16,7 +16,7 @@ BLE(Bluetooth Low Engergy)を使って接続するため、事前にWi-Fiの設�
 
 ![設定画面（M5Stack）](./images/web-preference-launch.jpg)
 
-* https://stack-chan.github.io/stack-chan/web/preference/ を開く
+* https://kumakumapon.github.io/stack-chan/web/preference/ を開く
 
 ![設定画面（Webブラウザ）](./images/web-preference-top.png)
 

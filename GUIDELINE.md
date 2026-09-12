@@ -48,7 +48,7 @@ Please clearly state the following two points in places where users of your work
 Below is the example of acceptable description.
 
 Stack-chan is a hand-held super-kawaii communication robot developed and published by [meganetaaan](https://twitter.com/stack_chan)
-Further details are: https://github.com/stack-chan/stack-chan
+Further details are: https://github.com/kumakumapon/stack-chan
 
 ### Be politically/religious/ideological neutral and no attack
 

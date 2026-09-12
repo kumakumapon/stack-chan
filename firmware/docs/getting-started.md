@@ -18,7 +18,7 @@
 Clone this repository.
 
 ```console
-$ git clone https://github.com/stack-chan/stack-chan.git
+$ git clone https://github.com/kumakumapon/stack-chan.git
 $ cd stack-chan/firmware
 $ npm i
 ```
@@ -50,7 +50,7 @@ The script internally uses [`xs-dev`](https://github.com/HipsterBrown/xs-dev) to
 This repository provides a Dockerfile build environment.
 You can build, write and debug firmware inside a Docker container.
 
-Note: This has been tested and confirmed to work on Linux (Ubuntu 24.04). It is not recommended for use on Windows (WSL) or MacOS, as there have been reported [issues](https://github.com/stack-chan/stack-chan/issues/144) with connecting to devices from the container side.
+Note: This has been tested and confirmed to work on Linux (Ubuntu 24.04). It is not recommended for use on Windows (WSL) or MacOS, as there have been reported [issues](https://github.com/kumakumapon/stack-chan/issues/144) with connecting to devices from the container side.
 
 #### From terminal
 

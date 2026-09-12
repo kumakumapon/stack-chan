@@ -41,8 +41,8 @@ GitHub Pages keeps stable and development artifacts in separate directories on t
 
 | Source branch | URL | Role |
 | --- | --- | --- |
-| `main` | `https://stack-chan.github.io/stack-chan/web/` | Canonical user-facing site |
-| `develop` | `https://stack-chan.github.io/stack-chan/develop/web/` | Preview of the next release |
+| `main` | `https://kumakumapon.github.io/stack-chan/web/` | Canonical user-facing site |
+| `develop` | `https://kumakumapon.github.io/stack-chan/develop/web/` | Preview of the next release |
 
 A push to `main` updates only the canonical site, and a push to `develop` updates only the development site.
 Each directory contains the Web application, firmware bundle, schema, and schematics built from its source branch.
