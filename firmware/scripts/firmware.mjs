@@ -21,6 +21,8 @@ import { prepareCoreS3IdfDependencies } from './lib/idf-dependencies.mjs'
 import { installModArchive, resolveModArchivePath } from './lib/mod-flash.mjs'
 import { prepareCoreS3VersionSdkconfig, readModdableVersion } from './lib/moddable-version.mjs'
 
+const mcconfigCommand = process.platform === 'win32' ? 'mcconfig.bat' : 'mcconfig'
+
 const command = process.argv[2]
 const rawArgs = process.argv.slice(3)
 const targetOption = readOption(rawArgs, 'target')
@@ -118,7 +120,7 @@ if (buildVariantChanged && deviceName === 'm5stackchan_cores3') {
 
 switch (command) {
   case 'build':
-    run('mcconfig', [
+    run(mcconfigCommand, [
       ...buildModeArgs,
       '-m',
       '-p',
@@ -131,10 +133,10 @@ switch (command) {
     ])
     break
   case 'flash':
-    run('mcconfig', [...buildModeArgs, '-m', '-p', platform, ...outputArgs, path.resolve(manifest), ...args])
+    run(mcconfigCommand, [...buildModeArgs, '-m', '-p', platform, ...outputArgs, path.resolve(manifest), ...args])
     break
   case 'deploy':
-    run('mcconfig', [
+    run(mcconfigCommand, [
       ...buildModeArgs,
       '-m',
       '-p',
@@ -147,7 +149,7 @@ switch (command) {
     ])
     break
   case 'debug':
-    run('mcconfig', [...buildModeArgs, '-m', '-p', platform, ...outputArgs, path.resolve(manifest), ...args])
+    run(mcconfigCommand, [...buildModeArgs, '-m', '-p', platform, ...outputArgs, path.resolve(manifest), ...args])
     break
   case 'mod':
   case 'mod:build': {
@@ -247,7 +249,7 @@ function prepareBuildVariant() {
   console.log(`[stack-chan] cleaning target before manifest switch: ${manifest}`)
   ensureBuildOutputDirectory()
   const result = spawnSync(
-    'mcconfig',
+    mcconfigCommand,
     [...buildModeArgs, '-m', '-p', platform, '-t', 'clean', ...outputArgs, selectedVariant],
     { env: subprocessEnvironment, stdio: 'inherit' },
   )
