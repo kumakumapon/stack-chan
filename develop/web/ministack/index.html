@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="ja">
+<script type="module" crossorigin src="../assets/ministack-CaNo4ZvX.js"></script>
+<link rel="modulepreload" crossorigin href="../assets/modulepreload-polyfill-P2Xu9kJm.js">
+<link rel="modulepreload" crossorigin href="../assets/ble-local-peer-DyA3OAwu.js">
+
+  <meta charset="utf-8" /><title>MiniStack 接続テスト</title>
+  <h1>MiniStack 接続テスト</h1>
+  <p>本体の MiniStack MOD と同じ共有キーを入力してください。音声・撮影はこのテストでは使用しません。</p>
+  <label>共有キー <input id="key" type="password" autocomplete="off" /></label>
+  <label>本体用キーをファイルから読み込む <input id="key-file" type="file" accept=".js" /></label>
+  <button id="connect">接続</button
+  ><button id="face">笑顔</button
+  ><button id="neutral">通常の顔に戻す</button
+  ><button id="head">首を左右に小さく動かす</button
+  ><button id="head-diagnostic">首の診断（約9度）</button
+  ><button id="center">首を正面に戻す</button
+  ><button id="stop">待機動作を停止</button
+  ><button id="disconnect">切断</button>
+  <p id="connection-status" role="status">未接続</p>
+  <pre id="status" role="status"></pre>
+</html>
