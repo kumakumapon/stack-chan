@@ -17,6 +17,18 @@ MiniStack Local Peer Phase 0 を M5StackChan CoreS3 で検証した結果と、�
 
 hostまたはMODの書込み後、既存のBLEセッションは使えない。ブラウザーを更新して再接続する。`local peer session is closed` や `Heartbeat failed` が表示された場合も、MODを再書込みして `ready` に戻してから接続し直す。
 
+## 接続テスト画面の起動
+
+通常はChromeまたはEdgeで[MiniStack接続テスト（develop版）](https://kumakumapon.github.io/stack-chan/develop/web/ministack/)を開く。本体に`MiniStack: ready`が表示されてから、共有キーを入力して「接続」を押し、デバイス一覧で`STK`を選ぶ。
+
+ローカルでWeb画面を確認する場合は、リポジトリ直下から次を実行し、表示されたURLの`/ministack/`を開く。
+
+```powershell
+cd web
+npm.cmd run dev -- --host 127.0.0.1
+```
+
+Web Bluetoothを使うため、対応ブラウザーでHTTPSのGitHub Pages、またはlocalhostで開く。
 ## CoreS3 固有の要点
 
 - AXP2101はSDK世代により `readByte`/`writeByte` または `readUint8`/`writeUint8` を提供する。ボード初期化済みの同じインスタンスを捕捉して使い、I2Cを二重初期化しない。
