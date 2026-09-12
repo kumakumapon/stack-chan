@@ -576,6 +576,7 @@ export class LocalPeerSessionImpl implements LocalPeerSession {
       this.#deliver({
         id: formatMessageId(frame.messageId),
         peer: publicPeer(this.#peers.get(peerId) as PeerRecord),
+        authenticated: reliable && secure,
         type: envelope.type,
         payload: envelope.payload,
       })

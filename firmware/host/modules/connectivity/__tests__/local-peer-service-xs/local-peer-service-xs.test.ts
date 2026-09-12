@@ -249,6 +249,10 @@ async function testSharedKey(): Promise<void> {
   await pair.firstSession.send('AABBCCDDEEFF', 'secure', { protected: true })
   await settle()
   equal(message?.peer.secure, true, 'shared-key point-to-point traffic should be secure')
+  equal(message?.authenticated, true, 'unicast carries message authentication')
+  await pair.firstSession.broadcast('secure', { protected: false })
+  await settle()
+  equal(message?.authenticated, false, 'broadcast must not inherit prior authentication')
   closePair(pair)
 }
 
