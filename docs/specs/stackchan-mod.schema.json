@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://stack-chan.github.io/stack-chan/web/schemas/stackchan-mod.schema.json",
+  "$id": "https://kumakumapon.github.io/stack-chan/web/schemas/stackchan-mod.schema.json",
   "title": "Stack-chan MOD definition",
   "type": "object",
   "additionalProperties": false,

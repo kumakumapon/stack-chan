@@ -5,7 +5,7 @@
 ## このファームウェアについて
 
 M5StackChanにプリインストールされているM5Stackの工場出荷ファームウェアと、このリポジトリが提供するｽﾀｯｸﾁｬﾝファームウェアは別のソフトウェアです。
-安定した環境が必要な場合は[最新リリース](https://github.com/stack-chan/stack-chan/releases/latest)を使用してください。
+安定した環境が必要な場合は[最新リリース](https://github.com/kumakumapon/stack-chan/releases/latest)を使用してください。
 既定ブランチの`develop`では、次回リリースに向けて内部構造やAPIが変わる場合があります。
 
 「AIｽﾀｯｸﾁｬﾝ」は、@robo8080が中心となって開発している別のArduinoベースのアプリケーションです。
@@ -15,17 +15,17 @@ Arduino IDEになじみがあり、PWMサーボを使う場合は、@mongonta071
 
 ## ブラウザーで試す
 
-ファームウェアを初めて試す場合は、[ｽﾀｯｸﾁｬﾝ Webツール](https://stack-chan.github.io/stack-chan/web/)を使うとローカル開発環境を用意せずに始められます。
+ファームウェアを初めて試す場合は、[ｽﾀｯｸﾁｬﾝ Webツール](https://kumakumapon.github.io/stack-chan/web/)を使うとローカル開発環境を用意せずに始められます。
 
 1. M5StackChanをデータ通信対応のUSBケーブルでPCへ接続します。
-2. ChromeまたはEdgeで[Webファームウェア書き込み](https://stack-chan.github.io/stack-chan/web/flash/)を開き、「M5StackChan CoreS3」を選択して書き込みます。
-3. [MOD Gallery](https://stack-chan.github.io/stack-chan/web/mod-gallery/)でMODを選び、シミュレーターまたは実機で試します。
+2. ChromeまたはEdgeで[Webファームウェア書き込み](https://kumakumapon.github.io/stack-chan/web/flash/)を開き、「M5StackChan CoreS3」を選択して書き込みます。
+3. [MOD Gallery](https://kumakumapon.github.io/stack-chan/web/mod-gallery/)でMODを選び、シミュレーターまたは実機で試します。
 
 > [!IMPORTANT]
 > このファームウェアを書き込むと、M5Stackの工場出荷ファームウェアは置き換えられます。
 > 元へ戻す場合は、[M5Stack公式ドキュメント](https://docs.m5stack.com/ja/StackChan)の復元手順に従ってM5Burnerを使用してください。
 
-[![Webファームウェア書き込みの画面](../docs/images/web-tools/firmware-installer-ja.png)](https://stack-chan.github.io/stack-chan/web/flash/)
+[![Webファームウェア書き込みの画面](../docs/images/web-tools/firmware-installer-ja.png)](https://kumakumapon.github.io/stack-chan/web/flash/)
 
 ## ローカル開発を始める
 
@@ -85,10 +85,10 @@ xsbugの書き込み経路を使わないため、ホストはデバッグビル
 
 ### ブラウザーで使う
 
-- [Webツール](https://stack-chan.github.io/stack-chan/web/)
+- [Webツール](https://kumakumapon.github.io/stack-chan/web/)
 - [Webブラウザーからのファームウェア書き込み](docs/flashing-firmware-web_ja.md)
 - [Webブラウザーからの設定変更](docs/setting-preferences-web_ja.md)
-- [MOD Gallery](https://stack-chan.github.io/stack-chan/web/mod-gallery/)
+- [MOD Gallery](https://kumakumapon.github.io/stack-chan/web/mod-gallery/)
 
 ### ローカルで開発する
 

@@ -49,8 +49,8 @@ GitHub Pagesは`gh-pages`ブランチ内で安定版と開発版を別のディ�
 
 | 元ブランチ | URL | 役割 |
 | --- | --- | --- |
-| `main` | `https://stack-chan.github.io/stack-chan/web/` | 利用者向けの正本 |
-| `develop` | `https://stack-chan.github.io/stack-chan/develop/web/` | 次回リリースの開発版 |
+| `main` | `https://kumakumapon.github.io/stack-chan/web/` | 利用者向けの正本 |
+| `develop` | `https://kumakumapon.github.io/stack-chan/develop/web/` | 次回リリースの開発版 |
 
 `main`へのpushは正本だけを更新し、`develop`へのpushは開発版だけを更新します。
 各ディレクトリには、その元ブランチからビルドしたWebアプリ、firmware bundle、schema、schematicsを配置します。

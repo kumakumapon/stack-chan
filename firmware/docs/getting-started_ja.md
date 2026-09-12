@@ -18,7 +18,7 @@
 本リポジトリをクローンします。
 
 ```console
-$ git clone https://github.com/stack-chan/stack-chan.git
+$ git clone https://github.com/kumakumapon/stack-chan.git
 $ cd stack-chan/firmware
 $ npm i
 ```
@@ -50,7 +50,7 @@ $ npm run setup -- --device=esp32
 このリポジトリはDockerfileによるビルド環境を提供しています。
 Dockerコンテナの中でファームウェアのビルド、書き込みとデバッグが可能です。
 
-注意：Linux（Ubuntu24.04）で動作確認しています。Windows（WSL）やMacOSでは、コンテナ側からのデバイスへの接続がうまくいかない[問題](https://github.com/stack-chan/stack-chan/issues/144)が報告されているため、非推奨です。
+注意：Linux（Ubuntu24.04）で動作確認しています。Windows（WSL）やMacOSでは、コンテナ側からのデバイスへの接続がうまくいかない[問題](https://github.com/kumakumapon/stack-chan/issues/144)が報告されているため、非推奨です。
 
 #### ターミナルから
 
