@@ -12,7 +12,7 @@ You can flash the Stack-chan firmware from a web browser without ModdableSDK env
 ## Steps
 
 * Connect the M5Stack to your PC
-* Access https://kumakumapon.github.io/stack-chan/web/flash/
+* Access https://kumakumapon.github.io/stack-chan/develop/web/flash/
 
 ![Flashing screen](./images/web-flash-top.png)
 

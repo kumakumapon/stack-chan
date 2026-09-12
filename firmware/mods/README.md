@@ -6,7 +6,7 @@ A **MOD** is a user application that runs on the Stack-chan host firmware.
 
 ## Try a MOD
 
-Find published MODs in the [MOD Gallery](https://kumakumapon.github.io/stack-chan/web/mod-gallery/).
+Find published MODs in the [MOD Gallery](https://kumakumapon.github.io/stack-chan/develop/web/mod-gallery/).
 Search by name or capability, then run a MOD in the simulator or on a device.
 You can change block-based MODs in the block editor.
 
@@ -14,7 +14,7 @@ When choosing a MOD, review the capabilities and supported targets shown on its 
 If the MOD uses an external service or network access, inspect the linked source code before installing it.
 At installation time, the Gallery automatically checks the target chip, XS version, and firmware compatibility.
 
-[![MOD Gallery](../../docs/images/web-tools/mod-gallery-en.png)](https://kumakumapon.github.io/stack-chan/web/mod-gallery/)
+[![MOD Gallery](../../docs/images/web-tools/mod-gallery-en.png)](https://kumakumapon.github.io/stack-chan/develop/web/mod-gallery/)
 
 The [`examples`](./examples/) directory contains source code for learning APIs, testing, and local development.
 Some examples are also published in the Gallery.
@@ -24,11 +24,11 @@ The Gallery and `examples` do not yet contain the same set of MODs, but they wil
 
 ### Create one in a browser
 
-The [block editor](https://kumakumapon.github.io/stack-chan/web/editor/) lets you assemble behavior with Blockly and build a MOD in the browser.
-You can test the result in the [simulator](https://kumakumapon.github.io/stack-chan/web/simulator/) and install it on a compatible device.
-Follow the [block editor tutorial](https://kumakumapon.github.io/stack-chan/web/editor/tutorial.html) to create a first project.
+The [block editor](https://kumakumapon.github.io/stack-chan/develop/web/editor/) lets you assemble behavior with Blockly and build a MOD in the browser.
+You can test the result in the [simulator](https://kumakumapon.github.io/stack-chan/develop/web/simulator/) and install it on a compatible device.
+Follow the [block editor tutorial](https://kumakumapon.github.io/stack-chan/develop/web/editor/tutorial.html) to create a first project.
 
-[![Block editor](../../docs/images/web-tools/block-editor-en.png)](https://kumakumapon.github.io/stack-chan/web/editor/)
+[![Block editor](../../docs/images/web-tools/block-editor-en.png)](https://kumakumapon.github.io/stack-chan/develop/web/editor/)
 
 ### Create one from source
 

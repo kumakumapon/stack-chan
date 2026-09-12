@@ -755,7 +755,7 @@ web/
 │  ├─ Generates dist/ with multiple entry points
 │  └─ Copies runtime assets (WASM, samples, catalog)
 ├─ Deploy to GitHub Pages
-│  └─ Served at https://kumakumapon.github.io/stack-chan/web/
+│  └─ Served at https://kumakumapon.github.io/stack-chan/develop/web/
 └─ Each tool accessible at /web/flash/, /web/editor/, etc.
 ```
 

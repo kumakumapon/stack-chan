@@ -13,7 +13,7 @@ Moddableなどの環境構築が不要なので気軽に試せます。
 ## 手順
 
 * PCにM5Stackを接続します
-* https://kumakumapon.github.io/stack-chan/web/flash/ にアクセスします
+* https://kumakumapon.github.io/stack-chan/develop/web/flash/ にアクセスします
 
 ![書き込み画面](./images/web-flash-top.png)
 

@@ -6,7 +6,7 @@
 
 ## MODを試す
 
-公開MODは[MOD Gallery](https://kumakumapon.github.io/stack-chan/web/mod-gallery/)から探せます。
+公開MODは[MOD Gallery](https://kumakumapon.github.io/stack-chan/develop/web/mod-gallery/)から探せます。
 名前や機能で検索し、シミュレーターまたは実機で試せます。
 ブロックで作られたMODは、ブロックエディタで変更できます。
 
@@ -14,7 +14,7 @@ MODを選ぶときは、カードに表示される使用機能と対応機種�
 外部サービスやネットワークを使うMODは、リンク先のソースコードも確認してから書き込んでください。
 実機へ書き込むときは、Galleryが対象チップ、XSバージョン、ファームウェア互換性を自動で検査します。
 
-[![MOD Galleryの画面](../../docs/images/web-tools/mod-gallery-ja.png)](https://kumakumapon.github.io/stack-chan/web/mod-gallery/)
+[![MOD Galleryの画面](../../docs/images/web-tools/mod-gallery-ja.png)](https://kumakumapon.github.io/stack-chan/develop/web/mod-gallery/)
 
 このディレクトリの[`examples`](./examples/)には、APIの学習、テスト、ローカル開発に使えるMODのソースコードがあります。
 その一部はGalleryにも掲載されています。
@@ -24,11 +24,11 @@ MODを選ぶときは、カードに表示される使用機能と対応機種�
 
 ### ブラウザーで作る
 
-[ブロックエディタ](https://kumakumapon.github.io/stack-chan/web/editor/)では、Blocklyで処理を組み立て、ブラウザー内でMODをビルドできます。
-作成したMODは[シミュレーター](https://kumakumapon.github.io/stack-chan/web/simulator/)で確認し、対応する実機へ書き込めます。
-最初のプロジェクトは[ブロックエディタのチュートリアル](https://kumakumapon.github.io/stack-chan/web/editor/tutorial.html)に沿って作成できます。
+[ブロックエディタ](https://kumakumapon.github.io/stack-chan/develop/web/editor/)では、Blocklyで処理を組み立て、ブラウザー内でMODをビルドできます。
+作成したMODは[シミュレーター](https://kumakumapon.github.io/stack-chan/develop/web/simulator/)で確認し、対応する実機へ書き込めます。
+最初のプロジェクトは[ブロックエディタのチュートリアル](https://kumakumapon.github.io/stack-chan/develop/web/editor/tutorial.html)に沿って作成できます。
 
-[![ブロックエディタの画面](../../docs/images/web-tools/block-editor-ja.png)](https://kumakumapon.github.io/stack-chan/web/editor/)
+[![ブロックエディタの画面](../../docs/images/web-tools/block-editor-ja.png)](https://kumakumapon.github.io/stack-chan/develop/web/editor/)
 
 ### ソースコードから作る
 
