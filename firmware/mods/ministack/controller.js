@@ -42,7 +42,11 @@ export function createController({ execute, capabilities, now, sessionId }) {
       finish(
         item,
         false,
-        error.message === 'expired' || error.message === 'cancelled' ? error.message : 'execution-failed',
+        error.message === 'expired' || error.message === 'cancelled'
+          ? error.message
+          : error.protocol === 'scservo' && Number.isFinite(error.timeoutMs)
+            ? 'servo-timeout'
+            : 'execution-failed',
       )
     } finally {
       running = undefined
@@ -70,6 +74,10 @@ export function createController({ execute, capabilities, now, sessionId }) {
       const previous = records.get(id)
       if (previous)
         return previous.fingerprint === fingerprint ? previous.promise : response(id, false, 'request-id-conflict')
+      // Read-only snapshots do not consume the bounded action replay history.
+      // Repeated reads return current state; an existing action ID still conflicts above.
+      if (type === 'capabilities.get') return response(id, true, capabilities)
+      if (type === 'state.get') return response(id, true, { running: running?.type ?? null, queued: queue.length })
       // Do not evict IDs and accidentally execute an old request again.
       if (records.size >= 256 && type !== 'stop') return response(id, false, 'session-full')
       let resolve
@@ -84,9 +92,7 @@ export function createController({ execute, capabilities, now, sessionId }) {
           if (payload.scope !== 'queue' && payload.scope !== 'all') failure('invalid-scope')
           cancel()
           finish(item, true, { queueCleared: true, activeOperationMayFinish: true, physicalImmediateStop: false })
-        } else if (type === 'capabilities.get') finish(item, true, capabilities)
-        else if (type === 'state.get') finish(item, true, { running: running?.type ?? null, queued: queue.length })
-        else {
+        } else {
           if (!Number.isInteger(payload.ttlMs) || payload.ttlMs < 100 || payload.ttlMs > 10000) failure('invalid-ttl')
           if (!Number.isInteger(payload.priority) || payload.priority < 0 || payload.priority > 3)
             failure('invalid-priority')
@@ -123,4 +129,32 @@ export function createController({ execute, capabilities, now, sessionId }) {
       return promise
     },
   }
+}
+
+// Initial capability transfer has a separate, bounded deadline. Once the PC
+// proves it has the boot session ID, enforce the normal inactivity timeout.
+export function createHeartbeatWatchdog(now) {
+  let started
+  let lastSeen
+  let established = false
+  return {
+    received(validSession) {
+      const time = now()
+      if (started === undefined) started = time
+      if (validSession) {
+        established = true
+        lastSeen = time
+      }
+    },
+    expired() {
+      if (started === undefined) return false
+      return established ? now() - lastSeen >= 3000 : now() - started >= 12000
+    },
+  }
+}
+export async function applyHeadPose(motion, pose, durationSeconds, cancelled) {
+  if (cancelled()) throw new Error('cancelled')
+  await motion.setTorque(true)
+  if (cancelled()) throw new Error('cancelled')
+  await motion.setPose(pose, durationSeconds)
 }

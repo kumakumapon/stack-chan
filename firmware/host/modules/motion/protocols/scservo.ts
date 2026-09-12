@@ -1,6 +1,6 @@
 import Serial from 'embedded:io/serial'
 import config from 'mc/config'
-import { PayloadBuffer } from 'payload-buffer'
+import { SCServoDecoder } from 'protocols/scservo-decoder'
 
 import { CommandTimeoutError } from 'servo-command-error'
 import SingleWaitSlot from 'single-wait-slot'
@@ -57,90 +57,19 @@ const ADDRESS = {
 } as const
 type Address = (typeof ADDRESS)[keyof typeof ADDRESS]
 
-const RX_STATE = {
-  SEEK: 0,
-  HEAD: 1,
-  BODY: 2,
-} as const
-type RxState = (typeof RX_STATE)[keyof typeof RX_STATE]
-
-function assertNeverRxState(state: never): never {
-  throw new Error(`Unknown RX state: ${state}`)
-}
-
 class PacketHandler extends Serial {
-  #callbacks: Map<number, (buffer: Uint8Array, length: number) => void>
-  #rxBuffer: Uint8Array
-  #payloadBuffer: PayloadBuffer
-  #idx: number
-  #state: RxState
-  #count: number
+  #callbacks = new Map<number, (buffer: Uint8Array, length: number) => void>()
+  #decoder: SCServoDecoder
   constructor(option) {
-    const onReadable = function (this: PacketHandler, byte: number) {
-      const rxBuf = this.#rxBuffer
-      for (let b = 0; b < byte; b++) {
-        // NOTE: We can safely read a number
-        rxBuf[this.#idx++] = this.read() as number
-        switch (this.#state) {
-          case RX_STATE.SEEK:
-            if (this.#idx >= 2) {
-              // see header
-              if (rxBuf[0] === 0xff && rxBuf[1] === 0xff) {
-                // packet found
-                this.#state = RX_STATE.HEAD
-              } else {
-                // reset seek
-                // trace('seeking failed. reset\n')
-                this.#idx = 0
-              }
-            }
-            break
-          case RX_STATE.HEAD:
-            if (this.#idx >= 4) {
-              this.#count = rxBuf[3]
-              this.#state = RX_STATE.BODY
-            }
-            break
-          case RX_STATE.BODY:
-            this.#count -= 1
-            if (this.#count === 0) {
-              // trace('received packet!\n')
-              const cs = checksum(rxBuf, this.#idx - 1) & 0xff
-              const id = rxBuf[2]
-              const command = rxBuf[4] as Command
-              if (command === COMMAND.READ || command === COMMAND.WRITE) {
-                // trace(`got echo.  ... ${rxBuf.subarray(0, this.#idx)} ignoring\n`)
-              } else if (cs === rxBuf[this.#idx - 1] && this.#callbacks.has(id)) {
-                // trace(`got response for ${id}. triggering callback \n`)
-                const payloadLength = this.#idx - 6
-                const payloadView = this.#payloadBuffer.copyFrom(rxBuf, payloadLength, 5)
-                const payload = new Uint8Array(payloadLength)
-                payload.set(payloadView.subarray(0, payloadLength))
-                this.#callbacks.get(id)(payload, payloadLength)
-              } else {
-                trace(`unknown packet for ${id} ... ${rxBuf.subarray(0, this.#idx)}. ignoring\n`)
-              }
-              this.#idx = 0
-              this.#state = RX_STATE.SEEK
-            }
-            break
-          default: {
-            assertNeverRxState(this.#state)
-          }
-        }
-        // noop
-      }
+    const onReadable = function (this: PacketHandler, bytes: number) {
+      for (let i = 0; i < bytes; i++) this.#decoder.push(this.read() as number)
     }
-    super({
-      ...option,
-      format: 'number',
-      onReadable,
+    super({ ...option, format: 'number', onReadable })
+    this.#decoder = new SCServoDecoder(({ id, status, payload }) => {
+      // Preserve existing echo filtering; status/error classification is separate.
+      if (status === COMMAND.READ || status === COMMAND.WRITE) return
+      this.#callbacks.get(id)?.(payload, payload.length)
     })
-    this.#callbacks = new Map<number, (buffer: Uint8Array, length: number) => void>()
-    this.#rxBuffer = new Uint8Array(64)
-    this.#payloadBuffer = new PayloadBuffer(32)
-    this.#idx = 0
-    this.#state = RX_STATE.SEEK
   }
   hasCallbackOf(id: number): boolean {
     return this.#callbacks.has(id)
@@ -561,9 +490,11 @@ class SCServo {
       callback ?? (() => {}),
       ...le(position),
       ...le(goalTimeMilliseconds),
+      // SCSCL WritePos writes the complete position/time/speed register window.
+      // Sending only the first four bytes can retain a stale goal-speed field.
+      ...le(0),
     )
   }
-
   readRawPosition(callback: ResultCallback<{ position: number }>): void {
     this.#sendCommand(
       COMMAND.READ,

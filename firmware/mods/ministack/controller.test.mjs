@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { createController } from './controller.js'
+import { applyHeadPose, createController, createHeartbeatWatchdog } from './controller.js'
 
 const request = (id, extra = {}) => ({
   v: 1,
@@ -91,4 +91,122 @@ test('queue has a hard bound and close cancels outstanding promises', async () =
   assert.equal((await c.receive('head.set', request('overflow'))).error.code, 'queue-full')
   c.close()
   for (const result of await Promise.all(pending)) assert.equal(result.error.code, 'cancelled')
+})
+
+test('heartbeats do not exhaust action history and reads survive a full action history', async () => {
+  let calls = 0
+  const c = fixture(async () => {
+    calls++
+    return { moved: true }
+  })
+  for (let i = 0; i < 1000; i++) {
+    assert.equal((await c.receive('state.get', request(`heartbeat-${i}`))).ok, true)
+    assert.equal((await c.receive('capabilities.get', request(`caps-${i}`))).ok, true)
+  }
+  assert.equal(calls, 0)
+  for (let i = 0; i < 256; i++) assert.equal((await c.receive('head.set', request(`move-${i}`))).ok, true)
+  assert.equal((await c.receive('head.set', request('overflow'))).error.code, 'session-full')
+  assert.equal((await c.receive('state.get', request('still-alive'))).ok, true)
+  assert.equal((await c.receive('capabilities.get', request('still-capable'))).ok, true)
+  assert.equal((await c.receive('head.set', request('move-0'))).ok, true)
+  assert.equal(calls, 256)
+  assert.equal((await c.receive('state.get', request('move-0'))).error.code, 'request-id-conflict')
+  assert.equal((await c.receive('stop', request('stop', { scope: 'all' }))).ok, true)
+})
+
+test('read-only polling returns current state and still checks the session', async () => {
+  let done
+  const c = fixture(
+    () =>
+      new Promise((resolve) => {
+        done = resolve
+      }),
+  )
+  const payload = request('poll')
+  assert.equal((await c.receive('state.get', payload)).result.running, null)
+  const action = c.receive('head.set', request('move'))
+  assert.equal((await c.receive('state.get', payload)).result.running, 'head.set')
+  assert.equal((await c.receive('state.get', request('old', { sessionId: 'old' }))).error.code, 'stale-session')
+  done({})
+  await action
+  assert.equal((await c.receive('state.get', payload)).result.running, null)
+})
+test('capability handshake has bounded grace then switches to normal heartbeat timeout', () => {
+  let now = 0
+  const watch = createHeartbeatWatchdog(() => now)
+  assert.equal(watch.expired(), false)
+  watch.received(false)
+  now = 3500
+  assert.equal(watch.expired(), false, 'capability transfer must not consume the heartbeat window')
+  watch.received(true)
+  now = 6499
+  assert.equal(watch.expired(), false)
+  now = 6500
+  assert.equal(watch.expired(), true)
+  watch.received(true)
+  assert.equal(watch.expired(), false)
+  const unbound = createHeartbeatWatchdog(() => now)
+  unbound.received(false)
+  now += 11000
+  unbound.received(false)
+  now += 1000
+  assert.equal(unbound.expired(), true, 'repeating capability requests must not extend handshake indefinitely')
+})
+test('head motion waits for torque enable and does not move on failure or cancellation', async () => {
+  const calls = []
+  let enabled
+  const pose = { rotation: { y: 0.05, p: 0, r: 0 } }
+  const motion = {
+    setTorque(value) {
+      calls.push(['torque', value])
+      return new Promise((resolve) => {
+        enabled = resolve
+      })
+    },
+    async setPose(value, duration) {
+      calls.push(['pose', value, duration])
+    },
+  }
+  const move = applyHeadPose(motion, pose, 1, () => false)
+  assert.deepEqual(calls, [['torque', true]])
+  enabled()
+  await move
+  assert.deepEqual(calls, [
+    ['torque', true],
+    ['pose', pose, 1],
+  ])
+  let cancelled = false
+  const aborted = applyHeadPose(motion, pose, 1, () => cancelled)
+  cancelled = true
+  enabled()
+  await assert.rejects(aborted, /cancelled/)
+  assert.equal(calls.filter(([type]) => type === 'pose').length, 1)
+  await assert.rejects(
+    applyHeadPose(
+      {
+        async setTorque() {
+          throw new Error('servo unavailable')
+        },
+        setPose() {
+          assert.fail('must not command position after torque failure')
+        },
+      },
+      pose,
+      1,
+      () => false,
+    ),
+    /servo unavailable/,
+  )
+})
+
+test('servo timeout has a specific code while unknown errors stay private', async () => {
+  const timeout = Object.assign(new Error('internal servo details'), { protocol: 'scservo', timeoutMs: 120 })
+  const c = fixture(async () => {
+    throw timeout
+  })
+  assert.equal((await c.receive('head.set', request('timeout'))).error.code, 'servo-timeout')
+  const other = fixture(async () => {
+    throw new Error('private details')
+  })
+  assert.equal((await other.receive('head.set', request('other'))).error.code, 'execution-failed')
 })

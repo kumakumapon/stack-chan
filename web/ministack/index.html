@@ -4,28 +4,73 @@
   <h1>MiniStack 接続テスト</h1>
   <p>本体の MiniStack MOD と同じ共有キーを入力してください。音声・撮影はこのテストでは使用しません。</p>
   <label>共有キー <input id="key" type="password" autocomplete="off" /></label>
+  <label>本体用キーをファイルから読み込む <input id="key-file" type="file" accept=".js" /></label>
   <button id="connect">接続</button
   ><button id="face">笑顔</button
-  ><button id="head">首を小さく動かす</button
+  ><button id="neutral">通常の顔に戻す</button
+  ><button id="head">首を左右に小さく動かす</button
+  ><button id="head-diagnostic">首の診断（約9度）</button
+  ><button id="center">首を正面に戻す</button
   ><button id="stop">待機動作を停止</button
   ><button id="disconnect">切断</button>
+  <p id="connection-status" role="status">未接続</p>
   <pre id="status" role="status"></pre>
   <script type="module">
     import { MiniStackClient } from './client.mjs'
-    const client = new MiniStackClient()
+    const connectionStatus = document.querySelector('#connection-status')
+    const client = new MiniStackClient(undefined, (error) => {
+      connectionStatus.textContent = error ? `切断: ${error.message}` : '切断しました'
+    })
     const status = document.querySelector('#status')
+    document.querySelector('#key-file').onchange = async (event) => {
+      const file = event.target.files?.[0]
+      if (!file) return
+      try {
+        const source = (await file.text()).trim()
+        const match = /^export default\s+("(?:[^"\\]|\\.)*")\s*;?$/.exec(source)
+        if (!match) throw new Error('config.local.js を選択してください')
+        const key = JSON.parse(match[1])
+        if (typeof key !== 'string' || key.length < 16 || key.length > 128)
+          throw new Error('共有キーの長さが不正です')
+        document.querySelector('#key').value = key
+        status.textContent = '本体用の共有キーを読み込みました。「接続」を押してください。'
+      } catch (error) {
+        document.querySelector('#key').value = ''
+        status.textContent = error.message
+      }
+    }
     const run = async (action) => {
       try {
         status.textContent = JSON.stringify(await action(), null, 2)
       } catch (e) {
-        status.textContent = e.message
+        status.textContent = e.message === 'servo-timeout' ? 'サーボ応答タイムアウト（servo-timeout）' : e.message
       }
     }
-    document.querySelector('#connect').onclick = () => run(() => client.connect(document.querySelector('#key').value))
+    document.querySelector('#connect').onclick = () => run(async () => {
+      connectionStatus.textContent = '接続中…'
+      try {
+        const result = await client.connect(document.querySelector('#key').value)
+        connectionStatus.textContent = '接続済み（定期通信で確認中）'
+        return result
+      } catch (error) {
+        connectionStatus.textContent = `接続失敗: ${error.message}`
+        throw error
+      }
+    })
     document.querySelector('#face').onclick = () =>
       run(() => client.request('face.set', { emotion: 'HAPPY', priority: 2, ttlMs: 2000 }))
-    document.querySelector('#head').onclick = () =>
-      run(() => client.request('head.set', { yawRad: 0.05, pitchRad: 0, durationMs: 1000, priority: 2, ttlMs: 2000 }))
+    document.querySelector('#neutral').onclick = () =>
+      run(() => client.request('face.set', { emotion: 'NEUTRAL', priority: 2, ttlMs: 2000 }))
+    document.querySelector('#center').onclick = () =>
+      run(() => client.request('head.set', { yawRad: 0, pitchRad: 0, durationMs: 1000, priority: 2, ttlMs: 2000 }))
+    let headDirection = -1
+    document.querySelector('#head').onclick = () => {
+      const yawRad = headDirection * 0.12
+      headDirection *= -1
+      return run(() => client.request('head.set', { yawRad, pitchRad: 0, durationMs: 1000, priority: 2, ttlMs: 2000 }))
+    }
+    document.querySelector('#head-diagnostic').onclick = () =>
+      run(() => client.request('head.set', { yawRad: 0.15, pitchRad: 0, durationMs: 1000, priority: 2, ttlMs: 2000 }))
     document.querySelector('#stop').onclick = () => run(() => client.request('stop', { scope: 'all' }))
     document.querySelector('#disconnect').onclick = () => {
       client.close()

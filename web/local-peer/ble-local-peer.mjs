@@ -266,6 +266,7 @@ class BLELocalPeerSession {
   #delivered = new Map()
   #remoteSecure = false
   #writeChunkIndex = 0
+  #writeQueue = Promise.resolve()
   closed = false
 
   constructor(id, options, bluetooth, cryptoProvider, storage, onClose) {
@@ -397,12 +398,15 @@ class BLELocalPeerSession {
     pending.attempts += 1
     try {
       for (const frame of pending.frames) await this.#sendFrame(pending.peerId, frame)
-    } catch {}
+      pending.transportError = undefined
+    } catch (error) {
+      pending.transportError = error
+    }
     pending.timer = setTimeout(() => {
       if (this.#pending.get(id) !== pending) return
       if (pending.attempts >= 3) {
         this.#pending.delete(id)
-        pending.reject(new Error(`peer ${pending.peerId} did not acknowledge message`))
+        pending.reject(pending.transportError ?? new Error(`peer ${pending.peerId} did not acknowledge message`))
       } else void this.#transmit(id, pending)
     }, 250)
   }
@@ -411,7 +415,16 @@ class BLELocalPeerSession {
     await this.#writeRecord(RecordKind.DATA, peerId ?? BROADCAST_ID, frame, peerId !== undefined && !!this.#key)
   }
 
-  async #writeRecord(kind, destinationId, payload, authenticated) {
+  #writeRecord(kind, destinationId, payload, authenticated) {
+    const operation = this.#writeQueue.then(() => {
+      this.#assertOpen()
+      return this.#writeRecordNow(kind, destinationId, payload, authenticated)
+    })
+    this.#writeQueue = operation.catch(() => {})
+    return operation
+  }
+
+  async #writeRecordNow(kind, destinationId, payload, authenticated) {
     const record = await encodeBLELocalPeerRecord(
       { kind, authenticated, sourceId: this.#id, destinationId, payload },
       this.#key,

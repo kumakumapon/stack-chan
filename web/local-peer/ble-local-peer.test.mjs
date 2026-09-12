@@ -8,11 +8,16 @@ const UART_SERVICE_UUID = '6e400001-b5a3-f393-e0a9-e50e24dcca9e'
 const UART_RX_UUID = '6e400002-b5a3-f393-e0a9-e50e24dcca9e'
 const UART_TX_UUID = '6e400003-b5a3-f393-e0a9-e50e24dcca9e'
 
-function connectedBluetooth(writeValueWithResponse) {
+function connectedBluetooth(writeValueWithResponse, onNotifications = () => {}) {
   const rx = { writeValueWithResponse }
+  let notify
   const tx = {
-    addEventListener() {},
-    async startNotifications() {},
+    addEventListener(_type, handler) {
+      notify = handler
+    },
+    async startNotifications() {
+      await onNotifications(notify)
+    },
   }
   const service = {
     async getCharacteristic(uuid) {
@@ -206,4 +211,76 @@ test('BLE local-peer falls back through 60 to 20-byte writes for a legacy MTU', 
   assert.deepEqual(attempts.slice(0, 4), [22, 22, 20, 2])
   assert.ok(attempts.slice(2).every((length) => length <= 20))
   session.close()
+})
+
+test('BLE local-peer send preserves the GATT error when every write fails', async () => {
+  let failWrites = false
+  const failure = new Error('GATT write rejected by device')
+  const bluetooth = connectedBluetooth(
+    async () => {
+      if (failWrites) throw failure
+    },
+    async (notify) => {
+      const record = await encodeBLELocalPeerRecord(
+        {
+          kind: 1,
+          authenticated: false,
+          sourceId: '001122334455',
+          destinationId: 'FFFFFFFFFFFF',
+          payload: new Uint8Array(0)
+        },
+        undefined,
+        webcrypto
+      )
+      notify({
+        target: {
+          value: new DataView(record.buffer, record.byteOffset, record.byteLength)
+        }
+      })
+    }
+  )
+  const capability = new BLELocalPeerCapability({
+    bluetooth,
+    crypto: webcrypto,
+    storage: undefined
+  })
+  const session = await capability.open({ service: 'test', transport: 'ble' })
+  try {
+    failWrites = true
+    await assert.rejects(session.send('001122334455', 'probe', {}), (error) => error === failure)
+  } finally {
+    session.close()
+  }
+})
+
+test('concurrent BLE messages keep each fragmented record contiguous and GATT writes serial', async () => {
+  let activeWrites = 0
+  let maxWrites = 0
+  const records = []
+  const decoder = new BLELocalPeerRecordDecoder()
+  const bluetooth = connectedBluetooth(async (chunk) => {
+    if (chunk.byteLength > 20) throw new Error('legacy MTU')
+    activeWrites++
+    maxWrites = Math.max(maxWrites, activeWrites)
+    await new Promise((resolve) => setTimeout(resolve, 1))
+    records.push(...decoder.push(chunk))
+    activeWrites--
+  })
+  const capability = new BLELocalPeerCapability({ bluetooth, crypto: webcrypto })
+  const session = await capability.open({ service: 'test', transport: 'ble' })
+  records.length = 0
+  try {
+    await Promise.all([
+      session.broadcast('first', { text: 'a'.repeat(80) }),
+      session.broadcast('second', { text: 'b'.repeat(80) })
+    ])
+    assert.equal(maxWrites, 1)
+    assert.equal(records.length, 2)
+    const envelopes = records.map((record) => JSON.parse(new TextDecoder().decode(record.payload.subarray(18))))
+    assert.deepEqual(envelopes.map((value) => value.type), ['first', 'second'])
+    assert.equal(envelopes[0].payload.text, 'a'.repeat(80))
+    assert.equal(envelopes[1].payload.text, 'b'.repeat(80))
+  } finally {
+    session.close()
+  }
 })

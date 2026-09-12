@@ -157,4 +157,5 @@ async function main() {
 
 main().catch((error) => {
   trace(`[main] error ${error?.message ?? error}\n`)
+  if (error?.stack) trace(`[main] stack ${error.stack}\n`)
 })
