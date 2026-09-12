@@ -13,6 +13,7 @@ import {
 } from 'local-peer-auth'
 import { copyArrayBuffer } from 'local-peer-codec'
 import type { LocalPeerRadio, LocalPeerRadioOptions } from 'local-peer-radio-types'
+import Timer from 'timer'
 import { SERVICE_UUID, UARTServer } from 'uartserver'
 
 // A legacy BLE advertising packet is limited to 31 bytes. Flags, this name,
@@ -69,6 +70,9 @@ class BLELocalPeerRadio implements LocalPeerRadio {
   #remoteId?: string
   #txCharacteristic
   #closed = false
+  #writeQueue: Promise<void> = Promise.resolve()
+  #queuedRecords = 0
+  #connectionGeneration = 0
 
   constructor(id: string, options: LocalPeerRadioOptions) {
     this.id = id
@@ -106,7 +110,7 @@ class BLELocalPeerRadio implements LocalPeerRadio {
           payload,
         )
       : undefined
-    this.#writeRecord(
+    await this.#writeRecord(
       encodeBLELocalPeerRecord({
         kind: BLELocalPeerRecordKind.DATA,
         authenticated,
@@ -131,7 +135,7 @@ class BLELocalPeerRadio implements LocalPeerRadio {
   onNotificationsEnabled(characteristic): void {
     if (this.#closed) return
     this.#txCharacteristic = characteristic
-    this.#writeRecord(
+    void this.#writeRecord(
       encodeBLELocalPeerRecord({
         kind: BLELocalPeerRecordKind.HELLO,
         authenticated: false,
@@ -139,7 +143,7 @@ class BLELocalPeerRadio implements LocalPeerRadio {
         destinationId: BLE_LOCAL_PEER_BROADCAST_ID,
         payload: new Uint8Array(0),
       }),
-    )
+    ).catch((error) => trace(`[local-peer] BLE hello failed: ${String(error)}\n`))
   }
 
   onNotificationsDisabled(characteristic): void {
@@ -188,16 +192,32 @@ class BLELocalPeerRadio implements LocalPeerRadio {
     this.#server.close()
   }
 
-  #writeRecord(record: ArrayBuffer): void {
-    if (!this.#txCharacteristic) return
-    const bytes = new Uint8Array(record)
-    for (let offset = 0; offset < bytes.byteLength; offset += BLE_LOCAL_PEER_CHUNK_BYTES) {
-      const chunk = bytes.slice(offset, offset + BLE_LOCAL_PEER_CHUNK_BYTES)
-      this.#server.notifyValue(this.#txCharacteristic, chunk.buffer)
-    }
+  #writeRecord(record: ArrayBuffer): Promise<void> {
+    if (this.#queuedRecords >= 32) return Promise.reject(new Error('BLE notification queue is full'))
+    const generation = this.#connectionGeneration
+    this.#queuedRecords++
+    const operation = this.#writeQueue.then(async () => {
+      const bytes = new Uint8Array(record)
+      for (let offset = 0; offset < bytes.byteLength; offset += BLE_LOCAL_PEER_CHUNK_BYTES) {
+        this.#assertOpen()
+        if (generation !== this.#connectionGeneration || !this.#txCharacteristic)
+          throw new Error('BLE notification connection changed')
+        const chunk = bytes.slice(offset, offset + BLE_LOCAL_PEER_CHUNK_BYTES)
+        this.#server.notifyValue(this.#txCharacteristic, chunk.buffer)
+        // Native NimBLE notify does not expose allocation/send errors. Pace
+        // chunks so a whole response cannot exhaust its buffers in one JS turn.
+        await new Promise<void>((resolve) => Timer.set(() => resolve(), 20))
+      }
+    })
+    this.#writeQueue = operation
+      .catch(() => {})
+      .then(() => {
+        this.#queuedRecords--
+      })
+    return operation
   }
-
   #resetConnection(): void {
+    this.#connectionGeneration++
     this.#remoteId = undefined
     this.#txCharacteristic = undefined
     this.#decoder.reset()

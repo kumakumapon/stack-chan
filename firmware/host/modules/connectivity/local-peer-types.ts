@@ -21,6 +21,8 @@ export type LocalPeerInfo = {
 }
 
 export type LocalPeerMessage = {
+  /** Authentication of this message, independent of historical peer state. */
+  authenticated?: boolean
   id: string
   peer: LocalPeerInfo
   type: string

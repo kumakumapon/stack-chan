@@ -6,12 +6,7 @@ import {
   rawPositionToAngle,
   rotationToM5StackChanServoAngles,
 } from 'm5stackchan-servo'
-import {
-  type MotionCompletion,
-  type MotionDurationSeconds,
-  type MotionResultCallback,
-  motionDurationSecondsToMilliseconds,
-} from 'motion-controller'
+import type { MotionCompletion, MotionDurationSeconds, MotionResultCallback } from 'motion-controller'
 import SCServo from 'protocols/scservo'
 import { type PY32IOExpander, tryGetSharedPY32IOExpander } from 'py32-io-expander'
 import type { Maybe, Rotation } from 'stackchan-util'
@@ -62,8 +57,8 @@ export class M5StackChanServoDriver {
         ...(param.pitchZeroPosition !== undefined ? { zeroPosition: param.pitchZeroPosition } : {}),
       },
     })
-    this.#pan = new SCServo({ id: this.#config.yaw.id, serial: this.#config.serial, awaitWriteResponse: true })
-    this.#tilt = new SCServo({ id: this.#config.pitch.id, serial: this.#config.serial, awaitWriteResponse: true })
+    this.#pan = new SCServo({ id: this.#config.yaw.id, serial: this.#config.serial, awaitWriteResponse: false })
+    this.#tilt = new SCServo({ id: this.#config.pitch.id, serial: this.#config.serial, awaitWriteResponse: false })
     if (param.servoPower?.type !== 'none') {
       this.#servoPower = new PY32ServoPower(param.servoPower?.pin ?? 0, param.servoPower?.address)
     }
@@ -100,7 +95,9 @@ export class M5StackChanServoDriver {
         this.#tilt.setRawPosition(tiltRawPosition, callback)
       })
     } else {
-      const goalTimeMilliseconds = motionDurationSecondsToMilliseconds(time)
+      // M5Stack's reference firmware writes 20 for every SCSCL WritePos command.
+      // At a one-second goal time, the CoreS3 head can remain below static friction.
+      const goalTimeMilliseconds = 20
       this.#pan.setRawPositionInTime(panRawPosition, goalTimeMilliseconds, (panError) => {
         if (panError != null) {
           callback?.(panError)

@@ -236,6 +236,7 @@ export function createStackchanContext(
           trace(`[main] skip py32 led config (missing/invalid ledPin): ${key}\n`)
           return []
         }
+        trace(`[main] initializing PY32 LED ${key}\n`)
         return [[key, new PY32Led(candidate as { length?: number; ledPin?: number; address?: number })]]
       }
       if (typeof candidate.pin !== 'number') {
