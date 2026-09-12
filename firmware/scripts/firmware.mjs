@@ -222,7 +222,12 @@ function run(bin, binArgs, cwd = process.cwd()) {
   }
 
   ensureBuildOutputDirectory()
-  const result = spawnSync(bin, binArgs, { cwd, env: subprocessEnvironment, stdio: 'inherit' })
+  const result = spawnSync(bin, binArgs, {
+    cwd,
+    env: subprocessEnvironment,
+    stdio: 'inherit',
+    shell: process.platform === 'win32',
+  })
   if (result.error) {
     console.error(`[stack-chan] ${bin}を実行できませんでした: ${result.error.message}`)
     console.error('[stack-chan] npm run setup と npm run doctor を確認してください。')
@@ -251,7 +256,7 @@ function prepareBuildVariant() {
   const result = spawnSync(
     mcconfigCommand,
     [...buildModeArgs, '-m', '-p', platform, '-t', 'clean', ...outputArgs, selectedVariant],
-    { env: subprocessEnvironment, stdio: 'inherit' },
+    { env: subprocessEnvironment, stdio: 'inherit', shell: process.platform === 'win32' },
   )
   if (result.error) {
     console.error(`[stack-chan] mcconfigを実行できませんでした: ${result.error.message}`)
