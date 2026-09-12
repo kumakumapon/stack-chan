@@ -55,3 +55,5 @@ Local Peer のメッセージ認証テストは既存 XS manifest `host/modules/
 ### 首制御の実機確認
 
 M5StackChan CoreS3 で、公式互換の SCSCL Goal Time（20）と position/time/speed の完全な書込みにより、左右の首動作を確認した。テスト画面のボタンは押すたびに左右の目標位置を交互に送る。
+
+接続失敗時の復旧手順とCoreS3固有の注意点は[実機検証メモ](../../../docs/operations/ministack-cores3-validation_ja.md)を参照。

@@ -561,5 +561,5 @@ CI が自動トリガー：
 cd web
 npm run build
 # dist/ が GitHub Pages で公開
-# https://kumakumapon.github.io/stack-chan/web/
+# https://kumakumapon.github.io/stack-chan/develop/web/
 ```
