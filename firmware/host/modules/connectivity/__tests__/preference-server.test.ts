@@ -14,7 +14,9 @@ type FakePreference = {
 }
 
 type TestPreferenceServer = {
+  advertisingStarts: unknown[]
   notifications: { value: ArrayBuffer }[]
+  onReady(): void
   onCharacteristicNotifyEnabled(characteristic: { name: string }): void
   receiveAndSetPreference(domain: string, key: string, value: string): void
 }
@@ -51,6 +53,22 @@ function notificationPayload(server: TestPreferenceServer, index = 0): Record<st
   return JSON.parse(new TextDecoder().decode(server.notifications[index]?.value))
 }
 
+test('starts connectable BLE advertising when ready', async () => {
+  const { PreferenceServer } = await setup()
+  const server = new PreferenceServer({}) as TestPreferenceServer
+
+  server.onReady()
+
+  assert.deepEqual(server.advertisingStarts, [
+    {
+      advertisingData: {
+        flags: 6,
+        completeName: 'STK',
+        completeUUID128List: ['test-service'],
+      },
+    },
+  ])
+})
 test('read-only driver type publishes the platform value and rejects BLE overrides', async () => {
   const { PreferenceServer, preference } = await setup()
   preference.resetPreference({ 'driver.type': 'scservo' })

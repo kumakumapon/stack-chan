@@ -49,8 +49,7 @@ export class PreferenceServer extends UARTServer {
 
   advertise() {
     this.startAdvertising({
-      advertisingData: { shortName: this.deviceName },
-      scanResponseData: {
+      advertisingData: {
         flags: 6,
         completeName: this.deviceName,
         completeUUID128List: [SERVICE_UUID],
