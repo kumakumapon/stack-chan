@@ -35,11 +35,19 @@ export class PreferenceServer extends UARTServer {
     this.#effectiveValues = option?.effectiveValues ?? {}
     this.#readOnlyKeys = option?.readOnlyKeys ?? []
   }
+  onReady() {
+    this.advertise()
+  }
   onConnected() {
     super.onConnected()
     this.#handleConnected?.()
   }
   onDisconnected() {
+    this.advertise()
+    this.#handleDisconnected?.()
+  }
+
+  advertise() {
     this.startAdvertising({
       advertisingData: {
         flags: 6,
@@ -47,7 +55,6 @@ export class PreferenceServer extends UARTServer {
         completeUUID128List: [SERVICE_UUID],
       },
     })
-    this.#handleDisconnected?.()
   }
   onCharacteristicNotifyEnabled(characteristic) {
     if ('tx' === characteristic.name) {
