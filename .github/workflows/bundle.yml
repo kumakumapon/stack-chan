@@ -1,6 +1,7 @@
 name: Bundle Stack-chan Firmware
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - develop
