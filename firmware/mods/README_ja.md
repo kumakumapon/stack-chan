@@ -67,6 +67,7 @@ WASMホストで使う場合も、`lin`などTypeScriptをサポートするタ�
 | [`web_radio`](./examples/web_radio/) | M5StackChan CoreS3でのネットワーク音声再生 |
 | [`m5stackchan_smoke`](./examples/m5stackchan_smoke/) | [M5StackChan CoreS3のサーボ電源とヘッドLEDの確認](../docs/m5stackchan-cores3-smoke.md) |
 | [`servo_selftest`](./examples/servo_selftest/) | [首サーボの自己診断（電源・通信・フレーミング・実動作の切り分け）](./examples/servo_selftest/README_ja.md) |
+| [`ministack`](./examples/ministack/) | [MiniStack Local Peer の PoC。共有キーが必要で、生成した archive は配布しない](./examples/ministack/README_ja.md) |
 
 ## 参考資料
 
