@@ -26,7 +26,7 @@ function fakeMotion({
   const diagnostics = { power, bus, pan: { commandsSent: 0 }, tilt: { commandsSent: 0 } }
   return {
     calls: [],
-    getDiagnostics() {
+    getDriverDiagnostics() {
       return diagnostics
     },
     async setTorque(value) {
@@ -113,7 +113,7 @@ test('the report is JSON-safe and does not follow the reused diagnostics object'
   const encoded = JSON.stringify(report)
   assert.equal(JSON.parse(encoded).layer, 'ok')
   const commandsSent = report.servo.pan.commandsSent
-  motion.getDiagnostics().pan.commandsSent = 999
+  motion.getDriverDiagnostics().pan.commandsSent = 999
   assert.equal(report.servo.pan.commandsSent, commandsSent)
 })
 

@@ -110,10 +110,13 @@ export type MotionCapability = {
   setPose(pose: Pose, time?: MotionDurationSeconds): Promise<void>
   setTorque(torque: boolean): Promise<void>
   /**
-   * Actuator counters of the installed driver, or undefined when it reports
-   * none. Intended for diagnostics; the shape is driver specific.
+   * Actuator counters of the installed motion driver, or undefined when it
+   * reports none. Intended for diagnostics; the shape is driver specific.
+   *
+   * StackchanContext flattens this capability, so the name stays specific
+   * enough to read at the context level too.
    */
-  getDiagnostics(): Readonly<MotionDriverDiagnostics> | undefined
+  getDriverDiagnostics(): Readonly<MotionDriverDiagnostics> | undefined
   /** Reads the measured rotation from the actuators. */
   getRotation(): Promise<Maybe<Rotation>>
 }

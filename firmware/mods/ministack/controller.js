@@ -182,7 +182,7 @@ export function createHeartbeatWatchdog(now) {
  */
 export async function readServoDiagnostics(motion, commanded) {
   const measured = typeof motion?.getRotation === 'function' ? await motion.getRotation() : undefined
-  const driver = typeof motion?.getDiagnostics === 'function' ? motion.getDiagnostics() : undefined
+  const driver = typeof motion?.getDriverDiagnostics === 'function' ? motion.getDriverDiagnostics() : undefined
   return {
     commanded: commanded ?? null,
     measured: measured?.success === true ? { yawRad: measured.value.y, pitchRad: measured.value.p } : null,

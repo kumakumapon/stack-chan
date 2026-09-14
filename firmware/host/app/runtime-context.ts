@@ -320,7 +320,7 @@ export class StackchanRuntimeContext implements StackchanContext {
    *
    * @returns driver-specific counters, or undefined when the driver reports none
    */
-  getMotionDiagnostics(): Readonly<MotionDriverDiagnostics> | undefined {
+  getDriverDiagnostics(): Readonly<MotionDriverDiagnostics> | undefined {
     return this.#motionController.getDiagnostics()
   }
 
@@ -334,11 +334,11 @@ export class StackchanRuntimeContext implements StackchanContext {
   async getRotation(): Promise<Maybe<Rotation>> {
     return new Promise((resolve) => {
       this.#motionController.readRotation((result) => {
-        resolve(
-          result.success
-            ? { success: true, value: { y: result.value.y, p: result.value.p, r: result.value.r } }
-            : { success: false, reason: result.reason },
-        )
+        if (result.success === false) {
+          resolve({ success: false, reason: result.reason })
+          return
+        }
+        resolve({ success: true, value: { y: result.value.y, p: result.value.p, r: result.value.r } })
       })
     })
   }
@@ -465,8 +465,8 @@ export class StackchanRuntimeContext implements StackchanContext {
       setTorque(torque) {
         return context.setTorque(torque)
       },
-      getDiagnostics() {
-        return context.getMotionDiagnostics()
+      getDriverDiagnostics() {
+        return context.getDriverDiagnostics()
       },
       getRotation() {
         return context.getRotation()

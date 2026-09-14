@@ -261,7 +261,7 @@ test('a failing or absent diagnostics source is reported without dropping the se
 test('a diagnostic snapshot pairs the commanded target with the measured rotation', async () => {
   const driverDiagnostics = { pan: { commandsSent: 0, lastGoalPosition: -1 } }
   const motion = {
-    getDiagnostics: () => driverDiagnostics,
+    getDriverDiagnostics: () => driverDiagnostics,
     async getRotation() {
       // Reading is itself a servo command, so the counters move during the read.
       driverDiagnostics.pan.commandsSent++
@@ -282,7 +282,7 @@ test('a diagnostic snapshot pairs the commanded target with the measured rotatio
 test('an unreadable servo is reported as a measurement error, not as a missing head', async () => {
   const snapshot = await readServoDiagnostics(
     {
-      getDiagnostics: () => ({ pan: { responseTimeouts: 3 } }),
+      getDriverDiagnostics: () => ({ pan: { responseTimeouts: 3 } }),
       async getRotation() {
         return { success: false, reason: 'scservo command timed out after 120ms' }
       },

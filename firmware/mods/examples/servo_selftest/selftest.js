@@ -61,7 +61,8 @@ async function step(steps, name, run) {
  */
 export async function runServoSelfTest({ motion, wait, targets = DEFAULT_TARGETS, settleMs = 700 }) {
   const steps = []
-  const diagnostics = () => (typeof motion?.getDiagnostics === 'function' ? motion.getDiagnostics() : undefined)
+  const diagnostics = () =>
+    typeof motion?.getDriverDiagnostics === 'function' ? motion.getDriverDiagnostics() : undefined
   const power = snapshot(diagnostics()?.power)
   steps.push({
     name: 'power',

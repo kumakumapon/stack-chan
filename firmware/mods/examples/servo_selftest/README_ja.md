@@ -41,7 +41,7 @@ npm run mod -- mods/examples/servo_selftest/manifest.json
 
 ## 仕組み
 
-公開APIの `robot.motion`（`setTorque` / `setPose` / `getRotation` / `getDiagnostics`）だけを使う。ドライバー内部には触れないため、SCServo以外のドライバーでも同じ判定が動く。
+公開APIの `robot.motion`（`setTorque` / `setPose` / `getRotation` / `getDriverDiagnostics`）だけを使う。ドライバー内部には触れないため、SCServo以外のドライバーでも同じ判定が動く。
 
 判定ロジックとシーケンスは `selftest.js` にあり、Node のテストで検証している。
 
