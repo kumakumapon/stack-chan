@@ -24,6 +24,8 @@
     "rs30x-driver",
     "scservo-driver",
     "protocols/dynamixel-codec",
+    "protocols/scservo-codec",
+    "protocols/scservo-decoder",
     "payload-buffer",
     "internal/single-wait-slot",
     "internal/servo-command-error"

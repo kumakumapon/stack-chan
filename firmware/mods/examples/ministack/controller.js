@@ -1,11 +1,20 @@
 export const SERVICE = 'io.github.kumakumapon.ministack'
-export const TYPES = ['capabilities.get', 'state.get', 'head.set', 'face.set', 'reaction.play', 'speech.say', 'stop']
+export const TYPES = [
+  'capabilities.get',
+  'state.get',
+  'servo.diag',
+  'head.set',
+  'face.set',
+  'reaction.play',
+  'speech.say',
+  'stop',
+]
 const failure = (code) => {
   throw new Error(code)
 }
 
 // Platform-independent arbitration. The injected executor owns platform resources.
-export function createController({ execute, capabilities, now, sessionId }) {
+export function createController({ execute, capabilities, now, sessionId, readDiagnostics }) {
   const records = new Map()
   let queue = []
   let running
@@ -78,6 +87,17 @@ export function createController({ execute, capabilities, now, sessionId }) {
       // Repeated reads return current state; an existing action ID still conflicts above.
       if (type === 'capabilities.get') return response(id, true, capabilities)
       if (type === 'state.get') return response(id, true, { running: running?.type ?? null, queued: queue.length })
+      // Diagnostics answer "was the command issued, acknowledged and executed?"
+      // without reflashing, so they must stay readable while the queue is busy.
+      if (type === 'servo.diag') {
+        if (typeof readDiagnostics !== 'function') return response(id, false, 'unsupported')
+        try {
+          return response(id, true, await readDiagnostics())
+        } catch (error) {
+          globalThis.trace?.(`[ministack] diagnostics failed: ${String(error)}\n`)
+          return response(id, false, 'diagnostics-failed')
+        }
+      }
       // Do not evict IDs and accidentally execute an old request again.
       if (records.size >= 256 && type !== 'stop') return response(id, false, 'session-full')
       let resolve
@@ -152,6 +172,25 @@ export function createHeartbeatWatchdog(now) {
     },
   }
 }
+/**
+ * Collects one servo diagnostic snapshot.
+ *
+ * The measured rotation is read first so the servo counters that follow include
+ * that read; "commanded" and "measured" together are what separates a command
+ * that was accepted from one that actually moved the head. Driver diagnostics
+ * reuse their object, so the snapshot is copied before it is handed back.
+ */
+export async function readServoDiagnostics(motion, commanded) {
+  const measured = typeof motion?.getRotation === 'function' ? await motion.getRotation() : undefined
+  const driver = typeof motion?.getDriverDiagnostics === 'function' ? motion.getDriverDiagnostics() : undefined
+  return {
+    commanded: commanded ?? null,
+    measured: measured?.success === true ? { yawRad: measured.value.y, pitchRad: measured.value.p } : null,
+    measuredError: measured?.success === false ? (measured.reason ?? 'unavailable') : null,
+    servo: driver === undefined ? null : JSON.parse(JSON.stringify(driver)),
+  }
+}
+
 export async function applyHeadPose(motion, pose, durationSeconds, cancelled) {
   if (cancelled()) throw new Error('cancelled')
   await motion.setTorque(true)

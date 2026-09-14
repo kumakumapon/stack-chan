@@ -45,9 +45,11 @@ const Timer = {
   repeat(callback: TimerCallback, interval: number): TimerHandle {
     return createTimer(callback, interval, true)
   },
-  clear(timer: TimerHandle | null | undefined): void {
+  // Moddable's Timer.clear takes an opaque handle; accept it as such so modules
+  // typed against the runtime signature can pass this fake straight through.
+  clear(timer: unknown): void {
     if (timer != null) {
-      timer.active = false
+      ;(timer as TimerHandle).active = false
     }
   },
   schedule(timer: TimerHandle, interval = 0, repeat?: number): void {

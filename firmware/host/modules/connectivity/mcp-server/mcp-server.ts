@@ -381,6 +381,12 @@ export class MCPServerService {
     const body = JSON.stringify(data)
     const headers = new Headers()
     headers.set('Content-Type', 'application/json')
+    // The listen() wrapper binds one request/response pair per connection: it
+    // resolves a single response promise and never rewinds its write offset.
+    // fetch caches one client per origin and reuses it, so a second request on
+    // a kept-alive connection reuses that spent state and aborts the VM. Ask
+    // the client to close instead; the server honours this header.
+    headers.set('Connection', 'close')
 
     return new Response(body, {
       status,

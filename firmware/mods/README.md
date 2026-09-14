@@ -66,6 +66,8 @@ To add a Piu UI while retaining the face screen and host AppBar, use the experim
 | [`local_peer_hello`](./examples/local_peer_hello/) | Typed device-to-device messages without the internet |
 | [`web_radio`](./examples/web_radio/) | Network audio playback on M5StackChan CoreS3 |
 | [`m5stackchan_smoke`](./examples/m5stackchan_smoke/) | [M5StackChan CoreS3 servo-power and head LED checks](../docs/m5stackchan-cores3-smoke.md) |
+| [`servo_selftest`](./examples/servo_selftest/) | [Head servo self-test that names the failing layer](./examples/servo_selftest/README_ja.md) |
+| [`ministack`](./examples/ministack/) | [MiniStack Local Peer PoC. Needs a shared key; never distribute the built archive (Japanese)](./examples/ministack/README_ja.md) |
 
 ## References
 

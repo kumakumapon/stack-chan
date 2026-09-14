@@ -33,6 +33,38 @@ for (const [readName, writeName] of [
   })
 }
 
+test('an SDK exposing both register APIs is captured through one adapter', () => {
+  // CoreS3 board setup differs by SDK generation: some builds expose SMBus byte
+  // methods, some ECMA-419 uint8 methods, and some both. All three must reach the
+  // instance the board already created instead of opening I2C a second time.
+  class Power {
+    values = new Map<number, number>()
+    readByte(register: number) {
+      return this.values.get(register) ?? 0
+    }
+    writeByte(register: number, value: number) {
+      this.values.set(register, value)
+    }
+    readUint8(register: number) {
+      return this.readByte(register)
+    }
+    writeUint8(register: number, value: number) {
+      this.writeByte(register, value)
+    }
+  }
+  const getPower = installRegisterCapture(Power.prototype)
+  const power = new Power()
+  power.writeByte(0x90, 5)
+  const captured = getPower()
+  assert.ok(captured)
+  assert.equal(captured.readByte(0x90), 5)
+  captured.writeByte(0x90, 11)
+  assert.equal(power.readUint8(0x90), 11)
+  // A later call through the other API pair must not replace the capture.
+  power.writeUint8(0x91, 3)
+  assert.equal(getPower(), captured)
+})
+
 test('register capture preserves the receiver and propagates IO errors', () => {
   class Power {
     #value = 0

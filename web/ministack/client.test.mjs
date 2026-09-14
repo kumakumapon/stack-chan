@@ -1,9 +1,11 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { MiniStackClient } from './client.mjs'
-function fixture() {
+function fixture(options = {}) {
   let listener
   let closeCount = 0
+  let openCount = 0
+  let failOpen = false
   const sent = []
   const session = {
     discover: async () => [{ id: 'robot' }],
@@ -25,13 +27,29 @@ function fixture() {
       closeCount++
     },
   }
-  const client = new MiniStackClient(() => ({ open: async () => session }))
+  const client = new MiniStackClient(
+    () => ({
+      open: async () => {
+        openCount++
+        if (failOpen) throw new Error('device not found')
+        return session
+      },
+    }),
+    () => {},
+    options,
+  )
   return {
     client,
     sent,
     reply: (p) => listener({ peer: { id: 'robot' }, payload: p }),
     get closeCount() {
       return closeCount
+    },
+    get openCount() {
+      return openCount
+    },
+    failOpen(value) {
+      failOpen = value
     },
   }
 }
@@ -94,6 +112,65 @@ test('three consecutive heartbeat failures are reported and retained for subsequ
     await assert.rejects(originalRequest('head.set', {}), (error) => error === reason)
     assert.equal(f.closeCount, 1)
   } finally {
-    f.client.close()
+    // A heartbeat failure now schedules a reconnect; stop it as a user would.
+    f.client.disconnect()
   }
+})
+
+test('an unexpected drop reconnects with backoff and an explicit disconnect stays closed', async () => {
+  // Flashing the host or the MOD drops the BLE session several times per device
+  // cycle; retrying automatically removes that manual step from every attempt.
+  const scheduled = []
+  const attempts = []
+  const f = fixture({
+    reconnectAttempts: 2,
+    reconnectBaseDelayMs: 1000,
+    schedule: (run, delayMs) => scheduled.push({ run, delayMs }),
+    onReconnectAttempt: (event) => attempts.push(event),
+  })
+  await f.client.connect('test-only-shared-key')
+  assert.equal(f.openCount, 1)
+
+  f.client.close(new Error('Device session changed'))
+  assert.deepEqual(
+    attempts.map(({ attempt, delayMs }) => [attempt, delayMs]),
+    [[1, 1000]],
+  )
+  await scheduled.shift().run()
+  assert.equal(f.openCount, 2, 'the retry reuses the shared key without another prompt')
+  assert.equal(scheduled.length, 0)
+
+  // A device that is still rebooting fails the first attempts; the budget is
+  // spent on consecutive failures and restored once a session is established.
+  f.failOpen(true)
+  f.client.close(new Error('Device session changed'))
+  await scheduled.shift().run()
+  await scheduled.shift().run()
+  assert.equal(scheduled.length, 0, 'consecutive retries are bounded')
+  assert.deepEqual(
+    attempts.map(({ attempt }) => attempt),
+    [1, 1, 2],
+  )
+  assert.equal(f.openCount, 4)
+
+  f.failOpen(false)
+  await f.client.connect('test-only-shared-key')
+  f.client.disconnect()
+  assert.equal(scheduled.length, 0, 'an explicit disconnect must not reconnect')
+  await assert.rejects(f.client.request('stop'), /Not connected/)
+})
+
+test('reconnect is not attempted before a session was ever established', async () => {
+  const scheduled = []
+  const client = new MiniStackClient(
+    () => ({
+      open: async () => {
+        throw new Error('device not found')
+      },
+    }),
+    () => {},
+    { schedule: (run, delayMs) => scheduled.push({ run, delayMs }) },
+  )
+  await assert.rejects(client.connect('test-only-shared-key'), /device not found/)
+  assert.equal(scheduled.length, 0)
 })
