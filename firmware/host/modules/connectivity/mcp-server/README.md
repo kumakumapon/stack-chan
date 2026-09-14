@@ -20,6 +20,10 @@ ModdableでMCPサーバーを実装するためのクラスです。Model Contex
 - `GET /health` - ヘルスチェック
 - `POST /mcp` - MCPプロトコルメッセージ。`Authorization: Bearer <token>` が必須です。
 
+### 接続の扱い
+
+応答には常に `Connection: close` を付ける。基盤の `listen()` は1つの接続に対して1組のリクエスト/レスポンスしか扱えない（応答用の Promise を1度しか解決せず、書込みオフセットも巻き戻さない）。一方 `fetch` はオリジンごとに接続を使い回すため、keep-alive のままだと2回目のリクエストで使用済みの状態を再利用してVMが停止する。クライアントはリクエストごとに接続し直す。
+
 ### サポートするMCPメソッド
 
 - `initialize` - プロトコル初期化
