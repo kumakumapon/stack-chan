@@ -32,6 +32,7 @@ service: `io.github.kumakumapon.ministack`。Local Peer の確認付き `send` �
 すべての payload に `v: 1` と `requestId`（英数字、`_`、`-`、最大64文字）。最初に `capabilities.get` で sessionId を取得し、以後はその sessionId を必須とする。
 
 - `capabilities.get` / `state.get`: 能力・機器キュー状態。
+- `servo.diag`: サーボの診断。読み取り専用で、`state.get` と同様に動作要求の履歴を消費しない。最後に指令した目標角（`commanded`）、読み戻した実測角（`measured`、失敗時は `measuredError`）、ドライバーの診断カウンター（`servo`: 軸ごとの送信数・応答数・タイムアウト・目標位置・実測位置、バスの受信フレーム数と破棄・チェックサム不一致・エコー数、サーボ電源の状態、UART設定とGoal Time）を返す。ドライバーが診断を提供しない場合は `unsupported`、読み取りに失敗した場合は `diagnostics-failed`。
 - `head.set`: yawRad/pitchRad、durationMs 500〜3000。PoC 上限は yaw ±0.25 / pitch ±0.15 rad。機械的な全可動域を表す値ではない。トルクを有効化してから位置を指令する。成功時の yawRad/pitchRad は指令値であり、実測位置や移動完了の保証ではない。位置指令は送信完了で処理を進めるため、一時的なサーボ応答ACK欠落で操作全体は失敗しない。
 - `face.set`: emotion（NEUTRAL/ANGRY/SAD/HAPPY/SLEEPY/DOUBTFUL/COLD/HOT）。色指定は未対応。
 - `reaction.play`: happy / neutral / nod。
@@ -52,8 +53,12 @@ node --test firmware/mods/ministack/controller.test.mjs
 
 Local Peer のメッセージ認証テストは既存 XS manifest `host/modules/connectivity/__tests__/local-peer-service-xs` に追加。Node の仲裁テストはハードウェア動作を保証しない。
 
+### 首が動かないときの切り分け
+
+テスト画面の「サーボ診断を読む」で `servo.diag` を読む。**再書込みは不要**。指令・実測・カウンターを並べて表示するため、「指令が出ていない」「応答が返っていない」「応答は返るが動いていない」を区別できる。層の特定だけなら [`servo_selftest` MOD](../examples/servo_selftest/README_ja.md) が1回の書込みで同じ判定を出す。
+
 ### 首制御の実機確認
 
 M5StackChan CoreS3 で、公式互換の SCSCL Goal Time（20）と position/time/speed の完全な書込みにより、左右の首動作を確認した。テスト画面のボタンは押すたびに左右の目標位置を交互に送る。
 
-接続失敗時の復旧手順とCoreS3固有の注意点は[実機検証メモ](../../../docs/operations/ministack-cores3-validation_ja.md)を参照。
+接続失敗時の復旧手順、切り分け手順、1サイクルで残す記録のテンプレートは[実機検証メモ](../../../docs/operations/ministack-cores3-validation_ja.md)を参照。

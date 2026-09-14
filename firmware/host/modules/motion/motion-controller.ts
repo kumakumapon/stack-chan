@@ -18,12 +18,20 @@ export type ServoGoalTimeCentiseconds = number
 export type MotionCompletion = (error?: unknown) => void
 export type MotionResultCallback<T> = (result: T) => void
 
+/**
+ * Driver-defined counters and state. The shape is driver specific; it is carried
+ * as data so a MOD can report it without knowing which driver is installed.
+ */
+export type MotionDriverDiagnostics = Record<string, unknown>
+
 export type MotionDriver = {
   applyRotation: (ori: RotationType, time?: MotionDurationSeconds, callback?: MotionCompletion) => void
   getRotation: (callback: MotionResultCallback<Maybe<RotationType>>) => void
   setTorque: (torque: boolean, callback?: MotionCompletion) => void
   onAttached?: () => void
   onDetached?: () => void
+  /** Optional. Drivers that can observe their actuator bus report it here. */
+  getDiagnostics?: () => Readonly<MotionDriverDiagnostics>
 }
 
 export type MotionControllerPose = {
@@ -119,6 +127,11 @@ export class MotionController {
     return this.#driver
   }
 
+  /** Driver counters, or undefined when the installed driver reports none. */
+  getDiagnostics(): Readonly<MotionDriverDiagnostics> | undefined {
+    return this.#driver.getDiagnostics?.()
+  }
+
   get gazePoint(): Vector3 | null {
     return this.#gazePoint
   }
@@ -161,6 +174,14 @@ export class MotionController {
 
   setTorque(torque: boolean, callback?: MotionCompletion): void {
     this.#driver.setTorque(torque, callback)
+  }
+
+  /**
+   * Reads the measured rotation from the actuators. The driver reuses its result
+   * object, so callers that keep the value must copy it.
+   */
+  readRotation(callback: MotionResultCallback<Maybe<RotationType>>): void {
+    this.#driver.getRotation(callback)
   }
 
   updatePose(_id?: unknown): void {

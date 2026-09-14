@@ -8,9 +8,9 @@ import type { ButtonInputEvent } from 'input-event'
 import type { LocalPeerCapability } from 'local-peer-types'
 import type { I18nCapability } from 'localization'
 import type { MiniAppRegistryCapability } from 'mini-app'
-import type { MotionControllerPose, MotionDurationSeconds } from 'motion-controller'
+import type { MotionControllerPose, MotionDriverDiagnostics, MotionDurationSeconds } from 'motion-controller'
 import type { Container as PiuContainer, Content as PiuContent } from 'piu/MC'
-import type { Maybe, Pose, Vector3 } from 'stackchan-util'
+import type { Maybe, Pose, Rotation, Vector3 } from 'stackchan-util'
 import type Touch from 'touch'
 import type TouchPanel from 'touch-panel'
 import type { TTSCompletion, TTSDoneListener, TTSPlaybackListener } from 'tts-types'
@@ -109,6 +109,13 @@ export type MotionCapability = {
   lookAway(): void
   setPose(pose: Pose, time?: MotionDurationSeconds): Promise<void>
   setTorque(torque: boolean): Promise<void>
+  /**
+   * Actuator counters of the installed driver, or undefined when it reports
+   * none. Intended for diagnostics; the shape is driver specific.
+   */
+  getDiagnostics(): Readonly<MotionDriverDiagnostics> | undefined
+  /** Reads the measured rotation from the actuators. */
+  getRotation(): Promise<Maybe<Rotation>>
 }
 
 export type AudioCapability = {

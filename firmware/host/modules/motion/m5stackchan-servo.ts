@@ -37,6 +37,21 @@ function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value))
 }
 
+/**
+ * Goal time written with every SCSCL WritePos command.
+ *
+ * M5Stack's reference firmware writes 20 for every position command. A goal
+ * time derived from the requested motion duration (one second, for example)
+ * moves the CoreS3 head so slowly that it stays below static friction and does
+ * not move at all, which is indistinguishable from a failed command unless the
+ * present position is read back. Verified on M5StackChan CoreS3.
+ */
+export const M5STACKCHAN_SCSCL_GOAL_TIME_MS = 20
+
+/**
+ * Board profile for M5StackChan CoreS3: the head servos sit on UART1 with
+ * TX=GPIO6 and RX=GPIO7 at 1 Mbps, yaw is id 1 and pitch is id 2.
+ */
 export const M5STACKCHAN_SERVO_DEFAULTS: M5StackChanServoConfig = Object.freeze({
   serial: Object.freeze({
     transmit: 6,

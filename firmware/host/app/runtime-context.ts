@@ -18,14 +18,18 @@ import type {
 import type { Emotion, FaceEyeKey, FaceThemeKey } from 'face-state'
 import { LocalPeerError, type LocalPeerSession } from 'local-peer-types'
 import { createI18nCapability } from 'localization'
-import { MotionController, type MotionControllerConstructorParam } from 'motion-controller'
+import {
+  MotionController,
+  type MotionControllerConstructorParam,
+  type MotionDriverDiagnostics,
+} from 'motion-controller'
 import { OwnedResources } from 'owned-resources'
 import { type RuntimeAudioConstructorParam, StackchanRuntimeAudio } from 'runtime-audio'
 import { type RuntimeCameraConstructorParam, StackchanRuntimeCamera } from 'runtime-camera'
 import { type RuntimeInputConstructorParam, StackchanRuntimeInput } from 'runtime-input'
 import { type RuntimeLightingConstructorParam, StackchanRuntimeLighting } from 'runtime-lighting'
 import { StackchanRuntimeUI } from 'runtime-ui'
-import { type Maybe, type Pose, type Vector3, waitForCompletion } from 'stackchan-util'
+import { type Maybe, type Pose, type Rotation, type Vector3, waitForCompletion } from 'stackchan-util'
 import Timer from 'timer'
 
 const INTERVAL_FACE = 1000 / 30
@@ -312,6 +316,34 @@ export class StackchanRuntimeContext implements StackchanContext {
   }
 
   /**
+   * Actuator counters of the installed motion driver.
+   *
+   * @returns driver-specific counters, or undefined when the driver reports none
+   */
+  getMotionDiagnostics(): Readonly<MotionDriverDiagnostics> | undefined {
+    return this.#motionController.getDiagnostics()
+  }
+
+  /**
+   * Reads the measured rotation from the actuators.
+   *
+   * Drivers reuse their result object, so the value is copied before it is
+   * handed out. A measured rotation is the only way to tell a position command
+   * that was accepted from one that actually moved the head.
+   */
+  async getRotation(): Promise<Maybe<Rotation>> {
+    return new Promise((resolve) => {
+      this.#motionController.readRotation((result) => {
+        resolve(
+          result.success
+            ? { success: true, value: { y: result.value.y, p: result.value.p, r: result.value.r } }
+            : { success: false, reason: result.reason },
+        )
+      })
+    })
+  }
+
+  /**
    * Set the color
    * @param{key} - 'primary' or 'secondary'
    * @param{r} - red value [0-255]
@@ -432,6 +464,12 @@ export class StackchanRuntimeContext implements StackchanContext {
       },
       setTorque(torque) {
         return context.setTorque(torque)
+      },
+      getDiagnostics() {
+        return context.getMotionDiagnostics()
+      },
+      getRotation() {
+        return context.getRotation()
       },
     }
   }

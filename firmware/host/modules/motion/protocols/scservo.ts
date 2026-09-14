@@ -1,6 +1,17 @@
 import Serial from 'embedded:io/serial'
 import config from 'mc/config'
-import { SCServoDecoder } from 'protocols/scservo-decoder'
+import {
+  encodeSCServoCommand,
+  fromBigEndianBytes,
+  SCSERVO_ADDRESS,
+  SCSERVO_COMMAND,
+  type SCServoAddress,
+  type SCServoCommand,
+  toBigEndianBytes,
+  WRITE_POSITION_VALUE_COUNT,
+  writePositionValues,
+} from 'protocols/scservo-codec'
+import { SCServoDecoder, type SCServoDecoderStats } from 'protocols/scservo-decoder'
 
 import { CommandTimeoutError } from 'servo-command-error'
 import SingleWaitSlot from 'single-wait-slot'
@@ -22,12 +33,8 @@ export type SCServoGoalTimeMilliseconds = number
 function clamp(v: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, v))
 }
-function le(v: number): [number, number] {
-  return [(v & 0xff00) >> 8, v & 0xff]
-}
-function el(h: number, l: number) {
-  return ((h << 8) & 0xff00) + (l & 0xff)
-}
+const le = toBigEndianBytes
+const el = fromBigEndianBytes
 
 // biome-ignore lint/correctness/noUnusedVariables: constant for future use
 const BROADCAST_ID = 0xfe // 254
@@ -36,30 +43,25 @@ const MAX_ID = 0xfc // 252
 // biome-ignore lint/correctness/noUnusedVariables: constant for future use
 const SCS_END = 0
 
-const COMMAND = {
-  RESPONSE: 0x00,
-  // NOTE: Some servo returns response with command 0x01. Dunno why.
-  RESPONSE_ALT: 0x01,
-  WRITE: 0x03,
-  READ: 0x02,
-} as const
-type Command = (typeof COMMAND)[keyof typeof COMMAND]
+const COMMAND = SCSERVO_COMMAND
+type Command = SCServoCommand
 
-const ADDRESS = {
-  ID: 5,
-  OFFSET: 31,
-  TORQUE_ENABLE: 40,
-  GOAL_ACC: 41,
-  GOAL_POSITION: 42,
-  GOAL_TIME: 44,
-  LOCK: 48,
-  PRESENT_POSITION: 56,
-} as const
-type Address = (typeof ADDRESS)[keyof typeof ADDRESS]
+const ADDRESS = SCSERVO_ADDRESS
+type Address = SCServoAddress
 
 class PacketHandler extends Serial {
   #callbacks = new Map<number, (buffer: Uint8Array, length: number) => void>()
   #decoder: SCServoDecoder
+  // Reused snapshot: the receive path must not allocate.
+  #busDiagnostics: SCServoBusDiagnostics = {
+    framesDecoded: 0,
+    discardedBytes: 0,
+    checksumErrors: 0,
+    lengthErrors: 0,
+    overflowBytes: 0,
+    echoesIgnored: 0,
+    framesWithoutListener: 0,
+  }
   constructor(option) {
     const onReadable = function (this: PacketHandler, bytes: number) {
       for (let i = 0; i < bytes; i++) this.#decoder.push(this.read() as number)
@@ -67,8 +69,16 @@ class PacketHandler extends Serial {
     super({ ...option, format: 'number', onReadable })
     this.#decoder = new SCServoDecoder(({ id, status, payload }) => {
       // Preserve existing echo filtering; status/error classification is separate.
-      if (status === COMMAND.READ || status === COMMAND.WRITE) return
-      this.#callbacks.get(id)?.(payload, payload.length)
+      if (status === COMMAND.READ || status === COMMAND.WRITE) {
+        this.#busDiagnostics.echoesIgnored++
+        return
+      }
+      const callback = this.#callbacks.get(id)
+      if (callback == null) {
+        this.#busDiagnostics.framesWithoutListener++
+        return
+      }
+      callback(payload, payload.length)
     })
   }
   hasCallbackOf(id: number): boolean {
@@ -80,21 +90,58 @@ class PacketHandler extends Serial {
   removeCallback(id: number) {
     this.#callbacks.delete(id)
   }
+  /**
+   * Bus counters, refreshed from the decoder on every call. The same instance is
+   * reused, so read the fields immediately or copy them.
+   */
+  getBusDiagnostics(): Readonly<SCServoBusDiagnostics> {
+    const stats = this.#decoder.getStats()
+    const diagnostics = this.#busDiagnostics
+    diagnostics.framesDecoded = stats.framesDecoded
+    diagnostics.discardedBytes = stats.discardedBytes
+    diagnostics.checksumErrors = stats.checksumErrors
+    diagnostics.lengthErrors = stats.lengthErrors
+    diagnostics.overflowBytes = stats.overflowBytes
+    return diagnostics
+  }
 }
 
 /**
- * calculates checksum of the SCS packets
- * @param arr packet array except checksum
- * @returns checksum number
+ * Bus-wide receive counters shared by every servo on the same UART, plus the
+ * frames the dispatcher chose to drop. These separate "the bus is silent" from
+ * "the bus is noisy", which otherwise look identical from the application.
  */
-function checksum(buffer: Uint8Array, length: number): number {
-  let sum = 0
-  for (let i = 2; i < length; i++) {
-    sum += buffer[i]
-  }
-  const cs = ~(sum & 0xff)
-  // trace(`>>>checksum is ${new Uint8Array([cs])[0]}: ${arr}\n`)
-  return cs
+export type SCServoBusDiagnostics = SCServoDecoderStats & {
+  /** Frames recognised as our own transmission echoed back by the half-duplex bus. */
+  echoesIgnored: number
+  /** Valid frames addressed to an id no servo instance is listening for. */
+  framesWithoutListener: number
+}
+
+/** Per-servo command counters. Cumulative since the instance was created. */
+export type SCServoDiagnostics = {
+  id: number
+  /** Commands handed to the serial port. */
+  commandsSent: number
+  /** Response frames delivered for this id, including unawaited write ACKs. */
+  responsesReceived: number
+  /** Reads that gave up after COMMAND_TIMEOUT_MS. */
+  responseTimeouts: number
+  /** Commands rejected because the previous one had not finished. */
+  busyRejections: number
+  /** Commands whose serial write itself failed. */
+  writeFailures: number
+  /** Commands still queued behind the running one. */
+  queued: number
+  /** Last goal position written, or -1 when none has been written. */
+  lastGoalPosition: number
+  /** Goal time register value of that write, or -1. */
+  lastGoalTimeMilliseconds: number
+  /** Last raw position read back, or -1 when none has been read. */
+  lastReadPosition: number
+  lastErrorMessage: string | null
+  /** Date.now() of the last error, or -1. */
+  lastErrorAtMilliseconds: number
 }
 
 type SCServoConstructorParam = {
@@ -159,16 +206,35 @@ class SCServo {
   #offset: number
   #awaitWriteResponse: boolean
   #isWriting = false
+  // Reused snapshot: getDiagnostics is called from the MiniStack request path.
+  #diagnostics: SCServoDiagnostics = {
+    id: 0,
+    commandsSent: 0,
+    responsesReceived: 0,
+    responseTimeouts: 0,
+    busyRejections: 0,
+    writeFailures: 0,
+    queued: 0,
+    lastGoalPosition: -1,
+    lastGoalTimeMilliseconds: -1,
+    lastReadPosition: -1,
+    lastErrorMessage: null,
+    lastErrorAtMilliseconds: -1,
+  }
+  // Reused between position commands; #sendCommand copies the values it needs.
+  #writePositionValues: number[] = new Array(WRITE_POSITION_VALUE_COUNT).fill(0)
   constructor({ id, awaitWriteResponse = true, serial: serialOverride }: SCServoConstructorParam) {
     this.#id = id
+    this.#diagnostics.id = id
     this.#waitSlot = new SingleWaitSlot<Uint8Array>(Timer.set, Timer.clear)
     this.#offset = 0
     this.#awaitWriteResponse = awaitWriteResponse
     this.#onCommandRead = (values, _length) => {
+      this.#diagnostics.responsesReceived++
       this.#waitSlot.resolve(values)
     }
     this.#txBuf = new Uint8Array(64)
-    const serial = serialOverride ?? config.serial ?? {}
+    const serial = (serialOverride ?? config.serial ?? {}) as NonNullable<SCServoConstructorParam['serial']>
     const port = serial.port ?? 2
     const receive = serial.receive ?? 16
     const transmit = serial.transmit ?? 17
@@ -200,6 +266,28 @@ class SCServo {
     return this.#id
   }
 
+  /**
+   * Command counters for this servo. The returned object is reused, so copy the
+   * fields when a snapshot has to outlive the call.
+   */
+  getDiagnostics(): Readonly<SCServoDiagnostics> {
+    this.#diagnostics.id = this.#id
+    this.#diagnostics.queued = this.#commandQueue.length
+    return this.#diagnostics
+  }
+
+  /**
+   * Receive counters of the shared bus, or undefined before any servo opened it.
+   */
+  static getBusDiagnostics(): Readonly<SCServoBusDiagnostics> | undefined {
+    return packetHandler?.getBusDiagnostics()
+  }
+
+  #recordError(error: unknown): void {
+    this.#diagnostics.lastErrorMessage = reasonFromError(error)
+    this.#diagnostics.lastErrorAtMilliseconds = Date.now()
+  }
+
   #dispatchCommand(
     command: Command,
     address: Address,
@@ -209,37 +297,33 @@ class SCServo {
   ): boolean {
     const waitsForResponse = command === COMMAND.READ || this.#awaitWriteResponse
     if (this.#isWriting || (waitsForResponse && this.#waitSlot.isWaiting)) {
+      this.#diagnostics.busyRejections++
+      this.#recordError(COMMAND_BUSY_ERROR)
       onError(new Error(COMMAND_BUSY_ERROR))
       return false
     }
     this.#isWriting = true
-    this.#txBuf[0] = 0xff
-    this.#txBuf[1] = 0xff
-    this.#txBuf[2] = this.#id
-    this.#txBuf[3] = values.length + 3
-    this.#txBuf[4] = command // write or read
-    this.#txBuf[5] = address
-    let idx = 6
-    for (const v of values) {
-      this.#txBuf[idx] = v
-      idx++
-    }
-    this.#txBuf[idx] = checksum(this.#txBuf, idx)
-    idx++
-    // trace(`writing: ${this.#txBuf.subarray(0, idx)}\n`)
+    const length = encodeSCServoCommand(this.#txBuf, this.#id, command, address, values)
+    // trace(`writing: ${this.#txBuf.subarray(0, length)}\n`)
     this.#writePacket(
-      idx,
+      length,
       () => {
         this.#isWriting = false
+        this.#diagnostics.commandsSent++
         if (!waitsForResponse) {
           deferNoResponseResult(onResult, onError)
           return
         }
         const waiting = this.#waitSlot.wait(COMMAND_TIMEOUT_MS, onResult, () => {
           trace(`[scservo] timeout id=${this.#id} command=${command} address=${address}\n`)
-          onError(new CommandTimeoutError('scservo', COMMAND_TIMEOUT_MS))
+          this.#diagnostics.responseTimeouts++
+          const timeout = new CommandTimeoutError('scservo', COMMAND_TIMEOUT_MS)
+          this.#recordError(timeout)
+          onError(timeout)
         })
         if (!waiting) {
+          this.#diagnostics.busyRejections++
+          this.#recordError(COMMAND_BUSY_ERROR)
           onError(new Error(COMMAND_BUSY_ERROR))
         } else {
           Timer.set(this.#drainCommandQueue, 0)
@@ -247,6 +331,8 @@ class SCServo {
       },
       (error) => {
         this.#isWriting = false
+        this.#diagnostics.writeFailures++
+        this.#recordError(error)
         onError(error)
         Timer.set(this.#drainCommandQueue, 0)
       },
@@ -474,6 +560,8 @@ class SCServo {
 
   setRawPosition(rawPosition: number, callback?: CompletionCallback): void {
     const position = Math.floor(clamp(rawPosition, 0, 0x03ff))
+    this.#diagnostics.lastGoalPosition = position
+    this.#diagnostics.lastGoalTimeMilliseconds = 0
     this.#sendCommand(COMMAND.WRITE, ADDRESS.GOAL_POSITION, () => callback?.(), callback ?? (() => {}), ...le(position))
   }
 
@@ -483,17 +571,12 @@ class SCServo {
     callback?: CompletionCallback,
   ): void {
     const position = Math.floor(clamp(rawPosition, 0, 0x03ff))
-    this.#sendCommand(
-      COMMAND.WRITE,
-      ADDRESS.GOAL_POSITION,
-      () => callback?.(),
-      callback ?? (() => {}),
-      ...le(position),
-      ...le(goalTimeMilliseconds),
-      // SCSCL WritePos writes the complete position/time/speed register window.
-      // Sending only the first four bytes can retain a stale goal-speed field.
-      ...le(0),
-    )
+    this.#diagnostics.lastGoalPosition = position
+    this.#diagnostics.lastGoalTimeMilliseconds = goalTimeMilliseconds
+    // SCSCL WritePos writes the complete position/time/speed register window.
+    // Sending only the first four bytes can retain a stale goal-speed field.
+    const values = writePositionValues(this.#writePositionValues, position, goalTimeMilliseconds)
+    this.#sendCommand(COMMAND.WRITE, ADDRESS.GOAL_POSITION, () => callback?.(), callback ?? (() => {}), ...values)
   }
   readRawPosition(callback: ResultCallback<{ position: number }>): void {
     this.#sendCommand(
@@ -507,9 +590,11 @@ class SCServo {
           })
           return
         }
+        const position = el(values[0], values[1])
+        this.#diagnostics.lastReadPosition = position
         callback({
           success: true,
-          value: { position: el(values[0], values[1]) },
+          value: { position },
         })
       },
       (error) => callback(failureFromError(error)),

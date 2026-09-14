@@ -1,6 +1,12 @@
 import { EmotionNames, emotionFromName } from 'face-state'
 import sharedKey from 'ministack-config'
-import { applyHeadPose, createController, createHeartbeatWatchdog, SERVICE } from 'ministack-controller'
+import {
+  applyHeadPose,
+  createController,
+  createHeartbeatWatchdog,
+  readServoDiagnostics,
+  SERVICE,
+} from 'ministack-controller'
 import Preference from 'preference'
 import Timer from 'timer'
 
@@ -32,13 +38,17 @@ async function start(robot, key) {
   Preference.set('ministack', 'boot', boot)
   const sessionId = `${robot.connectivity.localPeer.id}-${boot}`
   const clamp = (n, limit) => Math.max(-limit, Math.min(limit, n))
-  const pose = (yaw, pitch, duration, cancelled) =>
-    applyHeadPose(
+  // Last head target actually issued, reported next to the measured rotation.
+  let commanded = null
+  const pose = (yaw, pitch, duration, cancelled) => {
+    commanded = { yawRad: clamp(yaw, 0.25), pitchRad: clamp(pitch, 0.15), durationMs: duration }
+    return applyHeadPose(
       robot.motion,
       { position: { x: 0, y: 0, z: 0 }, rotation: { y: clamp(yaw, 0.25), p: clamp(pitch, 0.15), r: 0 } },
       duration / 1000,
       cancelled,
     )
+  }
   const controller = createController({
     now: () => Date.now(),
     sessionId,
@@ -52,7 +62,9 @@ async function start(robot, key) {
       immediateStop: false,
       listen: false,
       photo: false,
+      diagnostics: true,
     },
+    readDiagnostics: () => readServoDiagnostics(robot.motion, commanded),
     async execute(type, p, cancelled) {
       if (cancelled()) throw new Error('cancelled')
       if (type === 'head.set') {

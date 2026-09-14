@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { applyHeadPose, createController, createHeartbeatWatchdog } from './controller.js'
+import { applyHeadPose, createController, createHeartbeatWatchdog, readServoDiagnostics } from './controller.js'
 
 const request = (id, extra = {}) => ({
   v: 1,
@@ -13,8 +13,14 @@ const request = (id, extra = {}) => ({
   durationMs: 700,
   ...extra,
 })
-const fixture = (execute = async () => ({}), now = () => 0) =>
-  createController({ execute, now, sessionId: 'boot1', capabilities: { emotions: ['HAPPY', 'NEUTRAL'] } })
+const fixture = (execute = async () => ({}), now = () => 0, readDiagnostics) =>
+  createController({
+    execute,
+    now,
+    sessionId: 'boot1',
+    capabilities: { emotions: ['HAPPY', 'NEUTRAL'] },
+    readDiagnostics,
+  })
 test('duplicate pending and completed commands execute once; conflicts fail', async () => {
   let calls = 0
   let done
@@ -209,4 +215,83 @@ test('servo timeout has a specific code while unknown errors stay private', asyn
     throw new Error('private details')
   })
   assert.equal((await other.receive('head.set', request('other'))).error.code, 'execution-failed')
+})
+
+test('servo diagnostics stay readable while the queue is busy and do not consume history', async () => {
+  let reads = 0
+  let done
+  const c = fixture(
+    () =>
+      new Promise((resolve) => {
+        done = resolve
+      }),
+    () => 0,
+    async () => {
+      reads++
+      return { servo: { pan: { commandsSent: reads } } }
+    },
+  )
+  const action = c.receive('head.set', request('move'))
+  for (let i = 0; i < 300; i++) {
+    const reply = await c.receive('servo.diag', request(`diag-${i}`))
+    assert.equal(reply.ok, true)
+    assert.equal(reply.result.servo.pan.commandsSent, i + 1)
+  }
+  // A diagnostic read must never displace a queued action or fill the history.
+  assert.equal((await c.receive('state.get', request('state'))).result.running, 'head.set')
+  done({})
+  assert.equal((await action).ok, true)
+  assert.equal((await c.receive('servo.diag', request('stale', { sessionId: 'old' }))).error.code, 'stale-session')
+})
+
+test('a failing or absent diagnostics source is reported without dropping the session', async () => {
+  const failing = fixture(
+    async () => ({}),
+    () => 0,
+    async () => {
+      throw new Error('servo unreachable')
+    },
+  )
+  assert.equal((await failing.receive('servo.diag', request('diag'))).error.code, 'diagnostics-failed')
+  assert.equal((await failing.receive('state.get', request('after'))).ok, true)
+  const unsupported = fixture()
+  assert.equal((await unsupported.receive('servo.diag', request('diag'))).error.code, 'unsupported')
+})
+
+test('a diagnostic snapshot pairs the commanded target with the measured rotation', async () => {
+  const driverDiagnostics = { pan: { commandsSent: 0, lastGoalPosition: -1 } }
+  const motion = {
+    getDiagnostics: () => driverDiagnostics,
+    async getRotation() {
+      // Reading is itself a servo command, so the counters move during the read.
+      driverDiagnostics.pan.commandsSent++
+      driverDiagnostics.pan.lastGoalPosition = 460
+      return { success: true, value: { y: 0.11, p: -0.01, r: 0 } }
+    },
+  }
+  const snapshot = await readServoDiagnostics(motion, { yawRad: 0.12, pitchRad: 0, durationMs: 1000 })
+  assert.deepEqual(snapshot.commanded, { yawRad: 0.12, pitchRad: 0, durationMs: 1000 })
+  assert.deepEqual(snapshot.measured, { yawRad: 0.11, pitchRad: -0.01 })
+  assert.equal(snapshot.measuredError, null)
+  assert.equal(snapshot.servo.pan.commandsSent, 1, 'the snapshot includes the read it just performed')
+  // Drivers reuse their diagnostics object; the snapshot must not follow it.
+  driverDiagnostics.pan.commandsSent = 99
+  assert.equal(snapshot.servo.pan.commandsSent, 1)
+})
+
+test('an unreadable servo is reported as a measurement error, not as a missing head', async () => {
+  const snapshot = await readServoDiagnostics(
+    {
+      getDiagnostics: () => ({ pan: { responseTimeouts: 3 } }),
+      async getRotation() {
+        return { success: false, reason: 'scservo command timed out after 120ms' }
+      },
+    },
+    null,
+  )
+  assert.equal(snapshot.measured, null)
+  assert.match(snapshot.measuredError, /timed out/)
+  assert.equal(snapshot.servo.pan.responseTimeouts, 3)
+  const bare = await readServoDiagnostics({}, null)
+  assert.deepEqual(bare, { commanded: null, measured: null, measuredError: null, servo: null })
 })

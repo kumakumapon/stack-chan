@@ -11,17 +11,54 @@
   ><button id="head">首を左右に小さく動かす</button
   ><button id="head-diagnostic">首の診断（約9度）</button
   ><button id="center">首を正面に戻す</button
+  ><button id="servo-diag">サーボ診断を読む</button
   ><button id="stop">待機動作を停止</button
   ><button id="disconnect">切断</button>
   <p id="connection-status" role="status">未接続</p>
+  <pre id="servo-summary" role="status"></pre>
   <pre id="status" role="status"></pre>
   <script type="module">
     import { MiniStackClient } from './client.mjs'
     const connectionStatus = document.querySelector('#connection-status')
-    const client = new MiniStackClient(undefined, (error) => {
-      connectionStatus.textContent = error ? `切断: ${error.message}` : '切断しました'
-    })
+    const client = new MiniStackClient(
+      undefined,
+      (error) => {
+        connectionStatus.textContent = error ? `切断: ${error.message}` : '切断しました'
+      },
+      {
+        onReconnectAttempt: ({ attempt, attempts, delayMs }) => {
+          connectionStatus.textContent = `再接続を試行します（${attempt}/${attempts}、${delayMs / 1000}秒後）`
+        },
+      }
+    )
     const status = document.querySelector('#status')
+    const servoSummary = document.querySelector('#servo-summary')
+    const rad = (value) => (typeof value === 'number' ? `${value.toFixed(3)} rad` : '-')
+    // Command issued, acknowledged, and actually moved are three different things.
+    // Show them side by side so a device check does not need a reflash to decide.
+    const renderServoDiagnostics = (result) => {
+      const servo = result.servo
+      const axis = (name, value) =>
+        value
+          ? `${name}: 送信 ${value.commandsSent} / 応答 ${value.responsesReceived} / 応答なし ${value.responseTimeouts}` +
+            ` / 送信失敗 ${value.writeFailures} / 目標 ${value.lastGoalPosition} (goal time ${value.lastGoalTimeMilliseconds})` +
+            ` / 実測 ${value.lastReadPosition}${value.lastErrorMessage ? ` / 直近のエラー ${value.lastErrorMessage}` : ''}`
+          : `${name}: 情報なし`
+      servoSummary.textContent = [
+        `指令: yaw ${rad(result.commanded?.yawRad)} / pitch ${rad(result.commanded?.pitchRad)}`,
+        `実測: ${result.measured ? `yaw ${rad(result.measured.yawRad)} / pitch ${rad(result.measured.pitchRad)}` : `読み取り失敗（${result.measuredError ?? '不明'}）`}`,
+        servo ? `電源: ${servo.power.configured ? (servo.power.available ? (servo.power.enabled ? 'ON' : 'OFF') : '未検出') : '未使用'}` : '電源: 情報なし',
+        axis('yaw ', servo?.pan),
+        axis('pitch', servo?.tilt),
+        servo?.bus
+          ? `バス: 受信フレーム ${servo.bus.framesDecoded} / 破棄バイト ${servo.bus.discardedBytes} / チェックサム不一致 ${servo.bus.checksumErrors} / エコー ${servo.bus.echoesIgnored}`
+          : 'バス: 情報なし',
+        servo ? `UART${servo.serial.port} TX=${servo.serial.transmit} RX=${servo.serial.receive} ${servo.serial.baud}bps / goal time ${servo.goalTimeMilliseconds}` : '',
+      ]
+        .filter(Boolean)
+        .join('\n')
+      return result
+    }
     document.querySelector('#key-file').onchange = async (event) => {
       const file = event.target.files?.[0]
       if (!file) return
@@ -71,9 +108,11 @@
     }
     document.querySelector('#head-diagnostic').onclick = () =>
       run(() => client.request('head.set', { yawRad: 0.15, pitchRad: 0, durationMs: 1000, priority: 2, ttlMs: 2000 }))
+    document.querySelector('#servo-diag').onclick = () =>
+      run(async () => renderServoDiagnostics(await client.request('servo.diag')))
     document.querySelector('#stop').onclick = () => run(() => client.request('stop', { scope: 'all' }))
     document.querySelector('#disconnect').onclick = () => {
-      client.close()
+      client.disconnect()
       status.textContent = '切断しました'
     }
     window.addEventListener('pagehide', () => client.close())

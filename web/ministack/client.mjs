@@ -2,12 +2,21 @@ import { BLELocalPeerCapability } from '../local-peer/ble-local-peer.mjs'
 
 // Call connect from a browser user gesture. Secrets remain in memory only.
 export class MiniStackClient {
-  constructor(createCapability = () => new BLELocalPeerCapability(), onDisconnect = () => {}) {
+  constructor(createCapability = () => new BLELocalPeerCapability(), onDisconnect = () => {}, options = {}) {
     this.createCapability = createCapability
     this.onDisconnect = onDisconnect
     this.pending = new Map()
     this.counter = 0
     this.revision = 0
+    // Reflashing the host or the MOD invalidates the BLE session, so a test
+    // session is interrupted many times per device cycle. Retry automatically
+    // while the browser still holds permission for the remembered device.
+    this.reconnectAttempts = options.reconnectAttempts ?? 3
+    this.reconnectBaseDelayMs = options.reconnectBaseDelayMs ?? 1000
+    this.schedule = options.schedule ?? ((run, delayMs) => setTimeout(run, delayMs))
+    this.onReconnectAttempt = options.onReconnectAttempt ?? (() => {})
+    this.autoReconnect = false
+    this.retries = 0
   }
   async connect(sharedKey) {
     if (this.connecting) throw new Error('Connection already in progress')
@@ -18,6 +27,7 @@ export class MiniStackClient {
     const revision = this.revision
     if (typeof sharedKey !== 'string' || sharedKey.length < 16)
       throw new Error('sharedKey must contain at least 16 characters')
+    this.sharedKey = sharedKey
     this.connecting = true
     try {
       const session = await this.createCapability().open({
@@ -73,6 +83,8 @@ export class MiniStackClient {
       }
       this.heartbeat = setInterval(poll, 1000)
       poll()
+      this.autoReconnect = this.reconnectAttempts > 0
+      this.retries = 0
       return capabilities
     } catch (error) {
       this.close(error)
@@ -116,6 +128,29 @@ export class MiniStackClient {
       item.reject(reason ?? new Error('Disconnected'))
     }
     this.pending.clear()
-    if (hadSession) this.onDisconnect(reason)
+    if (!hadSession) return
+    this.onDisconnect(reason)
+    // Only an unexpected drop is retried; an explicit disconnect stays closed.
+    if (reason) this.scheduleReconnect(reason)
+  }
+  /** Stops auto-reconnect and closes the session, for an explicit user action. */
+  disconnect() {
+    this.autoReconnect = false
+    this.close()
+  }
+  scheduleReconnect(reason) {
+    if (!this.autoReconnect || !this.sharedKey || this.retries >= this.reconnectAttempts) return
+    const attempt = ++this.retries
+    const delayMs = this.reconnectBaseDelayMs * 2 ** (attempt - 1)
+    this.onReconnectAttempt({ attempt, attempts: this.reconnectAttempts, delayMs, reason })
+    // The callback returns the attempt so a caller driving the schedule can await it.
+    this.schedule(() => {
+      if (!this.autoReconnect || this.session || this.connecting) return undefined
+      // A retry that needs the device chooser cannot run without a user gesture;
+      // the rejection surfaces through onDisconnect so the page can say so.
+      // A failed attempt keeps the chain going until the budget is spent; a
+      // successful one resets it, because the next drop is a new interruption.
+      return this.connect(this.sharedKey).catch((error) => this.scheduleReconnect(error))
+    }, delayMs)
   }
 }

@@ -59,6 +59,30 @@
       "wasm-driver": [
         "./host/modules/motion/wasm/wasm-driver.ts"
       ],
+      "embedded:io/serial": [
+        "./host/modules/motion/__tests__/fakes/serial.ts"
+      ],
+      "py32-io-expander": [
+        "./host/modules/motion/__tests__/fakes/py32-io-expander-stub.ts"
+      ],
+      "servo-command-error": [
+        "./host/modules/motion/internal/servo-command-error.ts"
+      ],
+      "single-wait-slot": [
+        "./host/modules/motion/internal/single-wait-slot.ts"
+      ],
+      "m5stackchan-servo": [
+        "./host/modules/motion/m5stackchan-servo.ts"
+      ],
+      "protocols/scservo": [
+        "./host/modules/motion/protocols/scservo.ts"
+      ],
+      "protocols/scservo-codec": [
+        "./host/modules/motion/protocols/scservo-codec.ts"
+      ],
+      "protocols/scservo-decoder": [
+        "./host/modules/motion/protocols/scservo-decoder.ts"
+      ],
       "face-state": [
         "./host/modules/ui/state/face-state.ts"
       ],
