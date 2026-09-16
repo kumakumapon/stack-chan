@@ -1,0 +1,59 @@
+# Stack-chan Conversation Gateway — example configuration.
+#
+# Cloud credentials belong here, on the Gateway. The robot stores only its
+# Gateway URL, device id and Gateway token. Every value may reference an
+# environment variable as ${NAME}; an unset reference fails at start-up.
+
+conversation:
+  backend: gateway
+
+gateway:
+  listen:
+    host: 0.0.0.0
+    port: 8765
+    path: /
+  # A shared token accepted from any device that has no per-device token.
+  token: ${STACKCHAN_GATEWAY_TOKEN}
+  devices:
+    - deviceId: stackchan-01
+      token: ${STACKCHAN_01_TOKEN}
+
+agent:
+  # echo    - offline, no credentials, answers with the text it heard
+  # openai  - OpenAI Chat Completions with tool calling
+  # hermes  - any HTTP + NDJSON agent that implements the documented contract
+  type: openai
+  apiKey: ${OPENAI_API_KEY}
+  model: gpt-4o-mini
+  instructions: >-
+    You are the voice of a small desktop robot. Keep answers short. Use the
+    stackchan.* tools to move, look and light up rather than describing what
+    you would do.
+
+stt:
+  # auto resolves to openai when apiKey is set, otherwise none.
+  type: auto
+  apiKey: ${OPENAI_API_KEY}
+
+tts:
+  # With type none the Gateway sends only the output transcript and the robot
+  # speaks it with its own TTS. That is the Phase 0 text path.
+  type: auto
+  apiKey: ${OPENAI_API_KEY}
+  voice: alloy
+
+tools:
+  mcp: true
+  servers:
+    - label: github
+      url: https://mcp.example.com/github
+      token: ${GITHUB_MCP_TOKEN}
+  # Tools that must be approved on the robot before they run. Names match
+  # exactly, or by a trailing * prefix.
+  requireApproval:
+    command:
+      - shell.*
+      - github.create_*
+    fileChange:
+      - files.write
+  approvalTimeoutMs: 60000

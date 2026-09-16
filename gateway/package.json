@@ -1,0 +1,35 @@
+{
+  "name": "stackchan-conversation-gateway",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Conversation Gateway for Stack-chan: session hub between the robot and an interchangeable AI Agent backend",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "stackchan-gateway": "dist/main.js"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "tsc --project tsconfig.json",
+    "clean": "rm -rf dist",
+    "start": "node dist/main.js",
+    "lint": "biome lint src",
+    "lint:fix": "biome lint --write src",
+    "format": "biome format src",
+    "format:fix": "biome format --write src",
+    "typecheck": "tsc --project tsconfig.json --noEmit",
+    "test": "npm run build && node --test \"dist/**/*.test.js\""
+  },
+  "dependencies": {
+    "ws": "^8.18.0",
+    "yaml": "^2.6.1"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.0.0",
+    "@types/node": "^22.10.0",
+    "@types/ws": "^8.5.13",
+    "typescript": "^5.7.0"
+  }
+}
