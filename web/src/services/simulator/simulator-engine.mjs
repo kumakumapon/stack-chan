@@ -10,9 +10,12 @@ import {
   createHostButtonBridge,
   createHostCameraBridge,
   createHostDriverBridge,
+  createHostImuBridge,
+  createHostTouchPanelBridge,
   installModArchiveIntoWasm,
   summarizeImageData,
 } from '../../../simulator/bridge.mjs'
+import { DEFAULT_DEVICE_PROFILE_ID, resolveDeviceProfile } from '../../../simulator/device-profile.mjs'
 import {
   SCREEN_CANVAS,
   STACKCHAN_FACE_MM,
@@ -753,6 +756,7 @@ export class SimulatorEngine {
     onError = () => {},
     modStorage = createModStorage(),
     runtimeBaseUrl = new URL('../simulator/', document.baseURI).href,
+    deviceProfile = DEFAULT_DEVICE_PROFILE_ID,
   }) {
     this.viewport = viewport
     this.screen = screen
@@ -763,7 +767,10 @@ export class SimulatorEngine {
     this.onReady = onReady
     this.onError = onError
     this.modStorage = modStorage
+    this.profile = resolveDeviceProfile(deviceProfile)
     this.buttonBridge = createHostButtonBridge({ logger: (message) => this.onTrace(message) })
+    this.touchPanelBridge = createHostTouchPanelBridge({ logger: (message) => this.onTrace(message) })
+    this.imuBridge = createHostImuBridge({ logger: (message) => this.onTrace(message) })
     this.audioOutBridge = createHostAudioOutBridge()
     this.audioInBridge = createHostAudioInBridge()
     this.cameraBridge = createHostCameraBridge()
@@ -772,8 +779,13 @@ export class SimulatorEngine {
       onRotation: (rotation) => this.scene.applyDriverRotation(rotation),
       onTorque: (torque) => this.scene.setTorqueEnabled(torque),
     })
+    // Only wire the bridges this profile's board actually has. Host.TouchPanel/Host.IMU/
+    // Host.Button being absent (rather than present-but-disabled) is what the firmware reads as
+    // "this device has no such sensor" — see the sample-boundary contract in bridge.mjs.
     this.hostBridge = {
-      Button: this.buttonBridge.Button,
+      ...(this.profile.inputs.virtualButtons ? { Button: this.buttonBridge.Button } : {}),
+      ...(this.profile.inputs.headTouch ? { TouchPanel: this.touchPanelBridge.TouchPanel } : {}),
+      ...(this.profile.inputs.imu ? { IMU: this.imuBridge.IMU } : {}),
       AudioOut: this.audioOutBridge,
       AudioIn: this.audioInBridge,
       Camera: this.cameraBridge,
@@ -860,8 +872,56 @@ export class SimulatorEngine {
     }
   }
 
+  get deviceProfile() {
+    return this.profile
+  }
+
   pushButton(name) {
+    if (!this.profile.inputs.virtualButtons) {
+      this.onTrace(`[simulator] pushButton(${name}) ignored: ${this.profile.label} has no virtual buttons`)
+      return
+    }
     this.buttonBridge.push(name)
+  }
+
+  headSwipe(direction) {
+    if (!this.profile.inputs.headTouch) {
+      this.onTrace(`[simulator] headSwipe(${direction}) ignored: ${this.profile.label} has no head touch panel`)
+      return
+    }
+    this.touchPanelBridge.swipe(direction)
+  }
+
+  setHeadTouchPosition(position) {
+    if (!this.profile.inputs.headTouch) {
+      this.onTrace(`[simulator] setHeadTouchPosition(${position}) ignored: ${this.profile.label} has no head touch panel`)
+      return
+    }
+    this.touchPanelBridge.setPosition(position)
+  }
+
+  releaseHeadTouch() {
+    if (!this.profile.inputs.headTouch) {
+      this.onTrace(`[simulator] releaseHeadTouch() ignored: ${this.profile.label} has no head touch panel`)
+      return
+    }
+    this.touchPanelBridge.release()
+  }
+
+  setImuOrientation(name) {
+    if (!this.profile.inputs.imu) {
+      this.onTrace(`[simulator] setImuOrientation(${name}) ignored: ${this.profile.label} has no IMU`)
+      return
+    }
+    this.imuBridge.setOrientation(name)
+  }
+
+  shakeImu() {
+    if (!this.profile.inputs.imu) {
+      this.onTrace(`[simulator] shakeImu() ignored: ${this.profile.label} has no IMU`)
+      return
+    }
+    this.imuBridge.shake()
   }
 
   dispose() {
@@ -873,5 +933,7 @@ export class SimulatorEngine {
     this.scene.dispose()
     this.cameraBridge.stop()
     this.audioOutBridge.close()
+    this.touchPanelBridge.cancel()
+    this.imuBridge.cancel()
   }
 }

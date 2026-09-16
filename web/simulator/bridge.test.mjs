@@ -2,15 +2,69 @@ import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 
 import {
+  IMU_ORIENTATIONS,
   clientPointFromTouch,
   createHostAudioInBridge,
   createHostAudioOutBridge,
   createHostButtonBridge,
   createHostCameraBridge,
   createHostDriverBridge,
+  createHostImuBridge,
+  createHostTouchPanelBridge,
   installModArchiveIntoWasm,
   summarizeImageData,
 } from './bridge.mjs'
+
+// Reimplemented from firmware/host/modules/input/touch-panel-gesture.ts GestureRecognizer.getPosition,
+// which is the ground truth the touch panel bridge's setPosition() must round-trip against.
+function getPosition(sample) {
+  const left = sample[0] ?? 0
+  const center = sample[1] ?? 0
+  const right = sample[2] ?? 0
+  const total = left + center + right
+  if (total === 0) return 0
+  return Math.trunc((left * -100 + center * 0 + right * 100) / total)
+}
+
+// Reimplemented from firmware/host/modules/input/imu-motion.ts detectPosture, the ground truth
+// the IMU bridge's orientation vectors must classify against.
+function detectPosture(accelerometer, threshold = 0.75) {
+  const magnitude = Math.sqrt(accelerometer.x ** 2 + accelerometer.y ** 2 + accelerometer.z ** 2)
+  if (magnitude === 0) return 'unknown'
+  const x = accelerometer.x / magnitude
+  const y = accelerometer.y / magnitude
+  const z = accelerometer.z / magnitude
+  if (y >= threshold) return 'upright'
+  if (y <= -threshold) return 'upsideDown'
+  if (Math.abs(x) >= Math.abs(z) && Math.abs(x) >= threshold) return x >= 0 ? 'fallenLeft' : 'fallenRight'
+  if (Math.abs(z) >= threshold) return z < 0 ? 'fallenForward' : 'fallenBackward'
+  return 'unknown'
+}
+
+function createFakeTimers() {
+  const scheduled = []
+  const cleared = new Set()
+  let nextId = 1
+  return {
+    scheduled,
+    cleared,
+    setTimeoutFn: (callback, delay) => {
+      const id = nextId++
+      scheduled.push({ id, callback, delay })
+      return id
+    },
+    clearTimeoutFn: (id) => {
+      cleared.add(id)
+    },
+    // Runs every not-yet-cleared timer in the order it was scheduled (they are pushed here in
+    // non-decreasing delay order, matching how each bridge schedules its own sequence).
+    runAll: () => {
+      for (const timer of scheduled) {
+        if (!cleared.has(timer.id)) timer.callback()
+      }
+    },
+  }
+}
 
 describe('Host.Button bridge', () => {
   it('emits normalized press and release edges for button-aware MOD compatibility', () => {
@@ -751,5 +805,186 @@ describe('MOD archive bridge', () => {
     assert.deepEqual(result, { status: 'prepared', pointer: 4, name: 'mod.xsa', size: 2 })
     assert.deepEqual(Array.from(heap.slice(4, 6)), [1, 2])
     assert.deepEqual(calls, [['malloc', 2]])
+  })
+})
+
+describe('Host.TouchPanel bridge', () => {
+  it('round-trips setPosition() against the real GestureRecognizer centroid formula', () => {
+    const bridge = createHostTouchPanelBridge()
+
+    for (const position of [-100, -80, -63, -37, -1, 0, 1, 37, 63, 80, 100]) {
+      bridge.setPosition(position)
+      const recovered = getPosition(bridge.sample())
+      assert.ok(Math.abs(recovered - position) <= 1, `position ${position} recovered as ${recovered}`)
+    }
+  })
+
+  it('reads channels by index and treats out-of-range channels as untouched', () => {
+    const bridge = createHostTouchPanelBridge()
+    bridge.setPosition(0)
+
+    assert.equal(bridge.read(1) > 0, true)
+    assert.equal(bridge.read(-1), 0)
+    assert.equal(bridge.read(99), 0)
+    assert.equal(bridge.TouchPanel.read(99), 0)
+  })
+
+  it('scripts a forward swipe as touch, then a swipe past the threshold, then release', () => {
+    const timers = createFakeTimers()
+    const bridge = createHostTouchPanelBridge({ setTimeoutFn: timers.setTimeoutFn, clearTimeoutFn: timers.clearTimeoutFn })
+
+    bridge.swipe('forward')
+    const initialSample = bridge.sample()
+    const initialPosition = getPosition(initialSample)
+    assert.ok(initialSample.some((intensity) => intensity > 0), 'initial sample should be touched')
+    assert.equal(bridge.isSwiping(), true)
+
+    // Run enough interpolated steps to clear the firmware's 60-point swipeThreshold.
+    for (const timer of timers.scheduled.slice(0, 4)) timer.callback()
+    const movedSample = bridge.sample()
+    assert.ok(Math.abs(getPosition(movedSample) - initialPosition) > 60)
+    assert.ok(movedSample.some((intensity) => intensity > 0), 'mid-swipe sample should still be touched')
+
+    for (const timer of timers.scheduled.slice(4)) timer.callback()
+    assert.deepEqual(bridge.sample(), [0, 0, 0])
+    assert.equal(bridge.isSwiping(), false)
+  })
+
+  it('scripts a backward swipe from the opposite end', () => {
+    const timers = createFakeTimers()
+    const bridge = createHostTouchPanelBridge({ setTimeoutFn: timers.setTimeoutFn, clearTimeoutFn: timers.clearTimeoutFn })
+
+    bridge.swipe('backward')
+    const initialPosition = getPosition(bridge.sample())
+    assert.ok(initialPosition > 60)
+
+    timers.runAll()
+    assert.deepEqual(bridge.sample(), [0, 0, 0])
+  })
+
+  it('replaces an in-flight swipe when a new one starts', () => {
+    const timers = createFakeTimers()
+    const bridge = createHostTouchPanelBridge({ setTimeoutFn: timers.setTimeoutFn, clearTimeoutFn: timers.clearTimeoutFn })
+
+    bridge.swipe('forward')
+    const firstRoundTimerIds = timers.scheduled.map((timer) => timer.id)
+    assert.ok(getPosition(bridge.sample()) < 0)
+
+    bridge.swipe('backward')
+    for (const id of firstRoundTimerIds) assert.ok(timers.cleared.has(id), `timer ${id} from the replaced swipe should be cleared`)
+    assert.ok(getPosition(bridge.sample()) > 0, 'the new swipe should have re-pressed at the opposite end')
+    assert.equal(bridge.isSwiping(), true)
+  })
+
+  it('cancel() clears pending timers and releases immediately', () => {
+    const timers = createFakeTimers()
+    const bridge = createHostTouchPanelBridge({ setTimeoutFn: timers.setTimeoutFn, clearTimeoutFn: timers.clearTimeoutFn })
+
+    bridge.swipe('forward')
+    bridge.cancel()
+
+    assert.equal(bridge.isSwiping(), false)
+    assert.deepEqual(bridge.sample(), [0, 0, 0])
+    for (const timer of timers.scheduled) assert.ok(timers.cleared.has(timer.id))
+  })
+})
+
+describe('Host.IMU bridge', () => {
+  it('classifies each orientation vector the way MotionRecognizer.detectPosture would', () => {
+    const bridge = createHostImuBridge()
+
+    for (const name of Object.keys(IMU_ORIENTATIONS)) {
+      bridge.setOrientation(name)
+      const posture = detectPosture(bridge.sample().accelerometer)
+      assert.equal(posture, name)
+      assert.equal(bridge.orientation(), name)
+    }
+  })
+
+  it('reads accelerometer and gyroscope axes 0..5 and treats out-of-range axes as zero', () => {
+    const bridge = createHostImuBridge()
+    bridge.setOrientation('upright')
+
+    assert.equal(bridge.read(0), 0)
+    assert.equal(bridge.read(1), 1)
+    assert.equal(bridge.read(2), 0)
+    assert.equal(bridge.read(3), 0)
+    assert.equal(bridge.read(4), 0)
+    assert.equal(bridge.read(5), 0)
+    assert.equal(bridge.read(6), 0)
+    assert.equal(bridge.IMU.read(6), 0)
+  })
+
+  it('scales orientation vectors by the configured gravity', () => {
+    const bridge = createHostImuBridge({ gravity: 2 })
+    bridge.setOrientation('fallenForward')
+
+    assert.deepEqual(bridge.sample().accelerometer, { x: 0, y: 0, z: -2 })
+  })
+
+  it('produces 10 consecutive shaken samples that each differ in magnitude by at least 1.2g', () => {
+    const timers = createFakeTimers()
+    const bridge = createHostImuBridge({ setTimeoutFn: timers.setTimeoutFn, clearTimeoutFn: timers.clearTimeoutFn })
+
+    bridge.shake()
+    const magnitudeOf = (vector) => Math.sqrt(vector.x ** 2 + vector.y ** 2 + vector.z ** 2)
+    let previous = magnitudeOf(bridge.sample().accelerometer)
+    for (let sampleIndex = 0; sampleIndex < 10; sampleIndex += 1) {
+      bridge.read(0) // axis 0 is always read first per the sample-boundary contract
+      const magnitude = magnitudeOf(bridge.sample().accelerometer)
+      assert.ok(Math.abs(magnitude - previous) >= 1.2, `sample ${sampleIndex} delta too small`)
+      previous = magnitude
+    }
+  })
+
+  it('advances the shake phase only on read(0), not on other axes', () => {
+    const timers = createFakeTimers()
+    const bridge = createHostImuBridge({ setTimeoutFn: timers.setTimeoutFn, clearTimeoutFn: timers.clearTimeoutFn })
+
+    bridge.shake()
+    const baseline = bridge.sample().accelerometer
+    bridge.read(1)
+    bridge.read(2)
+    bridge.read(4)
+    assert.deepEqual(bridge.sample().accelerometer, baseline, 'non-axis-0 reads must not advance the shake phase')
+
+    bridge.read(0)
+    assert.notDeepEqual(bridge.sample().accelerometer, baseline, 'axis-0 read must advance the shake phase')
+  })
+
+  it('stops shaking on its own after durationMs elapses', () => {
+    const timers = createFakeTimers()
+    const bridge = createHostImuBridge({ setTimeoutFn: timers.setTimeoutFn, clearTimeoutFn: timers.clearTimeoutFn })
+
+    bridge.shake({ durationMs: 1500 })
+    assert.equal(timers.scheduled[0].delay, 1500)
+    bridge.read(0)
+    assert.equal(bridge.isShaking(), true)
+
+    timers.scheduled[0].callback()
+    assert.equal(bridge.isShaking(), false)
+    assert.deepEqual(bridge.sample().accelerometer, { x: 0, y: 1, z: 0 })
+  })
+
+  it('cancel() stops the shake immediately and restores the resting vector', () => {
+    const timers = createFakeTimers()
+    const bridge = createHostImuBridge({ setTimeoutFn: timers.setTimeoutFn, clearTimeoutFn: timers.clearTimeoutFn })
+
+    bridge.setOrientation('fallenLeft')
+    bridge.shake()
+    bridge.read(0)
+    bridge.read(0)
+
+    bridge.cancel()
+    assert.equal(bridge.isShaking(), false)
+    assert.deepEqual(bridge.sample().accelerometer, { x: 1, y: 0, z: 0 })
+  })
+
+  it('setAccelerometer() sets an arbitrary vector directly and marks orientation as custom', () => {
+    const bridge = createHostImuBridge()
+    bridge.setAccelerometer({ x: 0.5, y: 0.5, z: 0 })
+
+    assert.deepEqual(bridge.sample().accelerometer, { x: 0.5, y: 0.5, z: 0 })
+    assert.equal(bridge.orientation(), 'custom')
   })
 })

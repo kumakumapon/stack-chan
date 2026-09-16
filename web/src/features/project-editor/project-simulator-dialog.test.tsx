@@ -7,6 +7,7 @@ import { I18nProvider } from '@/app/i18n-provider'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { ProjectSimulatorDialog } from '@/features/project-editor/project-simulator-dialog'
 import { useSimulatorEngine } from '@/features/simulator/use-simulator-engine'
+import { resolveDeviceProfile } from '../../../simulator/device-profile.mjs'
 
 vi.mock('@/features/simulator/use-simulator-engine', () => ({
   useSimulatorEngine: vi.fn(),
@@ -25,6 +26,17 @@ const simulatorController = {
   clearMod: vi.fn(async () => {}),
   connectCamera: vi.fn(async () => {}),
   pushButton: vi.fn(),
+  // The dialog renders the full simulator surface, so the fake has to carry the
+  // device profile and its input controls too. Resolve a real profile rather
+  // than inventing a shape the surface would happily accept but the engine
+  // would never produce.
+  deviceProfile: resolveDeviceProfile('m5stackchan-cores3'),
+  setDeviceProfile: vi.fn(),
+  headSwipe: vi.fn(),
+  setHeadTouchPosition: vi.fn(),
+  releaseHeadTouch: vi.fn(),
+  setImuOrientation: vi.fn(),
+  shakeImu: vi.fn(),
 }
 
 describe('ProjectSimulatorDialog', () => {

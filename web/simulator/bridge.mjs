@@ -102,6 +102,227 @@ export function createHostButtonBridge({
   }
 }
 
+export function createHostTouchPanelBridge({
+  channels = 3,
+  touchIntensity = 32,
+  // 60ms per swipe step is deliberately longer than the CoreS3 manifest's 50ms touchIntervalMs
+  // poll, so the firmware's GestureRecognizer observes every scripted position.
+  swipeStepMs = 60,
+  swipeSteps = 8,
+  setTimeoutFn = globalThis.setTimeout,
+  clearTimeoutFn = globalThis.clearTimeout,
+  logger = () => {},
+} = {}) {
+  // Si12T reports three intensity zones (left/center/right at channels 0/1/2); GestureRecognizer
+  // derives a -100..100 centroid from them as (left*-100 + center*0 + right*100) / total.
+  const state = new Array(channels).fill(0)
+  let pendingTimers = []
+  let swiping = false
+
+  const clampPosition = (position) => Math.max(-100, Math.min(100, position))
+
+  const clearState = () => state.fill(0)
+
+  const applyPosition = (position) => {
+    clearState()
+    const clamped = clampPosition(position)
+    // Map the requested centroid to a continuous channel index in [0, 2] (left=0, center=1,
+    // right=2) and split touchIntensity across its two neighbours by the fractional part, so
+    // GestureRecognizer.getPosition() recovers `clamped` (within rounding) from the result.
+    const index = (clamped + 100) / 100
+    const lower = Math.floor(index)
+    const upper = Math.ceil(index)
+    if (lower === upper) {
+      if (lower >= 0 && lower < channels) state[lower] = touchIntensity
+      return
+    }
+    const fraction = index - lower
+    if (lower >= 0 && lower < channels) state[lower] = Math.round(touchIntensity * (1 - fraction))
+    if (upper >= 0 && upper < channels) state[upper] = Math.round(touchIntensity * fraction)
+  }
+
+  const clearPendingTimers = () => {
+    for (const timer of pendingTimers) clearTimeoutFn(timer)
+    pendingTimers = []
+  }
+
+  return {
+    TouchPanel: { read: (channel) => state[channel] ?? 0 },
+    read(channel) {
+      return state[channel] ?? 0
+    },
+    sample() {
+      return [...state]
+    },
+    setPosition(position) {
+      applyPosition(position)
+    },
+    release() {
+      clearState()
+    },
+    // Scripts press -> swipeSteps interpolated positions -> release, each held swipeStepMs.
+    // Forward runs -80 -> +80 and backward +80 -> -80, both clearing the 60-point swipeThreshold
+    // with margin. Returns a Promise that resolves once the release step has run, for tests
+    // that want to await a full gesture; callers that don't care may ignore it.
+    swipe(direction) {
+      clearPendingTimers()
+      const start = direction === 'backward' ? 80 : -80
+      const end = direction === 'backward' ? -80 : 80
+      swiping = true
+      logger(`[bridge] Host.TouchPanel swipe ${direction}`)
+      applyPosition(start)
+      return new Promise((resolve) => {
+        for (let step = 1; step <= swipeSteps; step += 1) {
+          const position = start + ((end - start) * step) / swipeSteps
+          pendingTimers.push(setTimeoutFn(() => applyPosition(position), step * swipeStepMs))
+        }
+        pendingTimers.push(
+          setTimeoutFn(() => {
+            clearState()
+            swiping = false
+            resolve()
+          }, (swipeSteps + 1) * swipeStepMs)
+        )
+      })
+    },
+    isSwiping() {
+      return swiping
+    },
+    cancel() {
+      clearPendingTimers()
+      swiping = false
+      clearState()
+    },
+  }
+}
+
+export const IMU_ORIENTATIONS = Object.freeze({
+  upright: Object.freeze({ x: 0, y: 1, z: 0 }),
+  upsideDown: Object.freeze({ x: 0, y: -1, z: 0 }),
+  fallenForward: Object.freeze({ x: 0, y: 0, z: -1 }),
+  fallenBackward: Object.freeze({ x: 0, y: 0, z: 1 }),
+  fallenLeft: Object.freeze({ x: 1, y: 0, z: 0 }),
+  fallenRight: Object.freeze({ x: -1, y: 0, z: 0 }),
+})
+
+function imuVectorMagnitude(vector) {
+  return Math.sqrt(vector.x * vector.x + vector.y * vector.y + vector.z * vector.z)
+}
+
+function scaleImuVector(vector, factor) {
+  return { x: vector.x * factor, y: vector.y * factor, z: vector.z * factor }
+}
+
+export function createHostImuBridge({
+  // 1500ms comfortably covers the firmware's 10 consecutive 100ms IMU-poll samples (1000ms)
+  // plus margin for scheduling jitter.
+  shakeDurationMs = 1500,
+  // Alternating +/-amplitude around the resting magnitude gives ~2x this as the delta between
+  // consecutive samples, clearing MotionRecognizer's 1.2g accelerationDeltaThreshold with margin.
+  shakeAmplitude = 1.6,
+  gravity = 1,
+  setTimeoutFn = globalThis.setTimeout,
+  clearTimeoutFn = globalThis.clearTimeout,
+  logger = () => {},
+} = {}) {
+  let orientationName = 'upright'
+  let baseVector = scaleImuVector(IMU_ORIENTATIONS.upright, gravity)
+  let accelerometer = baseVector
+  const gyroscope = { x: 0, y: 0, z: 0 }
+  let shaking = false
+  let shakeTimer
+  let shakePhaseSign = -1
+
+  const shakeFactor = () => {
+    const magnitude = imuVectorMagnitude(baseVector) || gravity || 1
+    return (magnitude + shakePhaseSign * shakeAmplitude) / magnitude
+  }
+
+  const recomputeAccelerometer = () => {
+    accelerometer = shaking ? scaleImuVector(baseVector, shakeFactor()) : baseVector
+  }
+
+  const clearShakeTimer = () => {
+    if (shakeTimer !== undefined) clearTimeoutFn(shakeTimer)
+    shakeTimer = undefined
+  }
+
+  const stopShake = () => {
+    shaking = false
+    shakePhaseSign = -1
+    recomputeAccelerometer()
+  }
+
+  const read = (axis) => {
+    if (axis === 0 && shaking) {
+      // Sample-boundary contract: the firmware IMU driver always reads axis 0 first within one
+      // sample(), so advancing the shake waveform here (never on a wall-clock timer) guarantees
+      // every firmware sample sees a genuinely different magnitude, regardless of poll rate.
+      shakePhaseSign = -shakePhaseSign
+      recomputeAccelerometer()
+    }
+    switch (axis) {
+      case 0:
+        return accelerometer.x
+      case 1:
+        return accelerometer.y
+      case 2:
+        return accelerometer.z
+      case 3:
+        return gyroscope.x
+      case 4:
+        return gyroscope.y
+      case 5:
+        return gyroscope.z
+      default:
+        return 0
+    }
+  }
+
+  return {
+    IMU: { read },
+    read,
+    sample() {
+      // Built from the same accelerometer/gyroscope state read(axis) serves, so the two can
+      // never disagree; does not itself advance the shake phase.
+      return { accelerometer: { ...accelerometer }, gyroscope: { ...gyroscope } }
+    },
+    orientation() {
+      return orientationName
+    },
+    setOrientation(name) {
+      const vector = IMU_ORIENTATIONS[name]
+      if (!vector) return
+      orientationName = name
+      baseVector = scaleImuVector(vector, gravity)
+      recomputeAccelerometer()
+      logger(`[bridge] Host.IMU orientation ${name}`)
+    },
+    setAccelerometer(vector = {}) {
+      orientationName = 'custom'
+      baseVector = { x: vector.x ?? 0, y: vector.y ?? 0, z: vector.z ?? 0 }
+      recomputeAccelerometer()
+    },
+    shake({ durationMs = shakeDurationMs } = {}) {
+      clearShakeTimer()
+      shaking = true
+      shakePhaseSign = -1
+      logger('[bridge] Host.IMU shake')
+      shakeTimer = setTimeoutFn(() => {
+        shakeTimer = undefined
+        stopShake()
+      }, durationMs)
+    },
+    isShaking() {
+      return shaking
+    },
+    cancel() {
+      clearShakeTimer()
+      stopShake()
+    },
+  }
+}
+
 export function installModArchiveIntoWasm(wasmModule, installedMod) {
   if (!installedMod) return { status: 'empty' }
 
