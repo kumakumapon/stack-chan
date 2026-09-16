@@ -292,6 +292,18 @@
       ],
       "web-radio-byte-ring": [
         "./host/modules/audio/platforms/m5stackchan-cores3/shared-byte-ring.ts"
+      ],
+      "stackchan-gateway-protocol": [
+        "./host/modules/conversation/gateway/gateway-protocol.ts"
+      ],
+      "stackchan-gateway-config": [
+        "./host/modules/conversation/gateway/gateway-config.ts"
+      ],
+      "stackchan-gateway-bridge": [
+        "./host/app/docks/gateway/bridge.ts"
+      ],
+      "stackchan-realtime-tools": [
+        "./host/app/realtime-tools.ts"
       ]
     },
     "types": [

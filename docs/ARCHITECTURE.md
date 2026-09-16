@@ -174,6 +174,19 @@ graph TB
     Gallery -.->|"Test in Simulator"| SimEngine
 ```
 
+### 3. Conversation Gateway コンポーネント
+
+リポジトリルートの`gateway/`は、ファームウェアともWebツールとも別に動く常駐Node.jsサービスです。Stack-chanを特定のLLMに固定しないため、会話は4層に分かれます。
+
+```text
+Stackchan = body + UI + sensors
+Gateway   = conversation infrastructure
+Agent     = the brain
+MCP       = hands into the outside world
+```
+
+Gatewayはファームウェアの`stackchan.event.v1`制御プレーンと、Android USB Dockがすでに話すRealtime制御プレーンをそのままWebSocket越しに話すDockとして実装されており（`firmware/host/app/docks/gateway/`）、`RemoteConversationSession`など既存の会話基盤を変更せずに再利用します。詳細は[Conversation Gateway仕様](./specs/conversation-gateway.md)を参照してください。
+
 ## Dependency Direction
 
 ### Firmware

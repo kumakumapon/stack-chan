@@ -1,0 +1,280 @@
+{
+  "schemaVersion": 1,
+  "gatewaySchema": "stackchan.gateway.v1",
+  "acceptedServerMessages": [
+    {
+      "schema": "stackchan.gateway.v1",
+      "type": "session.ready",
+      "protocolVersion": 1,
+      "sessionId": "session-1",
+      "audio": {
+        "input": { "codec": "pcm16", "sampleRate": 16000, "channels": 1 },
+        "output": { "codec": "pcm16", "sampleRate": 16000, "channels": 1 }
+      },
+      "features": {
+        "audioInput": true,
+        "audioOutput": true,
+        "approval": false,
+        "tools": true
+      }
+    },
+    {
+      "schema": "stackchan.gateway.v1",
+      "type": "transcript.input",
+      "text": "hello robot",
+      "final": false
+    },
+    {
+      "schema": "stackchan.gateway.v1",
+      "type": "transcript.output",
+      "text": "hello human",
+      "final": true
+    },
+    {
+      "schema": "stackchan.gateway.v1",
+      "type": "audio.started",
+      "responseId": "response-1",
+      "format": { "codec": "pcm16", "sampleRate": 16000, "channels": 1 }
+    },
+    {
+      "schema": "stackchan.gateway.v1",
+      "type": "audio.chunk",
+      "responseId": "response-1",
+      "seq": 0,
+      "payload": "AAAA"
+    },
+    {
+      "schema": "stackchan.gateway.v1",
+      "type": "audio.completed",
+      "responseId": "response-1"
+    },
+    {
+      "schema": "stackchan.gateway.v1",
+      "type": "agent.error",
+      "code": "unauthorized",
+      "message": "token rejected",
+      "fatal": true
+    },
+    {
+      "schema": "stackchan.gateway.v1",
+      "type": "agent.error",
+      "code": "toolFailure",
+      "message": "capture failed",
+      "fatal": false
+    },
+    {
+      "schema": "stackchan.gateway.v1",
+      "type": "robot.directive",
+      "directive": "face.setEmotion",
+      "params": { "emotion": "HAPPY" }
+    }
+  ],
+  "rejectedServerMessages": [
+    {
+      "schema": "other.v1",
+      "type": "session.ready",
+      "protocolVersion": 1,
+      "sessionId": "session-1",
+      "audio": {
+        "input": { "codec": "pcm16", "sampleRate": 16000, "channels": 1 },
+        "output": { "codec": "pcm16", "sampleRate": 16000, "channels": 1 }
+      },
+      "features": {
+        "audioInput": true,
+        "audioOutput": true,
+        "approval": false,
+        "tools": true
+      }
+    },
+    {
+      "schema": "stackchan.gateway.v1",
+      "type": "session.ready",
+      "protocolVersion": 1,
+      "sessionId": "",
+      "audio": {
+        "input": { "codec": "pcm16", "sampleRate": 16000, "channels": 1 },
+        "output": { "codec": "pcm16", "sampleRate": 16000, "channels": 1 }
+      },
+      "features": {
+        "audioInput": true,
+        "audioOutput": true,
+        "approval": false,
+        "tools": true
+      }
+    },
+    {
+      "schema": "stackchan.gateway.v1",
+      "type": "session.ready",
+      "protocolVersion": 1,
+      "sessionId": "session-1",
+      "audio": {
+        "input": { "codec": "opus", "sampleRate": 16000, "channels": 1 },
+        "output": { "codec": "pcm16", "sampleRate": 16000, "channels": 1 }
+      },
+      "features": {
+        "audioInput": true,
+        "audioOutput": true,
+        "approval": false,
+        "tools": true
+      }
+    },
+    {
+      "schema": "stackchan.gateway.v1",
+      "type": "session.ready",
+      "protocolVersion": 1,
+      "sessionId": "session-1",
+      "audio": {
+        "input": { "codec": "pcm16", "sampleRate": 16000, "channels": 1 },
+        "output": { "codec": "pcm16", "sampleRate": 16000, "channels": 1 }
+      },
+      "features": { "audioInput": true, "approval": false, "tools": true }
+    },
+    {
+      "schema": "stackchan.gateway.v1",
+      "type": "transcript.input",
+      "text": "hello",
+      "final": "yes"
+    },
+    {
+      "schema": "stackchan.gateway.v1",
+      "type": "audio.started",
+      "responseId": "",
+      "format": { "codec": "pcm16", "sampleRate": 16000, "channels": 1 }
+    },
+    {
+      "schema": "stackchan.gateway.v1",
+      "type": "audio.chunk",
+      "responseId": "response-1",
+      "seq": "0",
+      "payload": "AAAA"
+    },
+    {
+      "schema": "stackchan.gateway.v1",
+      "type": "audio.completed",
+      "responseId": 42
+    },
+    {
+      "schema": "stackchan.gateway.v1",
+      "type": "agent.error",
+      "code": "notARealCode",
+      "message": "oops",
+      "fatal": true
+    },
+    {
+      "schema": "stackchan.gateway.v1",
+      "type": "robot.directive",
+      "directive": "face.setEmotion",
+      "params": "not-an-object"
+    },
+    {
+      "schema": "stackchan.gateway.v1",
+      "type": "unknown.frame"
+    },
+    "not-an-object",
+    null
+  ],
+  "deviceHello": [
+    {
+      "input": {
+        "deviceId": "device-1",
+        "clientId": "client-1",
+        "capabilities": {
+          "audioInput": [
+            { "codec": "pcm16", "sampleRate": 16000, "channels": 1 }
+          ],
+          "audioOutput": [
+            { "codec": "pcm16", "sampleRate": 16000, "channels": 1 }
+          ],
+          "embodiment": ["stackchan.say", "stackchan.face.setEmotion"],
+          "approval": false
+        }
+      },
+      "expected": {
+        "schema": "stackchan.gateway.v1",
+        "type": "session.hello",
+        "protocolVersion": 1,
+        "deviceId": "device-1",
+        "clientId": "client-1",
+        "capabilities": {
+          "audioInput": [
+            { "codec": "pcm16", "sampleRate": 16000, "channels": 1 }
+          ],
+          "audioOutput": [
+            { "codec": "pcm16", "sampleRate": 16000, "channels": 1 }
+          ],
+          "embodiment": ["stackchan.say", "stackchan.face.setEmotion"],
+          "approval": false
+        }
+      }
+    },
+    {
+      "input": {
+        "deviceId": "device-1",
+        "clientId": "client-1",
+        "token": "secret-token",
+        "capabilities": {
+          "audioInput": [],
+          "audioOutput": [],
+          "embodiment": [],
+          "approval": true
+        }
+      },
+      "expected": {
+        "schema": "stackchan.gateway.v1",
+        "type": "session.hello",
+        "protocolVersion": 1,
+        "deviceId": "device-1",
+        "clientId": "client-1",
+        "token": "secret-token",
+        "capabilities": {
+          "audioInput": [],
+          "audioOutput": [],
+          "embodiment": [],
+          "approval": true
+        }
+      }
+    }
+  ],
+  "deviceAudioInput": [
+    {
+      "seq": 0,
+      "payload": "AAAA",
+      "expected": {
+        "schema": "stackchan.gateway.v1",
+        "type": "audio.input",
+        "seq": 0,
+        "payload": "AAAA"
+      }
+    },
+    {
+      "seq": 7,
+      "payload": "//8=",
+      "expected": {
+        "schema": "stackchan.gateway.v1",
+        "type": "audio.input",
+        "seq": 7,
+        "payload": "//8="
+      }
+    }
+  ],
+  "deviceAudioInputEnd": [
+    {
+      "seq": 3,
+      "expected": {
+        "schema": "stackchan.gateway.v1",
+        "type": "audio.input.end",
+        "seq": 3
+      }
+    }
+  ],
+  "deviceTextInput": [
+    {
+      "text": "hello robot",
+      "expected": {
+        "schema": "stackchan.gateway.v1",
+        "type": "text.input",
+        "text": "hello robot"
+      }
+    }
+  ]
+}

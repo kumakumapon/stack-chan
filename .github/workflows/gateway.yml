@@ -1,0 +1,50 @@
+name: Conversation Gateway
+
+on:
+  push:
+    branches:
+      - develop
+      - main
+    paths:
+      - "gateway/**"
+      - ".github/workflows/gateway.yml"
+  pull_request:
+    branches:
+      - develop
+      - main
+    paths:
+      - "gateway/**"
+      - ".github/workflows/gateway.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gateway-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: gateway/package-lock.json
+      - name: Install dependencies
+        working-directory: ./gateway
+        run: npm ci
+      - name: Check formatting and lint
+        working-directory: ./gateway
+        run: npx biome ci src --error-on-warnings
+      - name: Typecheck
+        working-directory: ./gateway
+        run: npm run typecheck
+      - name: Run tests
+        working-directory: ./gateway
+        run: npm test

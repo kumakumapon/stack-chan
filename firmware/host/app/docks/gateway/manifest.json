@@ -1,0 +1,24 @@
+{
+  "include": [
+    "$(MODULES)/data/text/manifest.json",
+    "$(MODDABLE)/examples/io/tcp/websocket/manifest_websocket.json"
+  ],
+  "modules": {
+    "stackchan-dock": "./dock",
+    "stackchan-application-event": "../../remote-session/application-event",
+    "stackchan-approval-model": "../../remote-session/approval-model",
+    "stackchan-approval-session": "../../remote-session/approval-session",
+    "stackchan-conversation-session": "../../remote-session/conversation-session",
+    "stackchan-realtime-session": "../../remote-session/realtime-session",
+    "stackchan-realtime-tools": "../../realtime-tools",
+    "stackchan-remote-session-facade": "../../remote-session/facade",
+    "stackchan-remote-session-runtime": "../../remote-session/runtime",
+    "stackchan-task-session": "../../remote-session/task-session",
+    "stackchan-gateway-bridge": "./bridge",
+    "stackchan-gateway-config": "../../../modules/conversation/gateway/gateway-config",
+    "stackchan-gateway-protocol": "../../../modules/conversation/gateway/gateway-protocol",
+    "stackchan-gateway-dock-runtime": "./runtime",
+    "stackchan-gateway-dock-presentation": "./presentation",
+    "stackchan-gateway-socket": "./socket"
+  }
+}
