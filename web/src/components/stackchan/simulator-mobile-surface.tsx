@@ -73,11 +73,14 @@ export function SimulatorMobileSurface({ controller }: { controller: SimulatorSu
     <div className="flex h-[calc(100dvh-4rem)] min-h-0 flex-col overflow-hidden landscape:flex-row">
       {/* Always rendered, never conditional: the firmware runs inside this canvas, and unmounting
           it (e.g. by hiding this pane while the dock is open) would kill the running simulator. */}
-      <div className="relative min-h-[30dvh] flex-1 landscape:h-full landscape:min-h-0">
+      <div className="relative min-h-[30dvh] flex-1 overflow-hidden landscape:h-full landscape:min-h-0">
         <SimulatorViewport
           viewportRef={controller.viewportRef}
           screenRef={controller.screenRef}
-          className="size-full rounded-none border-0"
+          // `min-h-0` cancels SimulatorViewport's own 26rem floor, which the desktop layout wants
+          // but which is taller than the stage gets on a short phone. Left in place the stage
+          // overflows this pane and the canvas covers the controls below it, swallowing their taps.
+          className="size-full min-h-0 rounded-none border-0"
         />
 
         {lastInput && (
