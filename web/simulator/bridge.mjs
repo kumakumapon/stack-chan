@@ -458,6 +458,10 @@ function createSyntheticCameraFrame(options = {}) {
   return { width, height, imageType, buffer }
 }
 
+// W3C MediaTrackConstraints facing modes: 'user' is the selfie camera, 'environment' the
+// rear one. Keep these names as-is in the bridge; a 'front'/'back' label belongs in the UI.
+export const CAMERA_FACING_MODES = Object.freeze(['user', 'environment'])
+
 export function createHostCameraBridge({
   documentObj = globalThis.document,
   logger = console,
@@ -472,6 +476,7 @@ export function createHostCameraBridge({
   let mediaVideo = videoElement
   let mediaCanvas = canvasElement
   let browserStartGeneration = 0
+  let currentFacingMode
 
   const logWarning = (message, error) => {
     if (error) {
@@ -504,12 +509,44 @@ export function createHostCameraBridge({
     for (const track of mediaStream?.getTracks?.() ?? []) track.stop?.()
     mediaStream = undefined
     browserCameraStarted = false
+    currentFacingMode = undefined
     if (mediaVideo) mediaVideo.srcObject = null
   }
 
-  const startBrowserCamera = async (options = {}) => {
-    if (browserCameraStarted && mediaStream && mediaVideo?.srcObject === mediaStream) return true
+  // options.video, when given, always wins over facingMode: it lets a caller hand getUserMedia
+  // a full custom constraint, and facingMode only ever fills in the plain default case.
+  const resolveVideoConstraint = (options) => {
+    if (options.video !== undefined && options.video !== null) {
+      return { constraint: options.video, facingMode: undefined }
+    }
 
+    const requestedFacingMode = options.facingMode
+    if (requestedFacingMode === undefined) return { constraint: true, facingMode: undefined }
+
+    if (!CAMERA_FACING_MODES.includes(requestedFacingMode)) {
+      logWarning(`[bridge] ignoring unknown Host.Camera facingMode "${requestedFacingMode}"`)
+      return { constraint: true, facingMode: undefined }
+    }
+
+    // 'ideal', not 'exact': a phone with only one camera, or a desktop webcam with none of
+    // the requested facing, must still start rather than getUserMedia rejecting the request.
+    return { constraint: { facingMode: { ideal: requestedFacingMode } }, facingMode: requestedFacingMode }
+  }
+
+  const startBrowserCamera = async (options = {}) => {
+    const { constraint, facingMode: requestedFacingMode } = resolveVideoConstraint(options)
+
+    if (
+      browserCameraStarted &&
+      mediaStream &&
+      mediaVideo?.srcObject === mediaStream &&
+      requestedFacingMode === currentFacingMode
+    ) {
+      return true
+    }
+
+    // A phone will not hand out both cameras at once, and leaving the old stream running
+    // leaks tracks and keeps the camera light on, so always tear down before re-acquiring.
     stopBrowserCamera()
 
     const getUserMedia = navigatorObj?.mediaDevices?.getUserMedia?.bind(navigatorObj.mediaDevices)
@@ -526,7 +563,7 @@ export function createHostCameraBridge({
 
     try {
       const startGeneration = browserStartGeneration
-      const stream = await getUserMedia({ video: options.video ?? true })
+      const stream = await getUserMedia({ video: constraint })
       if (startGeneration !== browserStartGeneration || !started || !browserCameraRequested) {
         for (const track of stream?.getTracks?.() ?? []) track.stop?.()
         return false
@@ -536,6 +573,7 @@ export function createHostCameraBridge({
       video.srcObject = mediaStream
       if (typeof video.play === 'function') await video.play()
       browserCameraStarted = true
+      currentFacingMode = requestedFacingMode
       return true
     } catch (error) {
       stopBrowserCamera()
@@ -597,6 +635,9 @@ export function createHostCameraBridge({
     },
     isBrowserCameraStarted() {
       return browserCameraStarted
+    },
+    facingMode() {
+      return currentFacingMode
     },
     capture(options = {}) {
       const imageType = options.imageType ?? DEFAULT_CAMERA_IMAGE_TYPE

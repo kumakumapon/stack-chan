@@ -16,10 +16,13 @@ function createController(
     operation: { status: 'idle' },
     modState: { result: { status: 'empty' } },
     cameraStatus: { status: 'idle' },
+    cameraFacingMode: undefined,
     logs: [],
     clearLogs: vi.fn(),
     deviceProfile: resolveDeviceProfile('m5stackchan-cores3'),
     setDeviceProfile: vi.fn(),
+    performanceMode: 'desktop',
+    setPerformanceMode: vi.fn(),
     installMod: vi.fn(async () => {}),
     restart: vi.fn(async () => {}),
     clearMod: vi.fn(async () => {}),
@@ -30,6 +33,7 @@ function createController(
     releaseHeadTouch: vi.fn(),
     setImuOrientation: vi.fn(),
     shakeImu: vi.fn(),
+    setImuAccelerometer: vi.fn(),
     ...overrides,
   }
 }

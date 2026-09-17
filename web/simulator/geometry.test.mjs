@@ -21,6 +21,7 @@ import {
   nextLookAroundPose,
   nextSpeechScale,
   resolveSimulatorAssetUrl,
+  headTouchPositionFromDepth,
   screenPointFromUv,
   stepRotationToward,
 } from './geometry.mjs'
@@ -237,5 +238,37 @@ describe('Stack-chan simulator geometry', () => {
       r: 0.01,
     })
     assert.deepEqual(stepRotationToward({ y: 0.9, p: -0.35, r: 0 }, target, 0.1, 2), target)
+  })
+})
+
+describe('head touch depth mapping', () => {
+  const bounds = { min: -20, max: 12 }
+
+  it('maps the front of the shell to the forward end of the panel', () => {
+    // The face sits at +Z, and the firmware reads an increasing centroid as a
+    // forward swipe, so the front of the head must be +100.
+    assert.equal(headTouchPositionFromDepth(bounds.max, bounds), 100)
+    assert.equal(headTouchPositionFromDepth(bounds.min, bounds), -100)
+    assert.equal(headTouchPositionFromDepth((bounds.min + bounds.max) / 2, bounds), 0)
+  })
+
+  it('increases monotonically from the back of the skull to the face', () => {
+    const samples = [-20, -15, -10, -5, 0, 5, 12].map((z) => headTouchPositionFromDepth(z, bounds))
+    for (let index = 1; index < samples.length; index += 1) {
+      assert.ok(samples[index] > samples[index - 1], `sample ${index} must exceed its predecessor`)
+    }
+  })
+
+  it('clamps a hit just outside the measured bounds instead of overshooting', () => {
+    assert.equal(headTouchPositionFromDepth(bounds.max + 5, bounds), 100)
+    assert.equal(headTouchPositionFromDepth(bounds.min - 5, bounds), -100)
+  })
+
+  it('declines a degenerate or unusable range', () => {
+    assert.equal(headTouchPositionFromDepth(0, { min: 4, max: 4 }), undefined)
+    assert.equal(headTouchPositionFromDepth(0, { min: 10, max: 2 }), undefined)
+    assert.equal(headTouchPositionFromDepth(Number.NaN, bounds), undefined)
+    assert.equal(headTouchPositionFromDepth(0, {}), undefined)
+    assert.equal(headTouchPositionFromDepth(0), undefined)
   })
 })

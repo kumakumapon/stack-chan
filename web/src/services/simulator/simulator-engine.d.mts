@@ -59,6 +59,39 @@ export type HeadSwipeDirection = 'forward' | 'backward'
 
 export type ImuOrientation = 'upright' | 'upsideDown' | 'fallenForward' | 'fallenBackward' | 'fallenLeft' | 'fallenRight'
 
+export type PerformanceMode = 'desktop' | 'mobile'
+
+export type CameraFacingMode = 'user' | 'environment'
+
+export type ImuAcceleration = {
+  x: number
+  y: number
+  z: number
+}
+
+export type ViewportPointerBinding = {
+  viewport: {
+    addEventListener(type: string, listener: (event: never) => void, options?: unknown): void
+    removeEventListener(type: string, listener: (event: never) => void, options?: unknown): void
+    setPointerCapture(pointerId: number): void
+    releasePointerCapture(pointerId: number): void
+  }
+  scene: {
+    screenPointFromViewportEvent(event: unknown): { x: number; y: number } | undefined
+    headTouchPositionFromViewportEvent(event: unknown): number | undefined
+    setViewportControlsEnabled(enabled: boolean): void
+  }
+  wasmView: { touchScreenPoint(kind: number, id: number, x: number, y: number, timeStamp: number): void }
+  headTouch?: { setPosition(position: number): void; release(): void }
+}
+
+/**
+ * Routes viewport pointers to the LCD first, then the head touch panel, then
+ * OrbitControls. Exported so the routing precedence can be tested without a
+ * WebGL context.
+ */
+export function bindManagedViewportTouches(binding: ViewportPointerBinding): () => void
+
 export class SimulatorEngine {
   constructor(options: {
     viewport: HTMLCanvasElement
@@ -66,6 +99,8 @@ export class SimulatorEngine {
     runtimeBaseUrl?: string
     modStorage?: SimulatorModStorage
     deviceProfile?: DeviceProfileId
+    /** Rations the 3D redraw only; the firmware keeps its tick rate in every mode. */
+    performanceMode?: PerformanceMode
     onStatus?: (status: SimulatorStatus) => void
     onTrace?: (message: string) => void
     onModStatus?: (result: SimulatorModResult, installedMod?: InstalledMod | null) => void
@@ -79,7 +114,12 @@ export class SimulatorEngine {
   installMod(file: File): Promise<void>
   restart(): Promise<void>
   clearMod(): Promise<void>
-  connectCamera(): Promise<void>
+  connectCamera(options?: { facingMode?: CameraFacingMode }): Promise<void>
+  readonly cameraFacingMode: CameraFacingMode | undefined
+  readonly performanceMode: PerformanceMode
+  setPerformanceMode(mode: PerformanceMode): void
+  /** Feeds a measured accelerometer vector, in g, straight to the simulated IMU. */
+  setImuAccelerometer(vector: ImuAcceleration): void
   pushButton(name: 'a' | 'b' | 'c'): void
   headSwipe(direction: HeadSwipeDirection): void
   setHeadTouchPosition(position: number): void

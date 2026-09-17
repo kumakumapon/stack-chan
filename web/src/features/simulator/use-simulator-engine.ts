@@ -21,6 +21,8 @@ import { createMemoryModStorage, createModStorage } from '../../../simulator/mod
 
 export type { DeviceProfile, DeviceProfileId, ImuOrientation }
 
+export type PerformanceMode = 'desktop' | 'mobile'
+
 type ModState = {
   result: SimulatorModResult
   installedMod?: InstalledMod | null
@@ -34,6 +36,9 @@ type SimulatorEngineOptions = {
   persistence?: 'persistent' | 'session'
   runtimeBaseUrl?: string
   deviceProfile?: DeviceProfileId
+  // Only the value present at construction seeds the engine; changing it later never
+  // recreates the engine (see `setPerformanceMode` below and the effect's dependency list).
+  performanceMode?: PerformanceMode
   onTrace?: (message: string) => void
   onReady?: (ready: SimulatorReady) => void
   onError?: (error: unknown) => void
@@ -51,6 +56,7 @@ export function useSimulatorEngine({
   persistence = 'persistent',
   runtimeBaseUrl = new URL('../simulator/', document.baseURI).href,
   deviceProfile: initialDeviceProfile,
+  performanceMode: initialPerformanceMode,
   onTrace,
   onReady,
   onError,
@@ -63,9 +69,11 @@ export function useSimulatorEngine({
   const [operation, setOperation] = useState<OperationState>({ status: 'idle' })
   const [modState, setModState] = useState<ModState>({ result: { status: 'empty' } })
   const [cameraStatus, setCameraStatus] = useState<CameraStatus>({ status: 'idle' })
+  const [cameraFacingMode, setCameraFacingMode] = useState<'user' | 'environment' | undefined>(undefined)
   const [deviceProfileId, setDeviceProfileId] = useState<DeviceProfileId>(
     initialDeviceProfile ?? (DEFAULT_DEVICE_PROFILE_ID as DeviceProfileId)
   )
+  const [performanceMode, setPerformanceModeState] = useState<PerformanceMode>(initialPerformanceMode ?? 'desktop')
   const { entries, append, clear } = useLogBuffer(120)
 
   useLayoutEffect(() => {
@@ -86,6 +94,10 @@ export function useSimulatorEngine({
       modStorage,
       runtimeBaseUrl,
       deviceProfile: deviceProfileId,
+      // Read once at construction time only: `performanceMode` is intentionally left out of
+      // this effect's dependency list below, so later calls to `setPerformanceMode` adjust the
+      // running engine in place instead of tearing it down and restarting the firmware.
+      performanceMode,
       onStatus: (status) => {
         if (!active) return
         const message = callbacksRef.current.t(SIMULATOR_STATUS_MESSAGES[status.code])
@@ -129,6 +141,8 @@ export function useSimulatorEngine({
       if (engineRef.current === engine) engineRef.current = null
       engine.dispose()
     }
+    // `performanceMode` deliberately excluded: it is a runtime setter (see above), not a
+    // construction-time option like `deviceProfileId`, so it must never recreate the engine.
   }, [append, deviceProfileId, initialMod?.bytes, initialMod?.name, persistence, runtimeBaseUrl])
 
   const run = useCallback(async (action: (engine: SimulatorEngine) => Promise<void>) => {
@@ -147,19 +161,31 @@ export function useSimulatorEngine({
     operation,
     modState,
     cameraStatus,
+    cameraFacingMode,
     logs: entries,
     clearLogs: clear,
     deviceProfile: resolveDeviceProfile(deviceProfileId),
     setDeviceProfile: (id: DeviceProfileId) => setDeviceProfileId(id),
+    performanceMode,
+    setPerformanceMode: (mode: PerformanceMode) => {
+      engineRef.current?.setPerformanceMode(mode)
+      setPerformanceModeState(mode)
+    },
     installMod: (file: File) => run((engine) => engine.installMod(file)),
     restart: () => run((engine) => engine.restart()),
     clearMod: () => run((engine) => engine.clearMod()),
-    connectCamera: () => run((engine) => engine.connectCamera()),
+    connectCamera: (options?: { facingMode?: 'user' | 'environment' }) =>
+      run(async (engine) => {
+        await engine.connectCamera(options)
+        setCameraFacingMode(engine.cameraFacingMode)
+      }),
     pushButton: (name: 'a' | 'b' | 'c') => engineRef.current?.pushButton(name),
     headSwipe: (direction: 'forward' | 'backward') => engineRef.current?.headSwipe(direction),
     setHeadTouchPosition: (position: number) => engineRef.current?.setHeadTouchPosition(position),
     releaseHeadTouch: () => engineRef.current?.releaseHeadTouch(),
     setImuOrientation: (orientation: ImuOrientation) => engineRef.current?.setImuOrientation(orientation),
     shakeImu: () => engineRef.current?.shakeImu(),
+    setImuAccelerometer: (vector: { x: number; y: number; z: number }) =>
+      engineRef.current?.setImuAccelerometer(vector),
   }
 }

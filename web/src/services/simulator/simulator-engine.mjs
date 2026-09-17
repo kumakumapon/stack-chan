@@ -30,6 +30,7 @@ import {
   computeScreenPlane,
   computeShellPlacementFromBounds,
   computeStackchanKinematics,
+  headTouchPositionFromDepth,
   createRoundedRectPath,
   resolveSimulatorAssetUrl,
   screenPointFromUv,
@@ -38,12 +39,18 @@ import {
 import { createModStorage } from '../../../simulator/mod-storage.mjs'
 
 const DRIVER_MAX_ANGULAR_SPEED = 2.4
+const DESKTOP_MAX_PIXEL_RATIO = 2
+/** Phones render the same scene on a much denser display with a much smaller battery. */
+const MOBILE_MAX_PIXEL_RATIO = 1.5
+/** The firmware keeps its own tick rate; only the 3D redraw is capped. */
+const MOBILE_MAX_RENDER_FPS = 30
 
 class StackchanScene {
-  constructor({ viewport, screen, runtimeBaseUrl }) {
+  constructor({ viewport, screen, runtimeBaseUrl, maxPixelRatio = DESKTOP_MAX_PIXEL_RATIO }) {
     this.viewport = viewport
     this.screen = screen
     this.runtimeBaseUrl = runtimeBaseUrl
+    this.maxPixelRatio = maxPixelRatio
     this.driverRotation = { y: 0, p: 0, r: 0 }
     this.targetDriverRotation = { y: 0, p: 0, r: 0 }
     this.lastDriverUpdateMs = undefined
@@ -62,7 +69,7 @@ class StackchanScene {
       antialias: true,
       alpha: false,
     })
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, this.maxPixelRatio))
 
     this.controls = new OrbitControls(this.camera, this.renderer.domElement)
     this.controls.enableDamping = true
@@ -148,6 +155,16 @@ class StackchanScene {
         this.shell.rotation.set(placement.rotation.x, placement.rotation.y, placement.rotation.z)
         this.shell.scale.setScalar(placement.scale)
         this.headGroup.add(this.shell)
+        // Measure the head once, so the drag mapping follows the actual mesh
+        // instead of a constant that silently rots when the shell asset or its
+        // placement changes. Take the geometry's own box through the shell's
+        // local matrix rather than Box3.setFromObject, which resolves world
+        // matrices: the head pans and tilts every frame, and these bounds have
+        // to stay in headGroup space to match the worldToLocal below.
+        geometry.computeBoundingBox()
+        this.shell.updateMatrix()
+        const headBounds = geometry.boundingBox.clone().applyMatrix4(this.shell.matrix)
+        this.headBoundsZ = { min: headBounds.min.z, max: headBounds.max.z }
 
         const outline = new THREE.LineSegments(
           new THREE.EdgesGeometry(geometry, 24),
@@ -319,18 +336,49 @@ class StackchanScene {
     )
   }
 
-  screenPointFromViewportEvent(event) {
+  #aimRaycaster(event) {
     const bounds = this.viewport.getBoundingClientRect()
     this.pointerNdc.set(
       ((event.clientX - bounds.left) / bounds.width) * 2 - 1,
       -((event.clientY - bounds.top) / bounds.height) * 2 + 1
     )
     this.raycaster.setFromCamera(this.pointerNdc, this.camera)
+  }
+
+  screenPointFromViewportEvent(event) {
+    this.#aimRaycaster(event)
     const [hit] = this.raycaster.intersectObject(this.screenMesh, false)
     return screenPointFromUv(hit?.uv, {
       width: this.screen.width,
       height: this.screen.height,
     })
+  }
+
+  /**
+   * Maps a pointer over the head shell onto the head touch panel's -100..100
+   * centroid, or undefined when the pointer is not over the head.
+   *
+   * Which way is "forward" is taken from the model, not guessed: the geometry
+   * puts the face at the shell's +Z end (`computeShellPlacementFromBounds`
+   * returns `frontZ`, and `computeFaceLayerDepths().screenZ` places the screen
+   * on that same side). +Z therefore maps to +100, the end the firmware's
+   * GestureRecognizer reads as a forward swipe, so stroking the 3D head from
+   * the back of the skull toward the face is a petting stroke.
+   */
+  headTouchPositionFromViewportEvent(event) {
+    if (!this.shell || !this.headBoundsZ) return undefined
+    this.#aimRaycaster(event)
+    const [hit] = this.raycaster.intersectObject(this.shell, false)
+    if (!hit) return undefined
+    const local = this.headGroup.worldToLocal(hit.point.clone())
+    return headTouchPositionFromDepth(local.z, this.headBoundsZ)
+  }
+
+  setMaxPixelRatio(ratio) {
+    if (!(ratio > 0) || ratio === this.maxPixelRatio) return
+    this.maxPixelRatio = ratio
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, ratio))
+    this.#resize()
   }
 
   render(timeMs) {
@@ -687,43 +735,81 @@ class WasmView {
   }
 }
 
-function bindManagedViewportTouches({ viewport, scene, wasmView }) {
+/**
+ * Routes viewport pointers to the LCD, then to the head touch panel, then to
+ * the camera.
+ *
+ * The LCD keeps first refusal so the existing screen path is unchanged. Only a
+ * pointer that misses the screen is offered to the head, and only when the
+ * active device profile actually has a head touch panel — otherwise the gesture
+ * stays with OrbitControls, which is what a board without the sensor should do.
+ */
+export function bindManagedViewportTouches({ viewport, scene, wasmView, headTouch }) {
   const touchId = 0
   let activePointerId
+  let activeTarget
   let lastPoint
 
   const consume = (event) => {
     event.preventDefault()
     event.stopImmediatePropagation()
   }
-  const finish = (event, kind) => {
-    if (event.pointerId !== activePointerId) return
-    consume(event)
-    if (lastPoint) wasmView.touchScreenPoint(kind, touchId, lastPoint.x, lastPoint.y, event.timeStamp)
+  const release = (event) => {
     try {
       viewport.releasePointerCapture(event.pointerId)
     } catch {
       // Pointer capture can already be released after cancellation.
     }
     activePointerId = undefined
+    activeTarget = undefined
     lastPoint = undefined
     scene.setViewportControlsEnabled(true)
+  }
+  const finish = (event, kind) => {
+    if (event.pointerId !== activePointerId) return
+    consume(event)
+    if (activeTarget === 'head') {
+      headTouch?.release()
+    } else if (lastPoint) {
+      wasmView.touchScreenPoint(kind, touchId, lastPoint.x, lastPoint.y, event.timeStamp)
+    }
+    release(event)
   }
   const handlers = {
     pointerdown: (event) => {
       if (activePointerId !== undefined) return
       const point = scene.screenPointFromViewportEvent(event)
-      if (!point) return
+      if (point) {
+        consume(event)
+        activePointerId = event.pointerId
+        activeTarget = 'screen'
+        lastPoint = point
+        scene.setViewportControlsEnabled(false)
+        viewport.setPointerCapture(event.pointerId)
+        wasmView.touchScreenPoint(0, touchId, point.x, point.y, event.timeStamp)
+        return
+      }
+      if (!headTouch) return
+      const position = scene.headTouchPositionFromViewportEvent(event)
+      if (position === undefined) return
       consume(event)
       activePointerId = event.pointerId
-      lastPoint = point
+      activeTarget = 'head'
       scene.setViewportControlsEnabled(false)
       viewport.setPointerCapture(event.pointerId)
-      wasmView.touchScreenPoint(0, touchId, point.x, point.y, event.timeStamp)
+      headTouch.setPosition(position)
     },
     pointermove: (event) => {
       if (event.pointerId !== activePointerId) return
       consume(event)
+      if (activeTarget === 'head') {
+        const position = scene.headTouchPositionFromViewportEvent(event)
+        // Sliding off the head mid-stroke keeps the last position rather than
+        // releasing: a finger that clips the silhouette should not end a stroke
+        // the recognizer is still measuring.
+        if (position !== undefined) headTouch.setPosition(position)
+        return
+      }
       const point = scene.screenPointFromViewportEvent(event)
       if (!point) return
       lastPoint = point
@@ -744,6 +830,21 @@ function bindManagedViewportTouches({ viewport, scene, wasmView }) {
   }
 }
 
+/**
+ * Performance mode only ever rations the 3D presentation. The WASM firmware
+ * keeps its tick rate in every mode, because slowing it down would change the
+ * behaviour under test rather than the cost of drawing it.
+ */
+function resolvePerformanceMode(mode) {
+  return mode === 'mobile'
+    ? {
+        mode: 'mobile',
+        maxPixelRatio: MOBILE_MAX_PIXEL_RATIO,
+        minimumRenderIntervalMs: 1000 / MOBILE_MAX_RENDER_FPS,
+      }
+    : { mode: 'desktop', maxPixelRatio: DESKTOP_MAX_PIXEL_RATIO, minimumRenderIntervalMs: 0 }
+}
+
 export class SimulatorEngine {
   constructor({
     viewport,
@@ -757,6 +858,7 @@ export class SimulatorEngine {
     modStorage = createModStorage(),
     runtimeBaseUrl = new URL('../simulator/', document.baseURI).href,
     deviceProfile = DEFAULT_DEVICE_PROFILE_ID,
+    performanceMode = 'desktop',
   }) {
     this.viewport = viewport
     this.screen = screen
@@ -774,7 +876,13 @@ export class SimulatorEngine {
     this.audioOutBridge = createHostAudioOutBridge()
     this.audioInBridge = createHostAudioInBridge()
     this.cameraBridge = createHostCameraBridge()
-    this.scene = new StackchanScene({ viewport, screen, runtimeBaseUrl })
+    this.performance = resolvePerformanceMode(performanceMode)
+    this.scene = new StackchanScene({
+      viewport,
+      screen,
+      runtimeBaseUrl,
+      maxPixelRatio: this.performance.maxPixelRatio,
+    })
     this.driverBridge = createHostDriverBridge({
       onRotation: (rotation) => this.scene.applyDriverRotation(rotation),
       onTorque: (torque) => this.scene.setTorqueEnabled(torque),
@@ -815,6 +923,16 @@ export class SimulatorEngine {
       viewport,
       scene: this.scene,
       wasmView: this.wasmView,
+      // Offered only when the board has the sensor, so on a profile without a
+      // head panel the same drag keeps orbiting the camera.
+      ...(this.profile.inputs.headTouch
+        ? {
+            headTouch: {
+              setPosition: (position) => this.setHeadTouchPosition(position),
+              release: () => this.releaseHeadTouch(),
+            },
+          }
+        : {}),
     })
   }
 
@@ -824,8 +942,14 @@ export class SimulatorEngine {
     await this.wasmView.start()
     if (this.disposed) return
     const animate = (timeMs) => {
+      // The firmware ticks on every frame regardless of performance mode:
+      // throttling it would change what is being simulated, not just how it
+      // looks. Only the 3D redraw is rationed.
       this.wasmView.idle(timeMs)
-      this.scene.render(timeMs)
+      if (this.#shouldRender(timeMs)) {
+        this.lastRenderMs = timeMs
+        this.scene.render(timeMs)
+      }
       this.animationFrame = window.requestAnimationFrame(animate)
     }
     this.animationFrame = window.requestAnimationFrame(animate)
@@ -859,10 +983,10 @@ export class SimulatorEngine {
     this.onModStatus({ status: 'empty' })
   }
 
-  async connectCamera() {
+  async connectCamera({ facingMode } = {}) {
     this.onCameraStatus({ status: 'pending' })
     try {
-      await this.cameraBridge.start({ useBrowserCamera: true })
+      await this.cameraBridge.start({ useBrowserCamera: true, ...(facingMode ? { facingMode } : {}) })
       this.onCameraStatus({
         status: this.cameraBridge.isBrowserCameraStarted() ? 'connected' : 'fallback',
       })
@@ -870,6 +994,39 @@ export class SimulatorEngine {
       this.onCameraStatus({ status: 'error', error: String(error.message ?? error) })
       throw error
     }
+  }
+
+  get cameraFacingMode() {
+    return this.cameraBridge.facingMode?.()
+  }
+
+  #shouldRender(timeMs) {
+    // A hidden tab should not be painting. Browsers already throttle rAF when
+    // backgrounded, so this mostly covers the moments around that transition.
+    if (globalThis.document?.hidden) return false
+    const minimumInterval = this.performance.minimumRenderIntervalMs
+    if (!minimumInterval) return true
+    return this.lastRenderMs === undefined || timeMs - this.lastRenderMs >= minimumInterval
+  }
+
+  get performanceMode() {
+    return this.performance.mode
+  }
+
+  setPerformanceMode(mode) {
+    const next = resolvePerformanceMode(mode)
+    if (next.mode === this.performance.mode) return
+    this.performance = next
+    this.scene.setMaxPixelRatio(next.maxPixelRatio)
+    this.onTrace(`[simulator] performance mode: ${next.mode}`)
+  }
+
+  setImuAccelerometer(vector) {
+    if (!this.profile.inputs.imu) {
+      this.onTrace(`[simulator] setImuAccelerometer() ignored: ${this.profile.label} has no IMU`)
+      return
+    }
+    this.imuBridge.setAccelerometer(vector)
   }
 
   get deviceProfile() {

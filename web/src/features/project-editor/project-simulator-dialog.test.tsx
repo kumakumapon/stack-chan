@@ -19,6 +19,7 @@ const simulatorController = {
   operation: { status: 'idle' as const },
   modState: { result: { status: 'empty' as const } },
   cameraStatus: { status: 'idle' as const },
+  cameraFacingMode: undefined,
   logs: [],
   clearLogs: vi.fn(),
   installMod: vi.fn(async () => {}),
@@ -32,11 +33,14 @@ const simulatorController = {
   // would never produce.
   deviceProfile: resolveDeviceProfile('m5stackchan-cores3'),
   setDeviceProfile: vi.fn(),
+  performanceMode: 'desktop' as const,
+  setPerformanceMode: vi.fn(),
   headSwipe: vi.fn(),
   setHeadTouchPosition: vi.fn(),
   releaseHeadTouch: vi.fn(),
   setImuOrientation: vi.fn(),
   shakeImu: vi.fn(),
+  setImuAccelerometer: vi.fn(),
 }
 
 describe('ProjectSimulatorDialog', () => {
