@@ -28,7 +28,7 @@ function harness({ screenHit, headHit, withHeadTouch = true }: {
   const scene = {
     screenPointFromViewportEvent: vi.fn(() => screenHit),
     headTouchPositionFromViewportEvent: vi.fn(() => headHit),
-    setViewportControlsEnabled: vi.fn(),
+    setViewportControlsSuppressed: vi.fn(),
   }
   const wasmView = { touchScreenPoint: vi.fn() }
   const headTouch = { setPosition: vi.fn(), release: vi.fn() }
@@ -92,7 +92,7 @@ describe('viewport pointer routing', () => {
 
     expect(event.preventDefault).not.toHaveBeenCalled()
     expect(viewport.setPointerCapture).not.toHaveBeenCalled()
-    expect(scene.setViewportControlsEnabled).not.toHaveBeenCalled()
+    expect(scene.setViewportControlsSuppressed).not.toHaveBeenCalled()
     expect(wasmView.touchScreenPoint).not.toHaveBeenCalled()
     expect(headTouch.setPosition).not.toHaveBeenCalled()
   })
@@ -128,7 +128,7 @@ describe('viewport pointer routing', () => {
     fire('pointercancel')
 
     expect(headTouch.release).toHaveBeenCalledTimes(1)
-    expect(scene.setViewportControlsEnabled).toHaveBeenLastCalledWith(true)
+    expect(scene.setViewportControlsSuppressed).toHaveBeenLastCalledWith(false)
   })
 
   it('ignores a second pointer while a stroke is active', () => {

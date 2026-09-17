@@ -79,7 +79,7 @@ export type ViewportPointerBinding = {
   scene: {
     screenPointFromViewportEvent(event: unknown): { x: number; y: number } | undefined
     headTouchPositionFromViewportEvent(event: unknown): number | undefined
-    setViewportControlsEnabled(enabled: boolean): void
+    setViewportControlsSuppressed(suppressed: boolean): void
   }
   wasmView: { touchScreenPoint(kind: number, id: number, x: number, y: number, timeStamp: number): void }
   headTouch?: { setPosition(position: number): void; release(): void }
@@ -91,6 +91,20 @@ export type ViewportPointerBinding = {
  * WebGL context.
  */
 export function bindManagedViewportTouches(binding: ViewportPointerBinding): () => void
+
+/**
+ * Derives whether the 3D camera may orbit from two independent inputs: a drag in progress
+ * (`suppressed`) and the user's rotation lock (`locked`). Exported so the interaction between
+ * them can be tested without a WebGL context.
+ */
+export class ViewportControlsGate {
+  constructor(apply: (enabled: boolean) => void)
+  locked: boolean
+  suppressed: boolean
+  readonly enabled: boolean
+  setLocked(locked: boolean): void
+  setSuppressed(suppressed: boolean): void
+}
 
 export class SimulatorEngine {
   constructor(options: {
@@ -126,5 +140,10 @@ export class SimulatorEngine {
   releaseHeadTouch(): void
   setImuOrientation(name: ImuOrientation): void
   shakeImu(): void
+  /** Puts the 3D camera back on the pose the simulator opens with. */
+  resetViewportCamera(): void
+  readonly viewportControlsLocked: boolean
+  /** Stops the 3D camera orbiting, so a stray stroke on the viewport cannot drag the view. */
+  setViewportControlsLocked(locked: boolean): void
   dispose(): void
 }

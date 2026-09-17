@@ -74,6 +74,7 @@ export function useSimulatorEngine({
     initialDeviceProfile ?? (DEFAULT_DEVICE_PROFILE_ID as DeviceProfileId)
   )
   const [performanceMode, setPerformanceModeState] = useState<PerformanceMode>(initialPerformanceMode ?? 'desktop')
+  const [viewportControlsLocked, setViewportControlsLockedState] = useState(false)
   const { entries, append, clear } = useLogBuffer(120)
 
   useLayoutEffect(() => {
@@ -128,6 +129,11 @@ export function useSimulatorEngine({
       },
     })
     engineRef.current = engine
+    // Switching device profile rebuilds the engine, and a fresh one always starts unlocked.
+    // Replaying the lock keeps the toggle in the UI telling the truth about the new engine.
+    // Read directly rather than through this effect's dependencies, for the same reason
+    // `performanceMode` is: it must adjust the engine, never recreate it.
+    engine.setViewportControlsLocked(viewportControlsLocked)
     void (async () => {
       if (initialMod) await modStorage.saveInstalledMod(initialMod)
       if (active) await engine.start()
@@ -187,5 +193,11 @@ export function useSimulatorEngine({
     shakeImu: () => engineRef.current?.shakeImu(),
     setImuAccelerometer: (vector: { x: number; y: number; z: number }) =>
       engineRef.current?.setImuAccelerometer(vector),
+    resetViewportCamera: () => engineRef.current?.resetViewportCamera(),
+    viewportControlsLocked,
+    setViewportControlsLocked: (locked: boolean) => {
+      engineRef.current?.setViewportControlsLocked(locked)
+      setViewportControlsLockedState(locked)
+    },
   }
 }
