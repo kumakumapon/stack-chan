@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { I18nProvider } from '@/app/i18n-provider'
+import { AppError } from '@/lib/errors/app-error'
 import { SimulatorMobileSurface } from '@/components/stackchan/simulator-mobile-surface'
 import { type SimulatorSurfaceController } from '@/components/stackchan/simulator-surface'
 import { useMobileDeviceSensors } from '@/features/simulator/use-mobile-device-sensors'
@@ -199,3 +200,25 @@ describe('SimulatorMobileSurface', () => {
     expect(screen.getByText('firmware boot ok')).toBeVisible()
   })
 })
+
+describe('SimulatorMobileSurface status', () => {
+  it('surfaces a failed start over the viewport instead of leaving a blank canvas', () => {
+    const controller = createController({
+      operation: { status: 'error', error: new AppError('simulator', 'WASMを読み込めませんでした') },
+    })
+
+    renderSurface(controller)
+
+    expect(screen.getByText('シミュレーターを起動できませんでした')).toBeVisible()
+  })
+
+  it('shows nothing once the simulator settles back to idle', () => {
+    const controller = createController({ operation: { status: 'idle' } })
+
+    renderSurface(controller)
+
+    expect(screen.queryByText('シミュレーターを準備しています')).toBeNull()
+    expect(screen.queryByText('シミュレーターを起動できませんでした')).toBeNull()
+  })
+})
+

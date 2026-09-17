@@ -2,6 +2,7 @@ import { Compass, Gamepad2, Package, ScrollText } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
 
 import { useI18n } from '@/app/i18n-provider'
+import { OperationStatus } from '@/components/stackchan/operation-status'
 import {
   DeviceProfileCard,
   HeadTouchCard,
@@ -162,11 +163,31 @@ export function SimulatorMobileSurface({ controller }: { controller: SimulatorSu
     // hides, and `landscape:`/`portrait:` are plain CSS media-query variants, not a JS branch —
     // rotating the device restyles this same tree instead of remounting the canvas.
     <div className="flex h-[calc(100dvh-4rem)] min-h-0 flex-col overflow-hidden landscape:flex-row">
-      <SimulatorViewport
-        viewportRef={controller.viewportRef}
-        screenRef={controller.screenRef}
-        className="min-h-0 flex-1 rounded-none border-0 landscape:h-full"
-      />
+      <div className="relative min-h-0 flex-1 landscape:h-full">
+        <SimulatorViewport
+          viewportRef={controller.viewportRef}
+          screenRef={controller.screenRef}
+          className="size-full rounded-none border-0"
+        />
+        {/* Loading the WASM firmware takes seconds on a phone, and it can fail.
+            The desktop surface has room for a permanent status strip; here it
+            floats over the viewport so it costs no layout while idle, and
+            OperationStatus renders nothing once the status goes back to idle. */}
+        {controller.operation.status !== 'idle' && (
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 p-3">
+            <div className="pointer-events-auto">
+              <OperationStatus
+                state={controller.operation}
+                labels={{
+                  pending: t('シミュレーターを準備しています'),
+                  success: t('シミュレーターを実行中'),
+                  error: t('シミュレーターを起動できませんでした'),
+                }}
+              />
+            </div>
+          </div>
+        )}
+      </div>
 
       <nav
         className="grid shrink-0 grid-cols-4 gap-1 border-t bg-background p-1.5 landscape:h-full landscape:w-20 landscape:grid-cols-1 landscape:grid-rows-4 landscape:border-t-0 landscape:border-l"
