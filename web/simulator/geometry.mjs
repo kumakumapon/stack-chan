@@ -243,6 +243,27 @@ export function computeShellPlacementFromBounds(
   }
 }
 
+/**
+ * Maps a point on the head shell, given as a depth in headGroup space, onto the
+ * head touch panel's -100..100 centroid.
+ *
+ * The face sits at the shell's +Z end: `computeShellPlacementFromBounds`
+ * reports `frontZ` there and `computeFaceLayerDepths().screenZ` puts the screen
+ * on that same side. So +Z is the front and maps to +100, the end the
+ * firmware's GestureRecognizer reads as a forward swipe. Stroking from the back
+ * of the skull toward the face is therefore a petting stroke, which is the
+ * whole point of dragging the model.
+ *
+ * Returns undefined for a degenerate range rather than dividing by zero.
+ */
+export function headTouchPositionFromDepth(localZ, { min, max } = {}) {
+  if (!Number.isFinite(localZ) || !Number.isFinite(min) || !Number.isFinite(max)) return undefined
+  const depth = max - min
+  if (!(depth > 0)) return undefined
+  const ratio = Math.min(1, Math.max(0, (localZ - min) / depth))
+  return Math.round(ratio * 200 - 100)
+}
+
 export function screenPointFromUv(uv, { width = SCREEN_CANVAS.width, height = SCREEN_CANVAS.height } = {}) {
   if (!uv) return undefined
   return {

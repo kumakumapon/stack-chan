@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 
 import {
+  CAMERA_FACING_MODES,
   IMU_ORIENTATIONS,
   clientPointFromTouch,
   createHostAudioInBridge,
@@ -731,6 +732,171 @@ describe('Host.Camera bridge', () => {
 
     assert.equal(bridge.capture({ imageType: 'jpeg' }), undefined)
     assert.equal('captureJpeg' in bridge, false)
+  })
+
+  it('requests a facingMode-specific constraint for each supported camera facing mode', async () => {
+    for (const mode of CAMERA_FACING_MODES) {
+      const calls = []
+      const stream = { getTracks: () => [{ stop: () => calls.push('stop') }] }
+      const video = { readyState: 2, videoWidth: 16, videoHeight: 16, play: async () => calls.push('play') }
+      const bridge = createHostCameraBridge({
+        navigatorObj: {
+          mediaDevices: {
+            async getUserMedia(constraints) {
+              calls.push(['getUserMedia', constraints])
+              return stream
+            },
+          },
+        },
+        videoElement: video,
+      })
+
+      await bridge.start({ useBrowserCamera: true, facingMode: mode })
+
+      assert.deepEqual(calls[0], ['getUserMedia', { video: { facingMode: { ideal: mode } } }])
+      assert.equal(bridge.facingMode(), mode)
+    }
+  })
+
+  it('keeps the plain video constraint unchanged when no facingMode is requested', async () => {
+    const calls = []
+    const stream = { getTracks: () => [] }
+    const bridge = createHostCameraBridge({
+      navigatorObj: {
+        mediaDevices: {
+          async getUserMedia(constraints) {
+            calls.push(constraints)
+            return stream
+          },
+        },
+      },
+      videoElement: { readyState: 2, videoWidth: 16, videoHeight: 16, play: async () => {} },
+    })
+
+    await bridge.start({ useBrowserCamera: true })
+
+    assert.deepEqual(calls, [{ video: true }])
+    assert.equal(bridge.facingMode(), undefined)
+  })
+
+  it('lets an explicit video constraint override facingMode', async () => {
+    const calls = []
+    const stream = { getTracks: () => [] }
+    const bridge = createHostCameraBridge({
+      navigatorObj: {
+        mediaDevices: {
+          async getUserMedia(constraints) {
+            calls.push(constraints)
+            return stream
+          },
+        },
+      },
+      videoElement: { readyState: 2, videoWidth: 16, videoHeight: 16, play: async () => {} },
+    })
+
+    await bridge.start({ useBrowserCamera: true, video: { deviceId: 'external-cam' }, facingMode: 'user' })
+
+    assert.deepEqual(calls, [{ video: { deviceId: 'external-cam' } }])
+    assert.equal(bridge.facingMode(), undefined)
+  })
+
+  it('ignores an unknown facingMode and warns instead of forwarding it to getUserMedia', async () => {
+    const calls = []
+    const warnings = []
+    const stream = { getTracks: () => [] }
+    const bridge = createHostCameraBridge({
+      logger: { warn: (...args) => warnings.push(args) },
+      navigatorObj: {
+        mediaDevices: {
+          async getUserMedia(constraints) {
+            calls.push(constraints)
+            return stream
+          },
+        },
+      },
+      videoElement: { readyState: 2, videoWidth: 16, videoHeight: 16, play: async () => {} },
+    })
+
+    await bridge.start({ useBrowserCamera: true, facingMode: 'front' })
+
+    assert.deepEqual(calls, [{ video: true }])
+    assert.equal(bridge.facingMode(), undefined)
+    assert.match(warnings[0][0], /unknown Host\.Camera facingMode/)
+  })
+
+  it('stops the previous browser stream before requesting a different facingMode', async () => {
+    const calls = []
+    const streams = [0, 1].map((index) => ({ getTracks: () => [{ stop: () => calls.push(['stop', index]) }] }))
+    const video = { readyState: 2, videoWidth: 16, videoHeight: 16, play: async () => calls.push('play') }
+    const bridge = createHostCameraBridge({
+      navigatorObj: {
+        mediaDevices: {
+          async getUserMedia(constraints) {
+            calls.push(['getUserMedia', constraints])
+            return streams.shift()
+          },
+        },
+      },
+      videoElement: video,
+    })
+
+    await bridge.start({ useBrowserCamera: true, facingMode: 'user' })
+    await bridge.start({ useBrowserCamera: true, facingMode: 'environment' })
+
+    assert.deepEqual(calls, [
+      ['getUserMedia', { video: { facingMode: { ideal: 'user' } } }],
+      'play',
+      ['stop', 0],
+      ['getUserMedia', { video: { facingMode: { ideal: 'environment' } } }],
+      'play',
+    ])
+    assert.equal(bridge.facingMode(), 'environment')
+  })
+
+  it('falls back to synthetic frames when getUserMedia rejects with a facingMode requested', async () => {
+    const warnings = []
+    const bridge = createHostCameraBridge({
+      logger: { warn: (...args) => warnings.push(args) },
+      navigatorObj: {
+        mediaDevices: {
+          async getUserMedia() {
+            throw new Error('no such camera')
+          },
+        },
+      },
+      videoElement: { srcObject: undefined },
+    })
+
+    await assert.doesNotReject(() => bridge.start({ useBrowserCamera: true, facingMode: 'environment' }))
+    const frame = bridge.capture({ width: 2, height: 2, imageType: 'rgb565le' })
+
+    assert.equal(bridge.isBrowserCameraStarted(), false)
+    assert.equal(bridge.facingMode(), undefined)
+    assert.equal(frame.buffer.byteLength, 2 * 2 * 2)
+    assert.match(warnings[0][0], /browser camera unavailable/)
+  })
+
+  it('reports the live facingMode selection and clears it once the browser camera stops', async () => {
+    const stream = { getTracks: () => [{ stop: () => {} }] }
+    const video = { readyState: 2, videoWidth: 16, videoHeight: 16, play: async () => {} }
+    const bridge = createHostCameraBridge({
+      navigatorObj: {
+        mediaDevices: {
+          async getUserMedia() {
+            return stream
+          },
+        },
+      },
+      videoElement: video,
+    })
+
+    assert.equal(bridge.facingMode(), undefined)
+
+    await bridge.start({ useBrowserCamera: true, facingMode: 'user' })
+    assert.equal(bridge.facingMode(), 'user')
+
+    bridge.stop()
+    assert.equal(bridge.facingMode(), undefined)
   })
 })
 
