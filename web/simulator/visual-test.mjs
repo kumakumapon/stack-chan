@@ -113,6 +113,10 @@ async function runMobileSimulatorPass({ browser, baseUrl, name, viewport, screen
     assert.deepEqual(errors, [], `${name}: must not raise uncaught errors`)
 
     await page.screenshot({ path: screenshotPath, fullPage: true })
+    // A green job should say which layouts it actually exercised. This test exits 0 when the
+    // WASM build is missing, so without a line per pass "web-visual passed" cannot be told
+    // apart from "web-visual skipped everything".
+    console.log(`WASM simulator visual test: ${name} pass ok (${viewport.width}x${viewport.height})`)
   } catch (error) {
     throw new Error(`mobile simulator visual pass "${name}" failed: ${error.message}`, { cause: error })
   } finally {
@@ -140,6 +144,7 @@ try {
   assert.equal(await page.getByRole('button', { name: 'カメラを接続' }).count(), 1)
   assert.deepEqual(errors, [])
   await page.screenshot({ path: '/tmp/stackchan-simulator-runtime.png', fullPage: true })
+  console.log('WASM simulator visual test: desktop pass ok (1280x800)')
 
   await runMobileSimulatorPass({
     browser,
