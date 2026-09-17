@@ -45,6 +45,38 @@ const MOBILE_MAX_PIXEL_RATIO = 1.5
 /** The firmware keeps its own tick rate; only the 3D redraw is capped. */
 const MOBILE_MAX_RENDER_FPS = 30
 
+/**
+ * Whether the 3D camera may orbit is decided by two independent inputs that must not overwrite
+ * each other: a drag on the LCD or on the head suppresses orbiting for the length of that stroke,
+ * while the user's rotation lock is meant to outlive every stroke. Keeping them apart and
+ * deriving the flag from both is what stops a pointer release from quietly unlocking a view the
+ * user locked.
+ */
+export class ViewportControlsGate {
+  #apply
+
+  constructor(apply) {
+    this.#apply = apply
+    this.locked = false
+    this.suppressed = false
+    this.#apply(this.enabled)
+  }
+
+  get enabled() {
+    return !this.locked && !this.suppressed
+  }
+
+  setLocked(locked) {
+    this.locked = locked
+    this.#apply(this.enabled)
+  }
+
+  setSuppressed(suppressed) {
+    this.suppressed = suppressed
+    this.#apply(this.enabled)
+  }
+}
+
 class StackchanScene {
   constructor({ viewport, screen, runtimeBaseUrl, maxPixelRatio = DESKTOP_MAX_PIXEL_RATIO }) {
     this.viewport = viewport
@@ -78,6 +110,13 @@ class StackchanScene {
     this.controls.minDistance = 80
     this.controls.maxDistance = 260
     this.controls.update()
+    // OrbitControls captures its reset pose in the constructor, and the target is set on the
+    // line above it, so `reset()` without this would spring the view back to (0, 0, 0) rather
+    // than to the pose the simulator actually starts at.
+    this.controls.saveState()
+    this.controlsGate = new ViewportControlsGate((enabled) => {
+      this.controls.enabled = enabled
+    })
 
     this.root = new THREE.Group()
     this.scene.add(this.root)
@@ -313,8 +352,25 @@ class StackchanScene {
     this.torqueEnabled = enabled
   }
 
-  setViewportControlsEnabled(enabled) {
-    this.controls.enabled = enabled
+  setViewportControlsSuppressed(suppressed) {
+    this.controlsGate.setSuppressed(suppressed)
+  }
+
+  setViewportControlsLocked(locked) {
+    this.controlsGate.setLocked(locked)
+  }
+
+  get viewportControlsLocked() {
+    return this.controlsGate.locked
+  }
+
+  /**
+   * Returns the camera to the pose the simulator opens with. Deliberately independent of the
+   * rotation lock: recentring a view you locked because you kept nudging it off-centre is
+   * exactly when this is most useful, and `reset()` leaves `controls.enabled` alone.
+   */
+  resetView() {
+    this.controls.reset()
   }
 
   markScreenDirty() {
@@ -763,7 +819,7 @@ export function bindManagedViewportTouches({ viewport, scene, wasmView, headTouc
     activePointerId = undefined
     activeTarget = undefined
     lastPoint = undefined
-    scene.setViewportControlsEnabled(true)
+    scene.setViewportControlsSuppressed(false)
   }
   const finish = (event, kind) => {
     if (event.pointerId !== activePointerId) return
@@ -784,7 +840,7 @@ export function bindManagedViewportTouches({ viewport, scene, wasmView, headTouc
         activePointerId = event.pointerId
         activeTarget = 'screen'
         lastPoint = point
-        scene.setViewportControlsEnabled(false)
+        scene.setViewportControlsSuppressed(true)
         viewport.setPointerCapture(event.pointerId)
         wasmView.touchScreenPoint(0, touchId, point.x, point.y, event.timeStamp)
         return
@@ -795,7 +851,7 @@ export function bindManagedViewportTouches({ viewport, scene, wasmView, headTouc
       consume(event)
       activePointerId = event.pointerId
       activeTarget = 'head'
-      scene.setViewportControlsEnabled(false)
+      scene.setViewportControlsSuppressed(true)
       viewport.setPointerCapture(event.pointerId)
       headTouch.setPosition(position)
     },
@@ -998,6 +1054,24 @@ export class SimulatorEngine {
 
   get cameraFacingMode() {
     return this.cameraBridge.facingMode?.()
+  }
+
+  /** Puts the 3D camera back on the pose the simulator opens with. */
+  resetViewportCamera() {
+    this.scene.resetView()
+  }
+
+  get viewportControlsLocked() {
+    return this.scene.viewportControlsLocked
+  }
+
+  /**
+   * Stops the 3D camera orbiting, so a finger that misses the LCD or the head does not drag the
+   * view instead. On a phone the viewport fills the screen and every stroke lands on it, which
+   * makes an accidental orbit far easier to trigger than with a mouse.
+   */
+  setViewportControlsLocked(locked) {
+    this.scene.setViewportControlsLocked(locked)
   }
 
   #shouldRender(timeMs) {

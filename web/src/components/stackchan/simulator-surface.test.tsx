@@ -34,6 +34,9 @@ function createController(
     setImuOrientation: vi.fn(),
     shakeImu: vi.fn(),
     setImuAccelerometer: vi.fn(),
+    resetViewportCamera: vi.fn(),
+    viewportControlsLocked: false,
+    setViewportControlsLocked: vi.fn(),
     ...overrides,
   }
 }

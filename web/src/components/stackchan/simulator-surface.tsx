@@ -81,6 +81,9 @@ export type SimulatorSurfaceController = {
   setImuOrientation: (orientation: ImuOrientation) => void
   shakeImu: () => void
   setImuAccelerometer: (vector: { x: number; y: number; z: number }) => void
+  resetViewportCamera: () => void
+  viewportControlsLocked: boolean
+  setViewportControlsLocked: (locked: boolean) => void
 }
 
 function formatByteSize(bytes?: number) {

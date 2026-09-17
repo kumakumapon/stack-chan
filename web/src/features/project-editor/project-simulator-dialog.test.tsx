@@ -41,6 +41,9 @@ const simulatorController = {
   setImuOrientation: vi.fn(),
   shakeImu: vi.fn(),
   setImuAccelerometer: vi.fn(),
+  resetViewportCamera: vi.fn(),
+  viewportControlsLocked: false,
+  setViewportControlsLocked: vi.fn(),
 }
 
 describe('ProjectSimulatorDialog', () => {
