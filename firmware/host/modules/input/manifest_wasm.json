@@ -1,6 +1,9 @@
 {
   "include": ["./manifest.json"],
   "modules": {
-    "wasm-button-bridge": "./wasm/button-bridge"
+    "wasm-button-bridge": "./wasm/button-bridge",
+    "wasm-input-sensor-bridge": "./wasm/input-sensor-bridge",
+    "wasm-touch-panel-bridge": "./wasm/touch-panel-bridge",
+    "wasm-imu-bridge": "./wasm/imu-bridge"
   }
 }

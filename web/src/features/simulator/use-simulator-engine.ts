@@ -6,6 +6,9 @@ import { useLogBuffer } from '@/hooks/use-log-buffer'
 import { toAppError } from '@/lib/errors/app-error'
 import {
   type CameraStatus,
+  type DeviceProfile,
+  type DeviceProfileId,
+  type ImuOrientation,
   type InstalledMod,
   type SimulatorModStorage,
   type SimulatorModResult,
@@ -13,7 +16,10 @@ import {
   type SimulatorStatusCode,
   SimulatorEngine,
 } from '@/services/simulator/simulator-engine.mjs'
+import { DEFAULT_DEVICE_PROFILE_ID, resolveDeviceProfile } from '../../../simulator/device-profile.mjs'
 import { createMemoryModStorage, createModStorage } from '../../../simulator/mod-storage.mjs'
+
+export type { DeviceProfile, DeviceProfileId, ImuOrientation }
 
 type ModState = {
   result: SimulatorModResult
@@ -27,6 +33,7 @@ type SimulatorEngineOptions = {
   }
   persistence?: 'persistent' | 'session'
   runtimeBaseUrl?: string
+  deviceProfile?: DeviceProfileId
   onTrace?: (message: string) => void
   onReady?: (ready: SimulatorReady) => void
   onError?: (error: unknown) => void
@@ -43,6 +50,7 @@ export function useSimulatorEngine({
   initialMod,
   persistence = 'persistent',
   runtimeBaseUrl = new URL('../simulator/', document.baseURI).href,
+  deviceProfile: initialDeviceProfile,
   onTrace,
   onReady,
   onError,
@@ -55,6 +63,9 @@ export function useSimulatorEngine({
   const [operation, setOperation] = useState<OperationState>({ status: 'idle' })
   const [modState, setModState] = useState<ModState>({ result: { status: 'empty' } })
   const [cameraStatus, setCameraStatus] = useState<CameraStatus>({ status: 'idle' })
+  const [deviceProfileId, setDeviceProfileId] = useState<DeviceProfileId>(
+    initialDeviceProfile ?? (DEFAULT_DEVICE_PROFILE_ID as DeviceProfileId)
+  )
   const { entries, append, clear } = useLogBuffer(120)
 
   useLayoutEffect(() => {
@@ -74,6 +85,7 @@ export function useSimulatorEngine({
       screen,
       modStorage,
       runtimeBaseUrl,
+      deviceProfile: deviceProfileId,
       onStatus: (status) => {
         if (!active) return
         const message = callbacksRef.current.t(SIMULATOR_STATUS_MESSAGES[status.code])
@@ -117,7 +129,7 @@ export function useSimulatorEngine({
       if (engineRef.current === engine) engineRef.current = null
       engine.dispose()
     }
-  }, [append, initialMod?.bytes, initialMod?.name, persistence, runtimeBaseUrl])
+  }, [append, deviceProfileId, initialMod?.bytes, initialMod?.name, persistence, runtimeBaseUrl])
 
   const run = useCallback(async (action: (engine: SimulatorEngine) => Promise<void>) => {
     const engine = engineRef.current
@@ -137,10 +149,17 @@ export function useSimulatorEngine({
     cameraStatus,
     logs: entries,
     clearLogs: clear,
+    deviceProfile: resolveDeviceProfile(deviceProfileId),
+    setDeviceProfile: (id: DeviceProfileId) => setDeviceProfileId(id),
     installMod: (file: File) => run((engine) => engine.installMod(file)),
     restart: () => run((engine) => engine.restart()),
     clearMod: () => run((engine) => engine.clearMod()),
     connectCamera: () => run((engine) => engine.connectCamera()),
     pushButton: (name: 'a' | 'b' | 'c') => engineRef.current?.pushButton(name),
+    headSwipe: (direction: 'forward' | 'backward') => engineRef.current?.headSwipe(direction),
+    setHeadTouchPosition: (position: number) => engineRef.current?.setHeadTouchPosition(position),
+    releaseHeadTouch: () => engineRef.current?.releaseHeadTouch(),
+    setImuOrientation: (orientation: ImuOrientation) => engineRef.current?.setImuOrientation(orientation),
+    shakeImu: () => engineRef.current?.shakeImu(),
   }
 }

@@ -28,10 +28,36 @@ const globalEnv = globalThis as typeof globalThis & GlobalEnvironment
 const noopButtonHandler = () => undefined
 
 function installPlatformInputBridge(): void {
-  if (!Modules.has('wasm-button-bridge')) return
-  const bridge = Modules.importNow('wasm-button-bridge') as { installWasmButtons?: () => void }
-  bridge.installWasmButtons?.()
-  trace('[main] installed WASM button bridge\n')
+  // Each bridge is optional and independently guarded so a failing or absent
+  // one (e.g. a browser profile without a TouchPanel) cannot stop the others
+  // from installing or block boot.
+  if (Modules.has('wasm-button-bridge')) {
+    try {
+      const bridge = Modules.importNow('wasm-button-bridge') as { installWasmButtons?: () => void }
+      bridge.installWasmButtons?.()
+      trace('[main] installed WASM button bridge\n')
+    } catch (error) {
+      trace(`[main] WASM button bridge failed: ${error instanceof Error ? error.message : String(error)}\n`)
+    }
+  }
+
+  if (Modules.has('wasm-touch-panel-bridge')) {
+    try {
+      const bridge = Modules.importNow('wasm-touch-panel-bridge') as { installWasmTouchPanel?: () => boolean }
+      if (bridge.installWasmTouchPanel?.()) trace('[main] installed WASM touch panel bridge\n')
+    } catch (error) {
+      trace(`[main] WASM touch panel bridge failed: ${error instanceof Error ? error.message : String(error)}\n`)
+    }
+  }
+
+  if (Modules.has('wasm-imu-bridge')) {
+    try {
+      const bridge = Modules.importNow('wasm-imu-bridge') as { installWasmImu?: () => boolean }
+      if (bridge.installWasmImu?.()) trace('[main] installed WASM IMU bridge\n')
+    } catch (error) {
+      trace(`[main] WASM IMU bridge failed: ${error instanceof Error ? error.message : String(error)}\n`)
+    }
+  }
 }
 
 function loadAppBehaviors(): StackchanAppBehavior[] {

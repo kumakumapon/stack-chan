@@ -19,15 +19,39 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { type OperationState } from '@/features/operations/operation-state'
+import {
+  type DeviceProfile,
+  type DeviceProfileId,
+  type ImuOrientation,
+} from '@/features/simulator/use-simulator-engine'
 import {
   type CameraStatus,
   type InstalledMod,
   type SimulatorModResult,
 } from '@/services/simulator/simulator-engine.mjs'
 import { cn } from '@/lib/utils'
+import { listDeviceProfiles } from '../../../simulator/device-profile.mjs'
 
 const sampleModUrl = new URL('../../../simulator/samples/stackchan-sample-mod.xsa', import.meta.url).href
+
+const IMU_ORIENTATIONS: { name: ImuOrientation; label: string }[] = [
+  { name: 'upright', label: '直立' },
+  { name: 'fallenForward', label: '前に転倒' },
+  { name: 'fallenBackward', label: '後ろに転倒' },
+  { name: 'fallenLeft', label: '左に転倒' },
+  { name: 'fallenRight', label: '右に転倒' },
+  { name: 'upsideDown', label: '逆さま' },
+]
+
+const HEAD_TOUCH_POSITIONS: { position: number; label: string }[] = [
+  { position: -100, label: '左端' },
+  { position: -50, label: '左' },
+  { position: 0, label: '中央' },
+  { position: 50, label: '右' },
+  { position: 100, label: '右端' },
+]
 
 export type SimulatorSurfaceController = {
   viewportRef: RefObject<HTMLCanvasElement | null>
@@ -40,11 +64,18 @@ export type SimulatorSurfaceController = {
   cameraStatus: CameraStatus
   logs: LogEntry[]
   clearLogs: () => void
+  deviceProfile: DeviceProfile
+  setDeviceProfile: (id: DeviceProfileId) => void
   installMod: (file: File) => Promise<void>
   restart: () => Promise<void>
   clearMod: () => Promise<void>
   connectCamera: () => Promise<void>
   pushButton: (name: 'a' | 'b' | 'c') => void
+  headSwipe: (direction: 'forward' | 'backward') => void
+  setHeadTouchPosition: (position: number) => void
+  releaseHeadTouch: () => void
+  setImuOrientation: (orientation: ImuOrientation) => void
+  shakeImu: () => void
 }
 
 function formatByteSize(bytes?: number) {
@@ -176,6 +207,133 @@ function ModRuntimeControl({ controller }: { controller: SimulatorSurfaceControl
   )
 }
 
+function DeviceProfileCard({ controller }: { controller: SimulatorSurfaceController }) {
+  const { t } = useI18n()
+  const profiles = listDeviceProfiles() as DeviceProfile[]
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>{t('デバイスプロファイル')}</CardTitle>
+        <CardDescription>
+          {t('接続先の実機構成に合わせて、シミュレーターが提供する入力デバイスを切り替えます。')}
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="grid gap-2">
+        <Select
+          value={controller.deviceProfile.id}
+          onValueChange={(value) => value && controller.setDeviceProfile(value as DeviceProfileId)}
+        >
+          <SelectTrigger className="w-full" aria-label={t('デバイスプロファイル')}>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {profiles.map((profile) => (
+              <SelectItem key={profile.id} value={profile.id}>
+                <span translate="no">{profile.label}</span>
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <p className="text-sm text-muted-foreground" role="status" translate="no">
+          {controller.deviceProfile.description}
+        </p>
+      </CardContent>
+    </Card>
+  )
+}
+
+function VirtualButtonCard({ controller }: { controller: SimulatorSurfaceController }) {
+  const { t } = useI18n()
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>{t('互換仮想ボタン (A/B/C)')}</CardTitle>
+        <CardDescription>
+          {t(
+            'CoreS3には物理的なA・B・Cボタンは存在しません。旧M5Stack機種向けや、ボタン操作に対応したMODの検証用に残しています。'
+          )}
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="grid grid-cols-3 gap-2">
+        {(['a', 'b', 'c'] as const).map((name) => (
+          <Button key={name} variant="outline" onClick={() => controller.pushButton(name)}>
+            {name.toUpperCase()}
+          </Button>
+        ))}
+      </CardContent>
+    </Card>
+  )
+}
+
+function HeadTouchCard({ controller }: { controller: SimulatorSurfaceController }) {
+  const { t } = useI18n()
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>{t('ヘッドタッチパネル')}</CardTitle>
+        <CardDescription>
+          {t('頭部のタッチスワイプを模擬します。前方スワイプを繰り返すと撫でる操作として認識されます。')}
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="grid gap-3">
+        <div className="grid grid-cols-2 gap-2">
+          <Button variant="outline" onClick={() => controller.headSwipe('forward')}>
+            {t('前方スワイプ')}
+          </Button>
+          <Button variant="outline" onClick={() => controller.headSwipe('backward')}>
+            {t('後方スワイプ')}
+          </Button>
+        </div>
+        <div className="grid gap-1.5" role="group" aria-label={t('タッチ位置')}>
+          <div className="grid grid-cols-5 gap-1">
+            {HEAD_TOUCH_POSITIONS.map(({ position, label }) => (
+              <Button
+                key={position}
+                variant="outline"
+                size="sm"
+                onClick={() => controller.setHeadTouchPosition(position)}
+              >
+                {t(label)}
+              </Button>
+            ))}
+          </div>
+          <Button variant="ghost" onClick={() => controller.releaseHeadTouch()}>
+            {t('タッチを離す')}
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+function ImuCard({ controller }: { controller: SimulatorSurfaceController }) {
+  const { t } = useI18n()
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>IMU</CardTitle>
+        <CardDescription>{t('姿勢センサーの向きを設定し、シェイク動作を模擬します。')}</CardDescription>
+      </CardHeader>
+      <CardContent className="grid gap-2">
+        <div className="grid grid-cols-3 gap-2">
+          {IMU_ORIENTATIONS.map(({ name, label }) => (
+            <Button key={name} variant="outline" onClick={() => controller.setImuOrientation(name)}>
+              {t(label)}
+            </Button>
+          ))}
+        </div>
+        <Button variant="outline" onClick={() => controller.shakeImu()}>
+          {t('シェイク')}
+        </Button>
+      </CardContent>
+    </Card>
+  )
+}
+
 function SimulatorToolbar({ controller }: { controller: SimulatorSurfaceController }) {
   const { t } = useI18n()
   const cameraBusy = controller.cameraStatus.status === 'pending'
@@ -186,24 +344,19 @@ function SimulatorToolbar({ controller }: { controller: SimulatorSurfaceControll
     fallback: '利用できません · 合成映像',
     error: `接続失敗 · 合成映像`,
   }[controller.cameraStatus.status]
+  const { inputs } = controller.deviceProfile
 
   return (
     <aside className="grid content-start gap-4" aria-label={t('シミュレーター操作')}>
+      <DeviceProfileCard controller={controller} />
+
       <ModRuntimeControl controller={controller} />
 
-      <Card>
-        <CardHeader>
-          <CardTitle>{t('本体ボタン')}</CardTitle>
-          <CardDescription>{t('ｽﾀｯｸﾁｬﾝのA・B・Cボタンを操作します。')}</CardDescription>
-        </CardHeader>
-        <CardContent className="grid grid-cols-3 gap-2">
-          {(['a', 'b', 'c'] as const).map((name) => (
-            <Button key={name} variant="outline" onClick={() => controller.pushButton(name)}>
-              {name.toUpperCase()}
-            </Button>
-          ))}
-        </CardContent>
-      </Card>
+      {inputs.virtualButtons && <VirtualButtonCard controller={controller} />}
+
+      {inputs.headTouch && <HeadTouchCard controller={controller} />}
+
+      {inputs.imu && <ImuCard controller={controller} />}
 
       <Card>
         <CardHeader>
