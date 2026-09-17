@@ -155,11 +155,15 @@ class StackchanScene {
         this.shell.rotation.set(placement.rotation.x, placement.rotation.y, placement.rotation.z)
         this.shell.scale.setScalar(placement.scale)
         this.headGroup.add(this.shell)
-        // Measure the head once, in headGroup space, so the drag mapping below
-        // follows the actual mesh instead of a constant that silently rots when
-        // the shell asset or its placement changes.
+        // Measure the head once, so the drag mapping follows the actual mesh
+        // instead of a constant that silently rots when the shell asset or its
+        // placement changes. Take the geometry's own box through the shell's
+        // local matrix rather than Box3.setFromObject, which resolves world
+        // matrices: the head pans and tilts every frame, and these bounds have
+        // to stay in headGroup space to match the worldToLocal below.
+        geometry.computeBoundingBox()
         this.shell.updateMatrix()
-        const headBounds = new THREE.Box3().setFromObject(this.shell)
+        const headBounds = geometry.boundingBox.clone().applyMatrix4(this.shell.matrix)
         this.headBoundsZ = { min: headBounds.min.z, max: headBounds.max.z }
 
         const outline = new THREE.LineSegments(
