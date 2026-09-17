@@ -19,20 +19,19 @@ const { baseUrl, server } = await startPreview({
 // Shared with the mobile passes below: every visible control must expose an accessible name.
 // Same check `visual-pages-test.mjs` runs across its viewport sweep.
 async function assertNoUnnamedControls(page, label) {
-  const unnamedControls = await page.evaluate(
-    () =>
-      [...document.querySelectorAll('button, a[href], input, select')].filter(
-        (element) =>
-          element.getClientRects().length > 0 &&
-          element.getAttribute('aria-hidden') !== 'true' &&
-          !(
-            element.getAttribute('aria-label') ||
-            ('labels' in element && element.labels?.length) ||
-            element.getAttribute('title') ||
-            element.textContent?.trim() ||
-            element.getAttribute('placeholder')
-          )
-      ).length
+  const unnamedControls = await page.evaluate(() =>
+    [...document.querySelectorAll('button, a[href], input, select')].filter(
+      (element) =>
+        element.getClientRects().length > 0 &&
+        element.getAttribute('aria-hidden') !== 'true' &&
+        !(
+          element.getAttribute('aria-label') ||
+          ('labels' in element && element.labels?.length) ||
+          element.getAttribute('title') ||
+          element.textContent?.trim() ||
+          element.getAttribute('placeholder')
+        )
+    ).length
   )
   assert.equal(unnamedControls, 0, `${label} must give every visible control an accessible name`)
 }
