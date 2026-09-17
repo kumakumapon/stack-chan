@@ -25,6 +25,7 @@ import {
   type DeviceProfile,
   type DeviceProfileId,
   type ImuOrientation,
+  type PerformanceMode,
 } from '@/features/simulator/use-simulator-engine'
 import {
   type CameraStatus,
@@ -62,20 +63,24 @@ export type SimulatorSurfaceController = {
     installedMod?: InstalledMod | null
   }
   cameraStatus: CameraStatus
+  cameraFacingMode: 'user' | 'environment' | undefined
   logs: LogEntry[]
   clearLogs: () => void
   deviceProfile: DeviceProfile
   setDeviceProfile: (id: DeviceProfileId) => void
+  performanceMode: PerformanceMode
+  setPerformanceMode: (mode: PerformanceMode) => void
   installMod: (file: File) => Promise<void>
   restart: () => Promise<void>
   clearMod: () => Promise<void>
-  connectCamera: () => Promise<void>
+  connectCamera: (options?: { facingMode?: 'user' | 'environment' }) => Promise<void>
   pushButton: (name: 'a' | 'b' | 'c') => void
   headSwipe: (direction: 'forward' | 'backward') => void
   setHeadTouchPosition: (position: number) => void
   releaseHeadTouch: () => void
   setImuOrientation: (orientation: ImuOrientation) => void
   shakeImu: () => void
+  setImuAccelerometer: (vector: { x: number; y: number; z: number }) => void
 }
 
 function formatByteSize(bytes?: number) {
@@ -129,7 +134,7 @@ export function SimulatorViewport({
   )
 }
 
-function ModRuntimeControl({ controller }: { controller: SimulatorSurfaceController }) {
+export function ModRuntimeControl({ controller }: { controller: SimulatorSurfaceController }) {
   const { t } = useI18n()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const modBusy = controller.modState.result.status === 'restarting'
@@ -207,7 +212,7 @@ function ModRuntimeControl({ controller }: { controller: SimulatorSurfaceControl
   )
 }
 
-function DeviceProfileCard({ controller }: { controller: SimulatorSurfaceController }) {
+export function DeviceProfileCard({ controller }: { controller: SimulatorSurfaceController }) {
   const { t } = useI18n()
   const profiles = listDeviceProfiles() as DeviceProfile[]
 
@@ -243,7 +248,7 @@ function DeviceProfileCard({ controller }: { controller: SimulatorSurfaceControl
   )
 }
 
-function VirtualButtonCard({ controller }: { controller: SimulatorSurfaceController }) {
+export function VirtualButtonCard({ controller }: { controller: SimulatorSurfaceController }) {
   const { t } = useI18n()
 
   return (
@@ -267,7 +272,7 @@ function VirtualButtonCard({ controller }: { controller: SimulatorSurfaceControl
   )
 }
 
-function HeadTouchCard({ controller }: { controller: SimulatorSurfaceController }) {
+export function HeadTouchCard({ controller }: { controller: SimulatorSurfaceController }) {
   const { t } = useI18n()
 
   return (
@@ -309,7 +314,7 @@ function HeadTouchCard({ controller }: { controller: SimulatorSurfaceController 
   )
 }
 
-function ImuCard({ controller }: { controller: SimulatorSurfaceController }) {
+export function ImuCard({ controller }: { controller: SimulatorSurfaceController }) {
   const { t } = useI18n()
 
   return (
@@ -334,7 +339,7 @@ function ImuCard({ controller }: { controller: SimulatorSurfaceController }) {
   )
 }
 
-function SimulatorToolbar({ controller }: { controller: SimulatorSurfaceController }) {
+export function CameraCard({ controller }: { controller: SimulatorSurfaceController }) {
   const { t } = useI18n()
   const cameraBusy = controller.cameraStatus.status === 'pending'
   const cameraLabel = {
@@ -344,6 +349,51 @@ function SimulatorToolbar({ controller }: { controller: SimulatorSurfaceControll
     fallback: '利用できません · 合成映像',
     error: `接続失敗 · 合成映像`,
   }[controller.cameraStatus.status]
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>{t('カメラ')}</CardTitle>
+        <CardDescription role="status">{t(cameraLabel)}</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <Button
+          className="w-full"
+          variant="outline"
+          onClick={() => void controller.connectCamera()}
+          disabled={cameraBusy}
+        >
+          <Camera data-icon="inline-start" />
+          {t('カメラを接続')}
+        </Button>
+      </CardContent>
+    </Card>
+  )
+}
+
+export function SimulatorLogPanel({
+  controller,
+  className,
+  viewportClassName,
+}: {
+  controller: SimulatorSurfaceController
+  className?: string
+  viewportClassName?: string
+}) {
+  const { t } = useI18n()
+  return (
+    <LogConsole
+      entries={controller.logs}
+      onClear={controller.clearLogs}
+      title={t('ファームウェアログ')}
+      className={className}
+      viewportClassName={viewportClassName}
+    />
+  )
+}
+
+function SimulatorToolbar({ controller }: { controller: SimulatorSurfaceController }) {
+  const { t } = useI18n()
   const { inputs } = controller.deviceProfile
 
   return (
@@ -358,23 +408,7 @@ function SimulatorToolbar({ controller }: { controller: SimulatorSurfaceControll
 
       {inputs.imu && <ImuCard controller={controller} />}
 
-      <Card>
-        <CardHeader>
-          <CardTitle>{t('カメラ')}</CardTitle>
-          <CardDescription role="status">{t(cameraLabel)}</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Button
-            className="w-full"
-            variant="outline"
-            onClick={() => void controller.connectCamera()}
-            disabled={cameraBusy}
-          >
-            <Camera data-icon="inline-start" />
-            {t('カメラを接続')}
-          </Button>
-        </CardContent>
-      </Card>
+      <CameraCard controller={controller} />
     </aside>
   )
 }
