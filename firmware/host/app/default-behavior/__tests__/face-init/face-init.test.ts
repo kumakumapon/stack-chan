@@ -164,7 +164,7 @@ equal(
   'hand animation choices should close the drawer so the result is visible',
 )
 const selectionCountBeforeInvalidAnimation = selectedHandAnimations.length
-handsButton?.callback?.(robot, 'wave')
+handsButton?.callback?.(robot, 'moonwalk')
 equal(selectedHandAnimations.length, selectionCountBeforeInvalidAnimation, 'unknown hand animations should be ignored')
 equal(drawerStates.length, 0, 'hand choices should not masquerade as binary toggles')
 buttons.find((button) => button.key === 'toggleFace')?.callback?.(robot, 'dog')
