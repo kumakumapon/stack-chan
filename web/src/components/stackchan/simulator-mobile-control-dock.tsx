@@ -7,6 +7,7 @@ import {
   HeadTouchCard,
   ImuCard,
   ModRuntimeControl,
+  ReactionPerformanceCard,
   SimulatorLogPanel,
   VirtualButtonCard,
   type SimulatorSurfaceController,
@@ -174,6 +175,7 @@ export function SimulatorMobileControlDock({
         <PanelSection>
           {inputs.headTouch && <HeadTouchCard controller={controller} />}
           {inputs.virtualButtons && <VirtualButtonCard controller={controller} />}
+          <ReactionPerformanceCard controller={controller} />
         </PanelSection>
       )}
       {activeTab === 'sensors' && (

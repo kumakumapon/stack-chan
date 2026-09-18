@@ -11,6 +11,7 @@ import {
   createHostCameraBridge,
   createHostDriverBridge,
   createHostImuBridge,
+  createHostPerformanceBridge,
   createHostTouchPanelBridge,
   installModArchiveIntoWasm,
   summarizeImageData,
@@ -909,6 +910,7 @@ export class SimulatorEngine {
     onTrace = () => {},
     onModStatus = () => {},
     onCameraStatus = () => {},
+    onPerformanceStatus = () => {},
     onReady = () => {},
     onError = () => {},
     modStorage = createModStorage(),
@@ -922,6 +924,7 @@ export class SimulatorEngine {
     this.onTrace = onTrace
     this.onModStatus = onModStatus
     this.onCameraStatus = onCameraStatus
+    this.onPerformanceStatus = onPerformanceStatus
     this.onReady = onReady
     this.onError = onError
     this.modStorage = modStorage
@@ -929,6 +932,10 @@ export class SimulatorEngine {
     this.buttonBridge = createHostButtonBridge({ logger: (message) => this.onTrace(message) })
     this.touchPanelBridge = createHostTouchPanelBridge({ logger: (message) => this.onTrace(message) })
     this.imuBridge = createHostImuBridge({ logger: (message) => this.onTrace(message) })
+    this.performanceBridge = createHostPerformanceBridge({
+      logger: (message) => this.onTrace(message),
+      onStatus: (status) => this.onPerformanceStatus(status),
+    })
     this.audioOutBridge = createHostAudioOutBridge()
     this.audioInBridge = createHostAudioInBridge()
     this.cameraBridge = createHostCameraBridge()
@@ -954,6 +961,9 @@ export class SimulatorEngine {
       AudioIn: this.audioInBridge,
       Camera: this.cameraBridge,
       Driver: this.driverBridge,
+      // Unlike the profile-gated sensors above, every profile's firmware links the
+      // reaction/performance capabilities, so Host.Performance is always present.
+      Performance: this.performanceBridge,
     }
     this.wasmView = new WasmView({
       scene: this.scene,
@@ -1153,6 +1163,27 @@ export class SimulatorEngine {
       return
     }
     this.imuBridge.shake()
+  }
+
+  /** The latest { reaction, performance } status the firmware reported; see performanceBridge. */
+  get performanceStatus() {
+    return this.performanceBridge.getStatus()
+  }
+
+  playReaction(name, options) {
+    this.performanceBridge.enqueue({ target: 'reaction', action: 'play', name, options })
+  }
+
+  cancelReaction() {
+    this.performanceBridge.enqueue({ target: 'reaction', action: 'cancel' })
+  }
+
+  playPerformance(name, options) {
+    this.performanceBridge.enqueue({ target: 'performance', action: 'play', name, options })
+  }
+
+  cancelPerformance() {
+    this.performanceBridge.enqueue({ target: 'performance', action: 'cancel' })
   }
 
   dispose() {

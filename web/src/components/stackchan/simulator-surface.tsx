@@ -25,6 +25,8 @@ import {
   type DeviceProfile,
   type DeviceProfileId,
   type ImuOrientation,
+  type PerformanceBridgeCommandOptions,
+  type PerformanceBridgeStatus,
   type PerformanceMode,
 } from '@/features/simulator/use-simulator-engine'
 import {
@@ -45,6 +47,15 @@ const IMU_ORIENTATIONS: { name: ImuOrientation; label: string }[] = [
   { name: 'fallenRight', label: '右に転倒' },
   { name: 'upsideDown', label: '逆さま' },
 ]
+
+// Mirrors firmware/host/modules/reaction/reaction-types.ts REACTION_NAMES and
+// firmware/host/modules/performance/performance-types.ts PERFORMANCE_NAMES.
+// The simulator has no build-time dependency on the firmware package, so this
+// list is kept in sync by hand; an unknown name is simply rejected by
+// performance-command.ts on the firmware side and traced, never sent to a
+// servo, so drift here fails safe.
+const REACTION_NAMES = ['yes', 'no', 'greeting', 'thinking', 'delighted', 'sleepy-yawn', 'success', 'failure'] as const
+const PERFORMANCE_NAMES = ['greeting', 'happy-dance', 'cheer', 'sing-twinkle'] as const
 
 const HEAD_TOUCH_POSITIONS: { position: number; label: string }[] = [
   { position: -100, label: '左端' },
@@ -81,6 +92,11 @@ export type SimulatorSurfaceController = {
   setImuOrientation: (orientation: ImuOrientation) => void
   shakeImu: () => void
   setImuAccelerometer: (vector: { x: number; y: number; z: number }) => void
+  performanceStatus: PerformanceBridgeStatus
+  playReaction: (name: string, options?: PerformanceBridgeCommandOptions) => void
+  cancelReaction: () => void
+  playPerformance: (name: string, options?: PerformanceBridgeCommandOptions) => void
+  cancelPerformance: () => void
   resetViewportCamera: () => void
   viewportControlsLocked: boolean
   setViewportControlsLocked: (locked: boolean) => void
@@ -342,6 +358,56 @@ export function ImuCard({ controller }: { controller: SimulatorSurfaceController
   )
 }
 
+export function ReactionPerformanceCard({ controller }: { controller: SimulatorSurfaceController }) {
+  const { t } = useI18n()
+  const { reaction, performance } = controller.performanceStatus
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>{t('リアクション / パフォーマンス')}</CardTitle>
+        <CardDescription>
+          {t('名前を指定してリアクションやパフォーマンスを再生し、いつでもキャンセルできます。')}
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="grid gap-3">
+        <div className="grid gap-1.5">
+          <p className="text-sm font-medium">{t('リアクション')}</p>
+          <div className="grid grid-cols-2 gap-2">
+            {REACTION_NAMES.map((name) => (
+              <Button key={name} variant="outline" size="sm" onClick={() => controller.playReaction(name)}>
+                <span translate="no">{name}</span>
+              </Button>
+            ))}
+          </div>
+          <Button variant="ghost" onClick={() => controller.cancelReaction()}>
+            {t('リアクションをキャンセル')}
+          </Button>
+        </div>
+        <div className="grid gap-1.5">
+          <p className="text-sm font-medium">{t('パフォーマンス')}</p>
+          <div className="grid grid-cols-2 gap-2">
+            {PERFORMANCE_NAMES.map((name) => (
+              <Button key={name} variant="outline" size="sm" onClick={() => controller.playPerformance(name)}>
+                <span translate="no">{name}</span>
+              </Button>
+            ))}
+          </div>
+          <Button variant="ghost" onClick={() => controller.cancelPerformance()}>
+            {t('パフォーマンスをキャンセル')}
+          </Button>
+        </div>
+        <p className="text-sm text-muted-foreground" role="status">
+          {t('再生中: リアクション={reaction} パフォーマンス={performance}', {
+            reaction: reaction.active ?? t('なし'),
+            performance: performance.active ?? t('なし'),
+          })}
+        </p>
+      </CardContent>
+    </Card>
+  )
+}
+
 export function CameraCard({ controller }: { controller: SimulatorSurfaceController }) {
   const { t } = useI18n()
   const cameraBusy = controller.cameraStatus.status === 'pending'
@@ -410,6 +476,8 @@ function SimulatorToolbar({ controller }: { controller: SimulatorSurfaceControll
       {inputs.headTouch && <HeadTouchCard controller={controller} />}
 
       {inputs.imu && <ImuCard controller={controller} />}
+
+      <ReactionPerformanceCard controller={controller} />
 
       <CameraCard controller={controller} />
     </aside>

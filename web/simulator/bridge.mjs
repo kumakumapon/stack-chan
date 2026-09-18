@@ -323,6 +323,75 @@ export function createHostImuBridge({
   }
 }
 
+const DEFAULT_PERFORMANCE_STATUS = Object.freeze({
+  reaction: Object.freeze({ active: null, startedAt: null }),
+  performance: Object.freeze({ active: null, startedAt: null, nextCue: 0 }),
+})
+
+// Browser half of the reaction/performance simulator bridge: queues UI-issued
+// play()/cancel() commands for the firmware to drain (see
+// firmware/host/modules/performance/wasm/performance-bridge.js, which polls
+// take() and calls setStatus() back), and holds the latest status the
+// firmware reported so the UI can show what is active. Installed whole as
+// stackchanRuntime.host.Performance (unlike Button/TouchPanel/IMU, its take()
+// and setStatus() are meant to be called directly on the object the firmware
+// sees, so there is no separate reader sub-object to split out).
+export function createHostPerformanceBridge({ logger = () => {}, onStatus } = {}) {
+  const queue = []
+  let status = DEFAULT_PERFORMANCE_STATUS
+  const statusListeners = new Set()
+  if (onStatus) statusListeners.add(onStatus)
+
+  const notifyStatus = () => {
+    for (const listener of statusListeners) listener(status)
+  }
+
+  return {
+    // UI -> firmware: queued in call order, drained one at a time by take().
+    enqueue(command) {
+      if (!command || typeof command !== 'object' || !command.target || !command.action) return
+      queue.push(command)
+      const label = command.name ? `${command.target}.${command.action} ${command.name}` : `${command.target}.${command.action}`
+      logger(`[bridge] Host.Performance enqueue ${label}`)
+    },
+    // Called by the firmware bridge; JSON so it crosses the XS/WebAssembly string boundary
+    // the same way take()'s counterpart setStatus() does. Empty string signals an empty queue.
+    take() {
+      const command = queue.shift()
+      return command ? JSON.stringify(command) : ''
+    },
+    pending() {
+      return queue.length
+    },
+    // Called by the firmware bridge with a JSON status snapshot; parse failures are logged and
+    // otherwise ignored rather than corrupting the last-known-good status the UI is showing.
+    setStatus(json) {
+      let parsed
+      try {
+        parsed = JSON.parse(json)
+      } catch (error) {
+        logger(`[bridge] Host.Performance setStatus: invalid JSON (${error instanceof Error ? error.message : error})`)
+        return
+      }
+      if (!parsed || typeof parsed !== 'object') return
+      status = parsed
+      notifyStatus()
+    },
+    getStatus() {
+      return status
+    },
+    // EventTarget-like subscription for React, in addition to the onStatus constructor callback.
+    addEventListener(type, listener) {
+      if (type !== 'status' || typeof listener !== 'function') return
+      statusListeners.add(listener)
+    },
+    removeEventListener(type, listener) {
+      if (type !== 'status') return
+      statusListeners.delete(listener)
+    },
+  }
+}
+
 export function installModArchiveIntoWasm(wasmModule, installedMod) {
   if (!installedMod) return { status: 'empty' }
 

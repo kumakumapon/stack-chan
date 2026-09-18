@@ -11,6 +11,7 @@ import {
   createHostCameraBridge,
   createHostDriverBridge,
   createHostImuBridge,
+  createHostPerformanceBridge,
   createHostTouchPanelBridge,
   installModArchiveIntoWasm,
   summarizeImageData,
@@ -1152,5 +1153,99 @@ describe('Host.IMU bridge', () => {
 
     assert.deepEqual(bridge.sample().accelerometer, { x: 0.5, y: 0.5, z: 0 })
     assert.equal(bridge.orientation(), 'custom')
+  })
+})
+
+describe('Host.Performance bridge', () => {
+  it('starts with an empty queue and idle status for both capabilities', () => {
+    const bridge = createHostPerformanceBridge()
+    assert.equal(bridge.pending(), 0)
+    assert.equal(bridge.take(), '')
+    assert.deepEqual(bridge.getStatus(), {
+      reaction: { active: null, startedAt: null },
+      performance: { active: null, startedAt: null, nextCue: 0 },
+    })
+  })
+
+  it('drains enqueued commands in FIFO order, JSON-encoded, until empty', () => {
+    const bridge = createHostPerformanceBridge()
+    const first = { target: 'reaction', action: 'play', name: 'yes' }
+    const second = { target: 'performance', action: 'cancel' }
+
+    bridge.enqueue(first)
+    bridge.enqueue(second)
+    assert.equal(bridge.pending(), 2)
+
+    assert.equal(bridge.take(), JSON.stringify(first))
+    assert.equal(bridge.pending(), 1)
+    assert.equal(bridge.take(), JSON.stringify(second))
+    assert.equal(bridge.pending(), 0)
+    assert.equal(bridge.take(), '')
+  })
+
+  it('logs an enqueued command including its name when present', () => {
+    const events = []
+    const bridge = createHostPerformanceBridge({ logger: (message) => events.push(message) })
+
+    bridge.enqueue({ target: 'reaction', action: 'play', name: 'yes' })
+    bridge.enqueue({ target: 'performance', action: 'cancel' })
+
+    assert.deepEqual(events, [
+      '[bridge] Host.Performance enqueue reaction.play yes',
+      '[bridge] Host.Performance enqueue performance.cancel',
+    ])
+  })
+
+  it('ignores an enqueue() call for a malformed command without throwing', () => {
+    const bridge = createHostPerformanceBridge()
+    assert.doesNotThrow(() => bridge.enqueue(undefined))
+    assert.doesNotThrow(() => bridge.enqueue({}))
+    assert.equal(bridge.pending(), 0)
+  })
+
+  it('round-trips a status snapshot through setStatus()/getStatus()', () => {
+    const bridge = createHostPerformanceBridge()
+    const status = { reaction: { active: 'yes', startedAt: 100 }, performance: { active: null, startedAt: null, nextCue: 0 } }
+
+    bridge.setStatus(JSON.stringify(status))
+
+    assert.deepEqual(bridge.getStatus(), status)
+  })
+
+  it('notifies the constructor onStatus callback on every setStatus() call', () => {
+    const seen = []
+    const bridge = createHostPerformanceBridge({ onStatus: (status) => seen.push(status) })
+    const status = { reaction: { active: null, startedAt: null }, performance: { active: 'greeting', startedAt: 5, nextCue: 1 } }
+
+    bridge.setStatus(JSON.stringify(status))
+
+    assert.deepEqual(seen, [status])
+  })
+
+  it('notifies addEventListener("status", ...) subscribers and stops after removeEventListener', () => {
+    const seen = []
+    const bridge = createHostPerformanceBridge()
+    const listener = (status) => seen.push(status)
+    const statusA = { reaction: { active: 'yes', startedAt: 0 }, performance: { active: null, startedAt: null, nextCue: 0 } }
+    const statusB = { reaction: { active: null, startedAt: null }, performance: { active: null, startedAt: null, nextCue: 0 } }
+
+    bridge.addEventListener('status', listener)
+    bridge.setStatus(JSON.stringify(statusA))
+    bridge.removeEventListener('status', listener)
+    bridge.setStatus(JSON.stringify(statusB))
+
+    assert.deepEqual(seen, [statusA])
+  })
+
+  it('ignores a setStatus() call with invalid JSON and keeps the last-known-good status', () => {
+    const events = []
+    const bridge = createHostPerformanceBridge({ logger: (message) => events.push(message) })
+    const status = { reaction: { active: 'yes', startedAt: 0 }, performance: { active: null, startedAt: null, nextCue: 0 } }
+
+    bridge.setStatus(JSON.stringify(status))
+    bridge.setStatus('{not json')
+
+    assert.deepEqual(bridge.getStatus(), status)
+    assert.ok(events.some((message) => message.includes('invalid JSON')))
   })
 })

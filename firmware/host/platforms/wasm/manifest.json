@@ -14,7 +14,7 @@
     "../../modules/connectivity/manifest_wasm.json",
     "../../modules/input/manifest_wasm.json",
     "../../modules/reaction/manifest.json",
-    "../../modules/performance/manifest.json",
+    "../../modules/performance/manifest_wasm.json",
     "../../modules/util/manifest.json",
     "../../modules/preferences/manifest_wasm.json",
     "../../app/manifest_typings.json"
