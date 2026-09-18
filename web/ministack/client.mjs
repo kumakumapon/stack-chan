@@ -1,5 +1,119 @@
 import { BLELocalPeerCapability } from '../local-peer/ble-local-peer.mjs'
 
+/** Settings the PC may change, mirroring firmware/mods/examples/ministack/controller.js CONFIG_KEYS. */
+export const CONFIG_KEYS = {
+  speechVolume: { min: 0, max: 100 },
+  longPressMs: { min: 300, max: 2000 },
+  faceMotion: { boolean: true },
+}
+
+/** Raw bytes per transfer chunk; base64 of this still fits the 2 KiB Local Peer envelope. */
+export const TRANSFER_CHUNK_MAX = 1024
+
+/**
+ * Tracks event delivery so the UI sees each event exactly once.
+ *
+ * Events can arrive twice (a pushed `event` message and a later `events.since`
+ * replay covering the same id) and out of order (a push racing ahead of a
+ * replay that is still catching up). This buffers anything that arrives ahead
+ * of the contiguous chain and releases it in id order once the gap in the
+ * chain fills in, so `onEvent` fires exactly once per id, in order.
+ *
+ * `gap: true` on a replay means the MOD's buffer dropped an id for good: the
+ * chain will never become contiguous there, so whatever is still buffered for
+ * it is discarded, the survivors in that reply are delivered directly, and
+ * `onGap` fires so the caller resyncs anything it inferred from events.
+ */
+export function createEventTracker({ onEvent = () => {}, onGap = () => {} } = {}) {
+  let cursor = 0
+  const pending = new Map()
+  const flush = () => {
+    for (;;) {
+      const next = pending.get(cursor + 1)
+      if (next === undefined) return
+      pending.delete(cursor + 1)
+      cursor += 1
+      onEvent(next)
+    }
+  }
+  const ingest = (event) => {
+    if (!event || !Number.isInteger(event.eventId) || event.eventId <= cursor || pending.has(event.eventId)) return
+    pending.set(event.eventId, event)
+    flush()
+  }
+  return {
+    get cursor() {
+      return cursor
+    },
+    ingest,
+    /** Feeds one `events.since` reply. */
+    ingestReplay({ events = [], gap = false } = {}) {
+      if (gap) {
+        pending.clear()
+        for (const event of events) {
+          if (!Number.isInteger(event?.eventId) || event.eventId <= cursor) continue
+          cursor = event.eventId
+          onEvent(event)
+        }
+        onGap()
+        return
+      }
+      for (const event of events) ingest(event)
+    },
+  }
+}
+
+/** Decodes a base64 `transfer.read` chunk back into raw bytes. */
+export function decodeBase64(base64) {
+  const binary = atob(base64)
+  const bytes = new Uint8Array(binary.length)
+  for (let index = 0; index < binary.length; index++) bytes[index] = binary.charCodeAt(index)
+  return bytes
+}
+
+function concatBytes(parts, totalLength) {
+  const out = new Uint8Array(totalLength ?? parts.reduce((sum, part) => sum + part.byteLength, 0))
+  let offset = 0
+  for (const part of parts) {
+    out.set(part, offset)
+    offset += part.byteLength
+  }
+  return out
+}
+
+/**
+ * Pulls a MOD-side transfer a chunk at a time and reassembles it.
+ *
+ * `read(offset, length)` performs one `transfer.read` round trip and resolves
+ * to `{offset, byteLength, chunk, eof}` (`chunk` base64-encoded). A chunk read
+ * is idempotent by offset on the MOD side, so a failing chunk is retried at
+ * the same offset rather than restarting the whole transfer.
+ */
+export async function readTransfer(read, { chunkSize = TRANSFER_CHUNK_MAX, maxAttempts = 3, onProgress } = {}) {
+  if (chunkSize > TRANSFER_CHUNK_MAX) throw new Error(`chunkSize must not exceed ${TRANSFER_CHUNK_MAX}`)
+  const parts = []
+  let offset = 0
+  let total
+  for (;;) {
+    let result
+    for (let attempt = 1; ; attempt++) {
+      try {
+        result = await read(offset, chunkSize)
+        break
+      } catch (error) {
+        if (attempt >= maxAttempts) throw error
+      }
+    }
+    total = result.byteLength
+    const bytes = decodeBase64(result.chunk)
+    parts.push(bytes)
+    offset += bytes.byteLength
+    onProgress?.({ bytesRead: offset, totalBytes: total })
+    if (result.eof) break
+  }
+  return concatBytes(parts, total)
+}
+
 // Call connect from a browser user gesture. Secrets remain in memory only.
 export class MiniStackClient {
   constructor(createCapability = () => new BLELocalPeerCapability(), onDisconnect = () => {}, options = {}) {
@@ -15,6 +129,12 @@ export class MiniStackClient {
     this.reconnectBaseDelayMs = options.reconnectBaseDelayMs ?? 1000
     this.schedule = options.schedule ?? ((run, delayMs) => setTimeout(run, delayMs))
     this.onReconnectAttempt = options.onReconnectAttempt ?? (() => {})
+    // onEvent fires once per event id, in order (see createEventTracker).
+    // onGap fires when an event was lost for good; the caller should treat
+    // anything it inferred from events as stale until onState delivers fresh state.get.
+    this.onEvent = options.onEvent ?? (() => {})
+    this.onGap = options.onGap ?? (() => {})
+    this.onState = options.onState ?? (() => {})
     this.autoReconnect = false
     this.retries = 0
   }
@@ -24,6 +144,16 @@ export class MiniStackClient {
     this.disconnectReason = undefined
     this.polling = false
     this.heartbeatFailures = 0
+    this.gap = false
+    this.ackInFlight = false
+    this.ackQueued = false
+    // Ids are monotonic within a device boot session and a restart changes the
+    // session, so a fresh connection starts a fresh tracker rather than
+    // reasoning about which ids from a previous boot are still meaningful.
+    this.eventTracker = createEventTracker({
+      onEvent: (event) => this.onEvent(event),
+      onGap: () => this.handleGap(),
+    })
     const revision = this.revision
     if (typeof sharedKey !== 'string' || sharedKey.length < 16)
       throw new Error('sharedKey must contain at least 16 characters')
@@ -59,14 +189,22 @@ export class MiniStackClient {
         if (p.ok) item.resolve(p.result)
         else item.reject(new Error(p.error?.code ?? 'invalid-response'))
       })
+      this.unsubscribeEvents = this.session.subscribe('event', (message) => {
+        if (message.peer.id !== this.peer) return
+        const before = this.eventTracker.cursor
+        this.eventTracker.ingest(message.payload)
+        if (this.eventTracker.cursor !== before) this.ackEvents()
+      })
       const capabilities = await this.request('capabilities.get')
       if (revision !== this.revision) throw new Error('Connection cancelled')
       this.sessionId = capabilities.sessionId
       const poll = () => {
         if (!this.polling) {
           this.polling = true
-          this.request('state.get')            .then(() => {
+          this.request('state.get')
+            .then((state) => {
               this.heartbeatFailures = 0
+              this.onState(state)
             })
             .catch((error) => {
               if (revision !== this.revision) return
@@ -79,6 +217,17 @@ export class MiniStackClient {
             .finally(() => {
               if (revision === this.revision) this.polling = false
             })
+          // Rides the same cadence as a backstop for a missed pushed `event`
+          // message. Its own failures do not affect heartbeatFailures: the
+          // heartbeat above is what decides whether the session is alive.
+          this.request('events.since', { afterEventId: this.eventTracker.cursor })
+            .then((replay) => {
+              if (revision !== this.revision) return
+              const before = this.eventTracker.cursor
+              this.eventTracker.ingestReplay(replay)
+              if (this.eventTracker.cursor !== before) this.ackEvents()
+            })
+            .catch(() => {})
         }
       }
       this.heartbeat = setInterval(poll, 1000)
@@ -92,6 +241,47 @@ export class MiniStackClient {
     } finally {
       this.connecting = false
     }
+  }
+  /** Coalesces acks so a burst of events sends at most one `events.ack` in flight at a time. */
+  ackEvents() {
+    if (this.ackInFlight) {
+      this.ackQueued = true
+      return
+    }
+    this.ackInFlight = true
+    this.request('events.ack', { lastEventId: this.eventTracker.cursor })
+      // Best-effort: a lost ack only delays the MOD freeing its event buffer,
+      // and the next successful ack catches it up.
+      .catch(() => {})
+      .finally(() => {
+        this.ackInFlight = false
+        if (this.ackQueued) {
+          this.ackQueued = false
+          this.ackEvents()
+        }
+      })
+  }
+  /**
+   * A gap means an event was lost for good, so anything the page inferred
+   * from events (a command it thinks is still running, a pending transfer) is
+   * now unreliable. Pull fresh ground truth instead of waiting for the next
+   * heartbeat tick, and let the caller show the loss rather than swallow it.
+   */
+  handleGap() {
+    this.gap = true
+    this.onGap()
+    this.request('state.get')
+      .then((state) => this.onState(state))
+      .catch(() => {})
+  }
+  /** Downloads a MOD-side transfer in chunks and releases it once complete. */
+  async downloadTransfer(transferId, { onProgress } = {}) {
+    const bytes = await readTransfer(
+      (offset, length) => this.request('transfer.read', { transferId, offset, length }),
+      { onProgress },
+    )
+    await this.request('transfer.release', { transferId }).catch(() => {})
+    return bytes
   }
   async request(type, fields = {}) {
     if (!this.session) throw this.disconnectReason ?? new Error('Not connected')
@@ -120,6 +310,8 @@ export class MiniStackClient {
     clearInterval(this.heartbeat)
     this.unsubscribe?.()
     this.unsubscribe = undefined
+    this.unsubscribeEvents?.()
+    this.unsubscribeEvents = undefined
     this.session?.close()
     this.session = undefined
     this.sessionId = undefined
