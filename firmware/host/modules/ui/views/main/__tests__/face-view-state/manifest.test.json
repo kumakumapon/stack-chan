@@ -5,6 +5,7 @@
     "../../../../../camera/manifest.json",
     "../../../../../input/manifest.json",
     "../../../../../motion/manifest.json",
+    "../../../../../performance/manifest.json",
     "../../../../../testing/manifest.json"
   ],
   "resources": {
