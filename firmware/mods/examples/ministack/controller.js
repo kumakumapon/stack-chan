@@ -314,10 +314,14 @@ export async function applyHeadPose(motion, pose, durationSeconds, cancelled) {
 /**
  * Event kinds the MOD may emit. Listing them keeps a typo from becoming a kind
  * the PC silently never matches.
+ *
+ * `connection.changed` from issue #10's list is deliberately absent. Becoming
+ * connected is already what `ready` reports, and becoming disconnected cannot
+ * be reported at all: the channel it would travel on is the one that is gone.
+ * Advertising a kind that never arrives only misleads whoever waits for it.
  */
 export const EVENT_KINDS = [
   'ready',
-  'connection.changed',
   'error',
   'touch',
   'speech.started',
