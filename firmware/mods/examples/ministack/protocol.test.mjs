@@ -1,6 +1,12 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { createController, createEventOutbox, createTransferRegistry } from './controller.js'
+import {
+  createController,
+  createEventOutbox,
+  createTransferRegistry,
+  sharedKeyByteLength,
+  sharedKeyProblem,
+} from './controller.js'
 
 const clock = () => ({ value: 0 })
 const build = ({ execute = async () => ({}), applyConfig, capabilities = {}, time = clock() } = {}) => {
@@ -209,4 +215,34 @@ test('a local stop spends no request-id slot, so the button cannot fill the sess
   const { controller } = build()
   for (let i = 0; i < 300; i++) controller.cancel()
   assert.equal((await controller.receive('face.set', action('after', { emotion: 'HAPPY' }))).ok, true)
+})
+
+test('a shared key the build accepts is one the transport accepts', () => {
+  // The regression: configure.mjs measured string length and allowed up to 128,
+  // while local-peer-service.ts measures UTF-8 bytes and allows 64. A key
+  // between those built into the MOD and then failed at localPeer.open(), where
+  // the screen said only that the MOD could not start.
+  assert.equal(sharedKeyProblem('a'.repeat(16)), undefined)
+  assert.equal(sharedKeyProblem('a'.repeat(64)), undefined)
+  assert.match(sharedKeyProblem('a'.repeat(65)), /16-64 UTF-8 bytes \(got 65\)/)
+  assert.match(sharedKeyProblem('a'.repeat(15)), /got 15/)
+  // 22 three-byte characters is 66 bytes but only 22 in string length, so the
+  // old check passed it.
+  assert.match(sharedKeyProblem('あ'.repeat(22)), /got 66/)
+  assert.equal(sharedKeyProblem('あ'.repeat(21)), undefined)
+  // And it was too strict the other way: four astral characters are 16 bytes,
+  // which the transport accepts, but string length counts the surrogates as 8.
+  assert.equal(sharedKeyProblem('😀'.repeat(4)), undefined)
+})
+
+test('a shared key the transport refuses outright is named, not measured', () => {
+  assert.match(sharedKeyProblem(undefined), /must be a string/)
+  assert.match(sharedKeyProblem(`${'a'.repeat(20)}\0`), /NUL/)
+})
+
+test('the UTF-8 byte count matches the encoder the firmware uses', () => {
+  // XS has no TextEncoder, so the count is derived from code points; it has to
+  // agree with a real encoder or the limit is enforced at the wrong place.
+  for (const key of ['', 'a', 'あ', '😀', 'aあ😀z', 'ß'.repeat(33), '😀a'.repeat(7)])
+    assert.equal(sharedKeyByteLength(key), Buffer.byteLength(key, 'utf8'), JSON.stringify(key))
 })

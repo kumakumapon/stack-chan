@@ -9,6 +9,7 @@ import {
   createTransferRegistry,
   readServoDiagnostics,
   SERVICE,
+  sharedKeyProblem,
 } from 'ministack-controller'
 import Preference from 'preference'
 import Timer from 'timer'
@@ -44,8 +45,13 @@ export function onContextCreated(robot) {
   trace('[ministack] context created\n')
   active?.close()
   const key = sharedKey
-  if (typeof key !== 'string' || key.length < 16) {
-    robot.ui.showBalloon('MiniStack: sharedKey (16+ characters) required')
+  // The same rule the transport applies. Checking it here means a key the
+  // build let through is named on screen, rather than surfacing as the
+  // generic start failure that localPeer.open() would raise below.
+  const keyProblem = sharedKeyProblem(key)
+  if (keyProblem) {
+    trace(`[ministack] ${keyProblem}\n`)
+    robot.ui.showBalloon(`MiniStack: ${keyProblem}`)
     return
   }
   void start(robot, key).catch((error) => {
