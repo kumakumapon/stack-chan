@@ -14,7 +14,9 @@ const RUNTIME_MODULES = [
   'input',
   'lighting',
   'motion',
+  'performance',
   'preferences',
+  'reaction',
   'ui',
   'util',
 ] as const

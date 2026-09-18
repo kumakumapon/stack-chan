@@ -1,0 +1,7 @@
+{
+  "include": ["../reaction/manifest.json"],
+  "modules": {
+    "performance-types": "./performance-types"
+  },
+  "preload": ["performance-types"]
+}

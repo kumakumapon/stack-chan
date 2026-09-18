@@ -245,6 +245,33 @@
       "stackchan-util": [
         "./host/modules/util/stackchan-util.ts"
       ],
+      "reaction-types": [
+        "./host/modules/reaction/reaction-types.ts"
+      ],
+      "reaction-limits": [
+        "./host/modules/reaction/reaction-limits.ts"
+      ],
+      "reaction-player": [
+        "./host/modules/reaction/reaction-player.ts"
+      ],
+      "reaction-catalog": [
+        "./host/modules/reaction/reaction-catalog.ts"
+      ],
+      "performance-types": [
+        "./host/modules/performance/performance-types.ts"
+      ],
+      "performance-clock": [
+        "./host/modules/performance/performance-clock.ts"
+      ],
+      "motion-catalog": [
+        "./host/modules/performance/motion-catalog.ts"
+      ],
+      "performance-player": [
+        "./host/modules/performance/performance-player.ts"
+      ],
+      "performance-catalog": [
+        "./host/modules/performance/performance-catalog.ts"
+      ],
       "stackchan-application-event": [
         "./host/app/remote-session/application-event.ts"
       ],

@@ -1,0 +1,11 @@
+{
+  "include": [
+    "$(MODDABLE)/examples/manifest_base.json",
+    "$(MODDABLE)/examples/manifest_typings.json"
+  ],
+  "modules": {
+    "reaction-types": "./reaction-types",
+    "reaction-limits": "./reaction-limits"
+  },
+  "preload": ["reaction-types", "reaction-limits"]
+}

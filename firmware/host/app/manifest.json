@@ -16,6 +16,8 @@
     "../modules/conversation/manifest.json",
     "../modules/camera/manifest.json",
     "../modules/lighting/manifest.json",
+    "../modules/reaction/manifest.json",
+    "../modules/performance/manifest.json",
     "../modules/ui/manifest.json",
     "../modules/input/manifest.json",
     "../modules/util/manifest.json",
