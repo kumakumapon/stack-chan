@@ -1,4 +1,35 @@
 export const SERVICE = 'io.github.kumakumapon.ministack'
+/**
+ * The one definition of what the transport will accept as a shared key, used
+ * both when the key is baked into the MOD and when the MOD starts.
+ *
+ * `local-peer-service.ts` measures UTF-8 bytes (16..64) and rejects NUL. A
+ * check written in string length instead accepts keys the transport then
+ * refuses, and the refusal arrives from `localPeer.open()` long after the build
+ * succeeded, with nothing on screen naming the length as the cause.
+ */
+export const SHARED_KEY_MIN_BYTES = 16
+export const SHARED_KEY_MAX_BYTES = 64
+
+export function sharedKeyByteLength(key) {
+  // XS has no TextEncoder, so the UTF-8 length is counted from code points.
+  let bytes = 0
+  for (const character of key) {
+    const code = character.codePointAt(0)
+    bytes += code < 0x80 ? 1 : code < 0x800 ? 2 : code < 0x10000 ? 3 : 4
+  }
+  return bytes
+}
+
+/** Returns why the transport would reject this key, or undefined when it would not. */
+export function sharedKeyProblem(key) {
+  if (typeof key !== 'string') return 'sharedKey must be a string'
+  if (key.includes('\0')) return 'sharedKey must not contain NUL characters'
+  const bytes = sharedKeyByteLength(key)
+  if (bytes < SHARED_KEY_MIN_BYTES || bytes > SHARED_KEY_MAX_BYTES)
+    return `sharedKey must be ${SHARED_KEY_MIN_BYTES}-${SHARED_KEY_MAX_BYTES} UTF-8 bytes (got ${bytes})`
+  return undefined
+}
 export const TYPES = [
   'capabilities.get',
   'state.get',

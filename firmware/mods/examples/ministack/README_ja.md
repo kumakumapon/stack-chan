@@ -6,7 +6,7 @@
 
 ## ビルド
 
-`firmware/` で環境変数 `MINISTACK_SHARED_KEY`（16〜128文字）を設定し、次を実行する。値をチャットや Git に貼らない。
+`firmware/` で環境変数 `MINISTACK_SHARED_KEY`（**16〜64 UTF-8バイト**、NUL 不可）を設定し、次を実行する。値をチャットや Git に貼らない。長さは Local Peer 転送が受け付ける範囲そのもので（`local-peer-service.ts` の `MIN_SHARED_KEY_BYTES` / `MAX_SHARED_KEY_BYTES`）、`configure.mjs` と MOD 起動時の両方が同じ判定を使う。ASCII なら16〜64文字だが、日本語は1文字3バイトなので21文字までになる。
 
 ```text
 node mods/examples/ministack/configure.mjs
