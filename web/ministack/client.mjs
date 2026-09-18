@@ -191,6 +191,10 @@ export class MiniStackClient {
       })
       this.unsubscribeEvents = this.session.subscribe('event', (message) => {
         if (message.peer.id !== this.peer) return
+        // Event IDs restart at 1 each boot, so an event from a restarted MOD would look
+        // like one already processed. Drop it and let the reconnect handshake start a
+        // fresh tracker rather than deduplicating a new session against an old cursor.
+        if (message.payload?.v !== 1 || message.payload?.sessionId !== this.sessionId) return
         const before = this.eventTracker.cursor
         this.eventTracker.ingest(message.payload)
         if (this.eventTracker.cursor !== before) this.ackEvents()

@@ -78,6 +78,22 @@ test('handshake binds subsequent requests to device boot session and rejects rem
   await assert.rejects(request, /invalid-head/)
   f.client.close()
 })
+test('a pushed event from another boot session is ignored, not deduplicated against this one', async () => {
+  // Event IDs restart at 1 on every boot. Without the session check, the first
+  // event of a restarted MOD looks like one already delivered and is dropped —
+  // losing exactly the 'ready' that announces the new session.
+  const delivered = []
+  const f = fixture({ onEvent: (event) => delivered.push(event.kind) })
+  await f.client.connect('test-only-shared-key')
+
+  f.event({ v: 1, sessionId: 'boot', eventId: 1, occurredAt: 0, kind: 'ready', data: {} })
+  f.event({ v: 1, sessionId: 'boot-2', eventId: 1, occurredAt: 0, kind: 'ready', data: {} })
+  f.event({ sessionId: 'boot', eventId: 2, occurredAt: 0, kind: 'touch', data: {} })
+
+  assert.deepEqual(delivered, ['ready'], 'only the event from the connected session is delivered')
+  f.client.close()
+})
+
 test('close rejects pending commands and detaches the sole connection', async () => {
   const f = fixture()
   await f.client.connect('test-only-shared-key')

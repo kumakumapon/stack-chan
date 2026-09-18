@@ -15,11 +15,132 @@
   ><button id="stop">待機動作を停止</button
   ><button id="disconnect">切断</button>
   <p id="connection-status" role="status">未接続</p>
+  <p
+    id="gap-banner"
+    role="alert"
+    hidden
+    style="background: #fee; border: 2px solid #c00; padding: 0.5em; font-weight: bold"
+  >
+    イベントを一部取りこぼしました。実行中のコマンドや転送の見え方が古い可能性があるため、状態を再取得しています。
+  </p>
   <pre id="servo-summary" role="status"></pre>
+  <pre id="mod-state" role="status"></pre>
   <pre id="status" role="status"></pre>
+
+  <h2>撮影・録音・発話</h2>
+  <button id="photo-capture">写真を撮る</button>
+  <label>
+    録音タイムアウト(ms)
+    <input id="listen-timeout" type="number" min="500" max="15000" step="1" value="4000" />
+  </label>
+  <button id="listen">録音する</button>
+  <label>
+    割り込む発話
+    <input id="interrupt-text" type="text" value="ちょっと待って" maxlength="200" />
+  </label>
+  <button id="interrupt-speech">発話を割り込む</button>
+
+  <h2>顔の色</h2>
+  <label>
+    キー
+    <select id="face-color-key">
+      <option value="primary">primary</option>
+      <option value="secondary">secondary</option>
+    </select>
+  </label>
+  <label>R <input id="face-color-r" type="number" min="0" max="255" step="1" value="255" /></label>
+  <label>G <input id="face-color-g" type="number" min="0" max="255" step="1" value="255" /></label>
+  <label>B <input id="face-color-b" type="number" min="0" max="255" step="1" value="255" /></label>
+  <button id="face-color">顔の色を設定</button>
+
+  <h2>設定</h2>
+  <form id="settings-form"></form>
+  <button id="settings-apply">設定を送信</button>
+
+  <h2>転送</h2>
+  <ul id="transfers" aria-label="利用可能な転送"></ul>
+  <img id="photo-preview" alt="撮影した写真のプレビュー" hidden style="max-width: 320px; display: block" />
+
+  <h2>イベントログ</h2>
+  <ul
+    id="event-log"
+    role="log"
+    aria-live="polite"
+    style="max-height: 12em; overflow-y: auto; font-family: monospace"
+  ></ul>
+
   <script type="module">
-    import { MiniStackClient } from './client.mjs'
+    import { MiniStackClient, CONFIG_KEYS } from './client.mjs'
     const connectionStatus = document.querySelector('#connection-status')
+    const gapBanner = document.querySelector('#gap-banner')
+    const status = document.querySelector('#status')
+    const servoSummary = document.querySelector('#servo-summary')
+    const modState = document.querySelector('#mod-state')
+    const eventLog = document.querySelector('#event-log')
+    const transferList = document.querySelector('#transfers')
+    const photoPreview = document.querySelector('#photo-preview')
+    // Revoked on the next photo so a validation page left open for an hour
+    // does not accumulate blob URLs.
+    let photoPreviewUrl
+    // Compact one-line rendering of an event's data payload for the log.
+    const compact = (data) =>
+      Object.entries(data ?? {})
+        .map(([key, value]) => `${key}=${typeof value === 'object' ? JSON.stringify(value) : value}`)
+        .join(' ')
+    const MAX_LOG_ENTRIES = 200
+    const logEvent = (event) => {
+      const item = document.createElement('li')
+      item.textContent = `#${event.eventId} ${event.kind} ${compact(event.data)}`
+      eventLog.append(item)
+      while (eventLog.childElementCount > MAX_LOG_ENTRIES) eventLog.firstElementChild.remove()
+      eventLog.scrollTop = eventLog.scrollHeight
+      if (event.kind === 'photo.ready' || event.kind === 'listen.finished') addTransfer(event)
+    }
+    const addTransfer = (event) => {
+      const { transferId, byteLength } = event.data
+      const isPhoto = event.kind === 'photo.ready'
+      const item = document.createElement('li')
+      const label = document.createElement('span')
+      label.textContent = `${isPhoto ? '写真' : '録音'} ${transferId}（${byteLength}バイト） `
+      const progress = document.createElement('span')
+      progress.setAttribute('role', 'status')
+      const download = document.createElement('button')
+      download.textContent = 'ダウンロード'
+      download.setAttribute('aria-label', `${transferId} をダウンロード`)
+      download.onclick = () =>
+        run(async () => {
+          download.disabled = true
+          try {
+            const bytes = await client.downloadTransfer(transferId, {
+              onProgress: ({ bytesRead, totalBytes }) => {
+                progress.textContent = ` ${bytesRead} / ${totalBytes} バイト`
+              },
+            })
+            const blob = new Blob([bytes], { type: isPhoto ? 'image/jpeg' : 'application/octet-stream' })
+            const url = URL.createObjectURL(blob)
+            if (isPhoto) {
+              if (photoPreviewUrl) URL.revokeObjectURL(photoPreviewUrl)
+              photoPreviewUrl = url
+              photoPreview.src = url
+              photoPreview.hidden = false
+            } else {
+              if (download.dataset.url) URL.revokeObjectURL(download.dataset.url)
+              download.dataset.url = url
+              const link = document.createElement('a')
+              link.href = url
+              link.download = `${transferId}.pcm`
+              link.textContent = `${transferId} を保存`
+              item.append(' ', link)
+            }
+            progress.textContent = ' 完了'
+            return { transferId, byteLength: bytes.byteLength }
+          } finally {
+            download.disabled = false
+          }
+        })
+      item.append(label, download, progress)
+      transferList.append(item)
+    }
     const client = new MiniStackClient(
       undefined,
       (error) => {
@@ -29,10 +150,17 @@
         onReconnectAttempt: ({ attempt, attempts, delayMs }) => {
           connectionStatus.textContent = `再接続を試行します（${attempt}/${attempts}、${delayMs / 1000}秒後）`
         },
+        onEvent: logEvent,
+        onGap: () => {
+          gapBanner.hidden = false
+        },
+        onState: (state) => {
+          modState.textContent =
+            `実行中: ${state.running ?? 'なし'} / キュー ${state.queued}` +
+            ` / 次のイベントID ${state.nextEventId ?? '-'} / 未取得イベント ${state.pendingEvents ?? '-'}`
+        },
       }
     )
-    const status = document.querySelector('#status')
-    const servoSummary = document.querySelector('#servo-summary')
     const rad = (value) => (typeof value === 'number' ? `${value.toFixed(3)} rad` : '-')
     // Command issued, acknowledged, and actually moved are three different things.
     // Show them side by side so a device check does not need a reflash to decide.
@@ -85,6 +213,9 @@
     }
     document.querySelector('#connect').onclick = () => run(async () => {
       connectionStatus.textContent = '接続中…'
+      gapBanner.hidden = true
+      eventLog.replaceChildren()
+      transferList.replaceChildren()
       try {
         const result = await client.connect(document.querySelector('#key').value)
         connectionStatus.textContent = '接続済み（定期通信で確認中）'
@@ -115,6 +246,72 @@
       client.disconnect()
       status.textContent = '切断しました'
     }
+    document.querySelector('#photo-capture').onclick = () =>
+      run(() => client.request('photo.capture', { priority: 2, ttlMs: 5000 }))
+    document.querySelector('#listen').onclick = () =>
+      run(() =>
+        client.request('conversation.listen', {
+          timeoutMs: Number(document.querySelector('#listen-timeout').value),
+          priority: 2,
+          ttlMs: 20000,
+        })
+      )
+    document.querySelector('#interrupt-speech').onclick = () =>
+      run(() =>
+        client.request('speech.say', {
+          text: document.querySelector('#interrupt-text').value,
+          interrupt: true,
+          priority: 3,
+          ttlMs: 5000,
+        })
+      )
+    document.querySelector('#face-color').onclick = () =>
+      run(() =>
+        client.request('face.set', {
+          color: {
+            key: document.querySelector('#face-color-key').value,
+            r: Number(document.querySelector('#face-color-r').value),
+            g: Number(document.querySelector('#face-color-g').value),
+            b: Number(document.querySelector('#face-color-b').value),
+          },
+          priority: 2,
+          ttlMs: 2000,
+        })
+      )
+    // Built from CONFIG_KEYS so the allowed settings and their ranges stay in
+    // sync with what config.set will actually accept.
+    const settingsForm = document.querySelector('#settings-form')
+    const settingsInputs = {}
+    for (const [key, spec] of Object.entries(CONFIG_KEYS)) {
+      const label = document.createElement('label')
+      const input = document.createElement('input')
+      input.id = `setting-${key}`
+      if (spec.boolean) {
+        input.type = 'checkbox'
+        label.append(`${key} `, input)
+      } else {
+        input.type = 'number'
+        input.min = spec.min
+        input.max = spec.max
+        input.step = 1
+        input.value = spec.min
+        label.append(`${key} (${spec.min}〜${spec.max}) `, input)
+      }
+      settingsInputs[key] = input
+      settingsForm.append(label, ' ')
+    }
+    document.querySelector('#settings-apply').onclick = () =>
+      run(() =>
+        client.request(
+          'config.set',
+          Object.fromEntries(
+            Object.entries(settingsInputs).map(([key, input]) => [
+              key,
+              input.type === 'checkbox' ? input.checked : Number(input.value),
+            ])
+          )
+        )
+      )
     window.addEventListener('pagehide', () => client.close())
   </script>
 </html>

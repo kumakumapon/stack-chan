@@ -88,7 +88,11 @@ async function start(robot, key) {
     let peer
     const pump = createEventPump({
       events,
-      send: (event) => session.send(peer, 'event', event),
+      // Pushed events carry the session the way responses do. Event IDs restart at 1
+      // on every boot, so an event from a restarted MOD arriving before the PC has
+      // re-handshaked would otherwise look like one it already processed and be
+      // dropped — losing exactly the 'ready' that announces the new session.
+      send: (event) => session.send(peer, 'event', { v: 1, sessionId, ...event }),
       // No peer yet means nowhere to send: the backlog waits rather than failing.
       isClosed: () => closed || !peer,
     })
