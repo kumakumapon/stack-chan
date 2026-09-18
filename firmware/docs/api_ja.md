@@ -133,3 +133,11 @@ target が buffer 再生に未対応、buffer が空、または再生に失敗�
 
 - [TTS（音声合成）の使用](./text-to-speech_ja.md)
 - [stackchan-voice の発話・歌唱](./stackchan-voice.md)
+
+### Reaction capability
+
+感情を表現する名前付きのジェスチャー。`context.reaction.play(name, options?)` で呼び出し、`name` は `REACTION_NAMES` の値を指定します。なでなでとIMU駆動の挙動は変わりません。`play()` は `{ ok: true }` または `{ ok: false, error }` を返します。options は intensity（0–1、頭の振幅をスケール）と restore（デフォルト true、リアクション後に顔・手・エフェクト・頭を復元）を含みます。`cancel()` で実行中のリアクションを停止してステージを復元します（boolean を返す）。`status()` で再生中のリアクションと開始時刻を読みます。詳しくは[リアクションとパフォーマンス](./reactions-and-performances_ja.md)を参照してください。
+
+### Performance capability
+
+ひとつの絶対時刻で話す、歌う、リアクション、名前付きの頭の動きを分単位で調整します。`context.performance.play(name, options?)` で呼び出し、`name` は `PERFORMANCE_NAMES` の値を指定します。cancel はスケジューリングを停止してポーズを復元しますが、TTS に渡された話す・歌う は TTS 自身で完了します。`play()` は `{ ok: true }` または `{ ok: false, error }` を返します。options は intensity（0–1）と restore（デフォルト true）を含みます。`cancel()` でスケジューリングを停止してポーズを復元します（boolean を返す）。`status()` で実行中のパフォーマンス、開始時刻、これまで実行した cue の数を読みます。詳しくは[リアクションとパフォーマンス](./reactions-and-performances_ja.md)を参照してください。

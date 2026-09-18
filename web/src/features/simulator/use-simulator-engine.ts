@@ -10,6 +10,8 @@ import {
   type DeviceProfileId,
   type ImuOrientation,
   type InstalledMod,
+  type PerformanceBridgeCommandOptions,
+  type PerformanceBridgeStatus,
   type SimulatorModStorage,
   type SimulatorModResult,
   type SimulatorReady,
@@ -19,7 +21,7 @@ import {
 import { DEFAULT_DEVICE_PROFILE_ID, resolveDeviceProfile } from '../../../simulator/device-profile.mjs'
 import { createMemoryModStorage, createModStorage } from '../../../simulator/mod-storage.mjs'
 
-export type { DeviceProfile, DeviceProfileId, ImuOrientation }
+export type { DeviceProfile, DeviceProfileId, ImuOrientation, PerformanceBridgeCommandOptions, PerformanceBridgeStatus }
 
 export type PerformanceMode = 'desktop' | 'mobile'
 
@@ -42,6 +44,11 @@ type SimulatorEngineOptions = {
   onTrace?: (message: string) => void
   onReady?: (ready: SimulatorReady) => void
   onError?: (error: unknown) => void
+}
+
+const DEFAULT_PERFORMANCE_STATUS: PerformanceBridgeStatus = {
+  reaction: { active: null, startedAt: null },
+  performance: { active: null, startedAt: null, nextCue: 0 },
 }
 
 const SIMULATOR_STATUS_MESSAGES: Record<SimulatorStatusCode, string> = {
@@ -70,6 +77,7 @@ export function useSimulatorEngine({
   const [modState, setModState] = useState<ModState>({ result: { status: 'empty' } })
   const [cameraStatus, setCameraStatus] = useState<CameraStatus>({ status: 'idle' })
   const [cameraFacingMode, setCameraFacingMode] = useState<'user' | 'environment' | undefined>(undefined)
+  const [performanceStatus, setPerformanceStatus] = useState<PerformanceBridgeStatus>(DEFAULT_PERFORMANCE_STATUS)
   const [deviceProfileId, setDeviceProfileId] = useState<DeviceProfileId>(
     initialDeviceProfile ?? (DEFAULT_DEVICE_PROFILE_ID as DeviceProfileId)
   )
@@ -120,6 +128,9 @@ export function useSimulatorEngine({
       },
       onCameraStatus: (status) => {
         if (active) setCameraStatus(status)
+      },
+      onPerformanceStatus: (status) => {
+        if (active) setPerformanceStatus(status)
       },
       onReady: (ready) => {
         if (active) callbacksRef.current.onReady?.(ready)
@@ -193,6 +204,13 @@ export function useSimulatorEngine({
     shakeImu: () => engineRef.current?.shakeImu(),
     setImuAccelerometer: (vector: { x: number; y: number; z: number }) =>
       engineRef.current?.setImuAccelerometer(vector),
+    performanceStatus,
+    playReaction: (name: string, options?: PerformanceBridgeCommandOptions) =>
+      engineRef.current?.playReaction(name, options),
+    cancelReaction: () => engineRef.current?.cancelReaction(),
+    playPerformance: (name: string, options?: PerformanceBridgeCommandOptions) =>
+      engineRef.current?.playPerformance(name, options),
+    cancelPerformance: () => engineRef.current?.cancelPerformance(),
     resetViewportCamera: () => engineRef.current?.resetViewportCamera(),
     viewportControlsLocked,
     setViewportControlsLocked: (locked: boolean) => {

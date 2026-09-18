@@ -1,0 +1,15 @@
+{
+  "include": ["../reaction/manifest.json"],
+  "modules": {
+    "performance-types": "./performance-types",
+    "motion-catalog": "./motion-catalog",
+    "performance-player": "./performance-player",
+    "performance-catalog": "./performance-catalog"
+  },
+  "preload": [
+    "performance-types",
+    "motion-catalog",
+    "performance-player",
+    "performance-catalog"
+  ]
+}

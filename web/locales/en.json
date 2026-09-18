@@ -651,5 +651,12 @@
   "3D回転ロック": "Lock 3D rotation",
   "入力: {label}": "Input: {label}",
   "準備中": "Preparing",
-  "実行中": "Running"
+  "実行中": "Running",
+  "リアクション / パフォーマンス": "Reaction / Performance",
+  "名前を指定してリアクションやパフォーマンスを再生し、いつでもキャンセルできます。": "Play a reaction or performance by name, and cancel it at any time.",
+  "リアクション": "Reaction",
+  "リアクションをキャンセル": "Cancel reaction",
+  "パフォーマンス": "Performance",
+  "パフォーマンスをキャンセル": "Cancel performance",
+  "再生中: リアクション={reaction} パフォーマンス={performance}": "Playing: reaction={reaction} performance={performance}"
 }

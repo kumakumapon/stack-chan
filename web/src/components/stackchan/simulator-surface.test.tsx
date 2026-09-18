@@ -34,6 +34,14 @@ function createController(
     setImuOrientation: vi.fn(),
     shakeImu: vi.fn(),
     setImuAccelerometer: vi.fn(),
+    performanceStatus: {
+      reaction: { active: null, startedAt: null },
+      performance: { active: null, startedAt: null, nextCue: 0 },
+    },
+    playReaction: vi.fn(),
+    cancelReaction: vi.fn(),
+    playPerformance: vi.fn(),
+    cancelPerformance: vi.fn(),
     resetViewportCamera: vi.fn(),
     viewportControlsLocked: false,
     setViewportControlsLocked: vi.fn(),
@@ -112,5 +120,45 @@ describe('SimulatorSurface device profile controls', () => {
 
     await user.click(screen.getByRole('button', { name: 'B' }))
     expect(controller.pushButton).toHaveBeenCalledWith('b')
+  })
+
+  it('plays and cancels reactions and performances by name, on both profiles', async () => {
+    const user = userEvent.setup()
+    const controller = createController({ deviceProfile: resolveDeviceProfile('legacy-compat') })
+
+    render(
+      <I18nProvider>
+        <SimulatorSurface controller={controller} />
+      </I18nProvider>
+    )
+
+    await user.click(screen.getByRole('button', { name: 'yes' }))
+    expect(controller.playReaction).toHaveBeenCalledWith('yes')
+
+    await user.click(screen.getByRole('button', { name: 'リアクションをキャンセル' }))
+    expect(controller.cancelReaction).toHaveBeenCalledOnce()
+
+    await user.click(screen.getByRole('button', { name: 'happy-dance' }))
+    expect(controller.playPerformance).toHaveBeenCalledWith('happy-dance')
+
+    await user.click(screen.getByRole('button', { name: 'パフォーマンスをキャンセル' }))
+    expect(controller.cancelPerformance).toHaveBeenCalledOnce()
+  })
+
+  it('shows what the firmware reports as currently active', () => {
+    const controller = createController({
+      performanceStatus: {
+        reaction: { active: 'yes', startedAt: 0 },
+        performance: { active: null, startedAt: null, nextCue: 0 },
+      },
+    })
+
+    render(
+      <I18nProvider>
+        <SimulatorSurface controller={controller} />
+      </I18nProvider>
+    )
+
+    expect(screen.getByText(/再生中/)).toHaveTextContent('yes')
   })
 })

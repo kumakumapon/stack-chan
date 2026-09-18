@@ -1,0 +1,20 @@
+{
+  "include": [
+    "$(MODDABLE)/examples/manifest_base.json",
+    "$(MODDABLE)/examples/manifest_typings.json"
+  ],
+  "modules": {
+    "reaction-types": "./reaction-types",
+    "reaction-limits": "./reaction-limits",
+    "timeline-clock": "./timeline-clock",
+    "reaction-player": "./reaction-player",
+    "reaction-catalog": "./reaction-catalog"
+  },
+  "preload": [
+    "reaction-types",
+    "reaction-limits",
+    "timeline-clock",
+    "reaction-player",
+    "reaction-catalog"
+  ]
+}

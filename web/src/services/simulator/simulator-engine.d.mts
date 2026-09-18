@@ -69,6 +69,27 @@ export type ImuAcceleration = {
   z: number
 }
 
+export type PerformanceBridgeCommandOptions = {
+  intensity?: number
+  restore?: boolean
+}
+
+export type PerformanceBridgeReactionStatus = {
+  active: string | null
+  startedAt: number | null
+}
+
+export type PerformanceBridgePerformanceStatus = {
+  active: string | null
+  startedAt: number | null
+  nextCue: number
+}
+
+export type PerformanceBridgeStatus = {
+  reaction: PerformanceBridgeReactionStatus
+  performance: PerformanceBridgePerformanceStatus
+}
+
 export type ViewportPointerBinding = {
   viewport: {
     addEventListener(type: string, listener: (event: never) => void, options?: unknown): void
@@ -119,6 +140,7 @@ export class SimulatorEngine {
     onTrace?: (message: string) => void
     onModStatus?: (result: SimulatorModResult, installedMod?: InstalledMod | null) => void
     onCameraStatus?: (status: CameraStatus) => void
+    onPerformanceStatus?: (status: PerformanceBridgeStatus) => void
     onReady?: (ready: SimulatorReady) => void
     onError?: (error: unknown) => void
   })
@@ -140,6 +162,12 @@ export class SimulatorEngine {
   releaseHeadTouch(): void
   setImuOrientation(name: ImuOrientation): void
   shakeImu(): void
+  /** The latest { reaction, performance } status the firmware reported. */
+  readonly performanceStatus: PerformanceBridgeStatus
+  playReaction(name: string, options?: PerformanceBridgeCommandOptions): void
+  cancelReaction(): void
+  playPerformance(name: string, options?: PerformanceBridgeCommandOptions): void
+  cancelPerformance(): void
   /** Puts the 3D camera back on the pose the simulator opens with. */
   resetViewportCamera(): void
   readonly viewportControlsLocked: boolean

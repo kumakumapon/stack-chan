@@ -127,3 +127,11 @@ Callers must keep ownership of the buffer and should treat `false` as an observa
 
 - [Using Text To Speech(TTS)](./text-to-speech.md)
 - [stackchan-voice speech and singing](./stackchan-voice.md)
+
+### Reaction capability
+
+Named, timeline-driven gestures that express a feeling. Called as `context.reaction.play(name, options?)` with one of `REACTION_NAMES`; petting and IMU-driven behaviour are unaffected. `play()` returns `{ ok: true }` or `{ ok: false, error }`. Options include `intensity` (0–1, scales head amplitude) and `restore` (default true, restore face/hands/effect/head after the reaction). Call `cancel()` to stop the active reaction and restore the stage (returns boolean). Call `status()` to read the currently playing reaction and its start time. See [Reactions and performances](./reactions-and-performances.md).
+
+### Performance capability
+
+Minutes-scale choreography of speech, song, reactions, and named head motions on one absolute-time clock. Called as `context.performance.play(name, options?)` with one of `PERFORMANCE_NAMES`; cancel stops scheduling and restores the pose, but speech or song already handed to the TTS finishes on its own. `play()` returns `{ ok: true }` or `{ ok: false, error }`. Options include `intensity` (0–1) and `restore` (default true). Call `cancel()` to stop scheduling and restore the pose (returns boolean). Call `status()` to read the active performance, its start time, and the count of cues fired so far. See [Reactions and performances](./reactions-and-performances.md).

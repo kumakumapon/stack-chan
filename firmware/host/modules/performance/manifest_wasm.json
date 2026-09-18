@@ -1,0 +1,7 @@
+{
+  "include": ["./manifest.json"],
+  "modules": {
+    "performance-command": "./wasm/performance-command",
+    "wasm-performance-bridge": "./wasm/performance-bridge"
+  }
+}

@@ -18,7 +18,7 @@ const HAND_SCREEN_WIDTH = 320
 const HALF_CELL = HAND_SPRITE_CELL_SIZE / 2
 const HAND_EDGE_CENTER_X = 48
 
-export const HAND_ANIMATION_NAMES = ['none', 'rock-paper-scissors', 'clap', 'thinking'] as const
+export const HAND_ANIMATION_NAMES = ['none', 'rock-paper-scissors', 'clap', 'thinking', 'wave', 'cheer'] as const
 
 export type HandAnimationName = (typeof HAND_ANIMATION_NAMES)[number]
 
@@ -133,6 +133,16 @@ function thinking(lowered: boolean): HandPairState {
   }
 }
 
+function wave(open: boolean): HandPairState {
+  return {
+    right: hand(open ? 'open' : 'side-open', HAND_SCREEN_WIDTH - HAND_EDGE_CENTER_X - 4, 88, -Math.PI / 5),
+  }
+}
+
+function cheer(raised: boolean): HandPairState {
+  return pair(raised ? 'open' : 'fist', 60)
+}
+
 function frame(hands: HandPairState, transitionMs: number, holdMs: number): HandAnimationFrame {
   return { hands, transitionMs, holdMs }
 }
@@ -155,10 +165,25 @@ const HAND_ANIMATION_SPECS: Readonly<Record<Exclude<HandAnimationName, 'none'>, 
     frames: [frame(thinking(false), 620, 720), frame(thinking(true), 620, 820)],
     loop: true,
   },
+  wave: {
+    frames: [frame(wave(true), 260, 340), frame(wave(false), 260, 340)],
+    loop: true,
+  },
+  cheer: {
+    frames: [frame(cheer(true), 180, 220), frame(cheer(false), 180, 220)],
+    loop: true,
+  },
 }
 
 export function isHandAnimationName(value: unknown): value is HandAnimationName {
-  return value === 'none' || value === 'rock-paper-scissors' || value === 'clap' || value === 'thinking'
+  return (
+    value === 'none' ||
+    value === 'rock-paper-scissors' ||
+    value === 'clap' ||
+    value === 'thinking' ||
+    value === 'wave' ||
+    value === 'cheer'
+  )
 }
 
 function defaultCompiledHand(handedness: Handedness): CompiledHandFrame {

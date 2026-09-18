@@ -60,6 +60,18 @@ function installPlatformInputBridge(): void {
   }
 }
 
+function installPlatformPerformanceBridge(context: StackchanContext): void {
+  if (!Modules.has('wasm-performance-bridge')) return
+  try {
+    const bridge = Modules.importNow('wasm-performance-bridge') as {
+      installWasmPerformance?: (context: StackchanContext) => boolean
+    }
+    if (bridge.installWasmPerformance?.(context)) trace('[main] installed WASM performance bridge\n')
+  } catch (error) {
+    trace(`[main] WASM performance bridge failed: ${error instanceof Error ? error.message : String(error)}\n`)
+  }
+}
+
 function loadAppBehaviors(): StackchanAppBehavior[] {
   trace('[main] checking mod override\n')
   return resolveAppBehaviors(Modules, defaultBehavior, (error) => {
@@ -161,6 +173,7 @@ async function main() {
       closeHandlers: ownedDock ? [() => ownedDock.close()] : undefined,
     })
     ownedDock?.onContextCreated(context)
+    installPlatformPerformanceBridge(context)
     registerExperimentalMiniApps(experimentalMiniApps, context.ui.miniApps)
     trace('[main] app context created\n')
     await runContextCreatedBehaviors(appBehaviors, context, {

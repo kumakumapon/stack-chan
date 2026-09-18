@@ -255,3 +255,29 @@ test('StackchanRuntimeAudio close stops WebRadio', async () => {
   runtime.close()
   assert.equal(stopped, true)
 })
+
+test('StackchanRuntimeAudio.isActive reflects in-flight say/sing so a reaction can leave the mouth alone', async () => {
+  installBareSpecifierPackages()
+  const { StackchanRuntimeAudio } = (await import('../runtime-audio.js')) as RuntimeAudioModule
+  let complete: ((error?: unknown) => void) | undefined
+  const runtime = new StackchanRuntimeAudio({
+    tts: {
+      stream: (_text, _volume, callback) => (complete = callback),
+      streamKoe: (_koe, _volume, callback) => (complete = callback),
+    },
+  })
+
+  assert.equal(runtime.isActive, false)
+
+  const speech = runtime.say('hello')
+  assert.equal(runtime.isActive, true)
+  complete?.()
+  await speech
+  assert.equal(runtime.isActive, false)
+
+  const song = runtime.sing('#C4,500ki')
+  assert.equal(runtime.isActive, true)
+  complete?.()
+  await song
+  assert.equal(runtime.isActive, false)
+})
