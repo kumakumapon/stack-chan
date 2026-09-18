@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="ja">
-<script type="module" crossorigin src="../assets/ministack-vGE7uj2o.js"></script>
+<script type="module" crossorigin src="../assets/ministack-CWh8SzjX.js"></script>
 <link rel="modulepreload" crossorigin href="../assets/modulepreload-polyfill-P2Xu9kJm.js">
 <link rel="modulepreload" crossorigin href="../assets/ble-local-peer-DyA3OAwu.js">
 
@@ -19,6 +19,58 @@
   ><button id="stop">待機動作を停止</button
   ><button id="disconnect">切断</button>
   <p id="connection-status" role="status">未接続</p>
+  <p
+    id="gap-banner"
+    role="alert"
+    hidden
+    style="background: #fee; border: 2px solid #c00; padding: 0.5em; font-weight: bold"
+  >
+    イベントを一部取りこぼしました。実行中のコマンドや転送の見え方が古い可能性があるため、状態を再取得しています。
+  </p>
   <pre id="servo-summary" role="status"></pre>
+  <pre id="mod-state" role="status"></pre>
   <pre id="status" role="status"></pre>
+
+  <h2>撮影・録音・発話</h2>
+  <button id="photo-capture">写真を撮る</button>
+  <label>
+    録音タイムアウト(ms)
+    <input id="listen-timeout" type="number" min="500" max="15000" step="1" value="4000" />
+  </label>
+  <button id="listen">録音する</button>
+  <label>
+    割り込む発話
+    <input id="interrupt-text" type="text" value="ちょっと待って" maxlength="200" />
+  </label>
+  <button id="interrupt-speech">発話を割り込む</button>
+
+  <h2>顔の色</h2>
+  <label>
+    キー
+    <select id="face-color-key">
+      <option value="primary">primary</option>
+      <option value="secondary">secondary</option>
+    </select>
+  </label>
+  <label>R <input id="face-color-r" type="number" min="0" max="255" step="1" value="255" /></label>
+  <label>G <input id="face-color-g" type="number" min="0" max="255" step="1" value="255" /></label>
+  <label>B <input id="face-color-b" type="number" min="0" max="255" step="1" value="255" /></label>
+  <button id="face-color">顔の色を設定</button>
+
+  <h2>設定</h2>
+  <form id="settings-form"></form>
+  <button id="settings-apply">設定を送信</button>
+
+  <h2>転送</h2>
+  <ul id="transfers" aria-label="利用可能な転送"></ul>
+  <img id="photo-preview" alt="撮影した写真のプレビュー" hidden style="max-width: 320px; display: block" />
+
+  <h2>イベントログ</h2>
+  <ul
+    id="event-log"
+    role="log"
+    aria-live="polite"
+    style="max-height: 12em; overflow-y: auto; font-family: monospace"
+  ></ul>
+
 </html>
