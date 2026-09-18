@@ -17,8 +17,10 @@ test('head targets are clamped to the limits, never rejected', () => {
   assert.equal(head.durationMs, REACTION_LIMITS.maxHeadDurationMs)
 })
 
-test('intensity scales amplitude before clamping and is itself bounded to 0..1', () => {
+test('intensity scales the clamped amplitude and is itself bounded to 0..1', () => {
   assert.equal(clampHead({ yaw: 0.2 }, 0.5).yaw, 0.1)
+  assert.equal(clampHead({ pitch: -2 }, 0.5).pitch, -Math.PI / 16)
+  assert.equal(clampHead({ pitch: 0.1 }).yaw, undefined)
   assert.equal(clampHead({ yaw: 0.2 }, 5).yaw, 0.2)
   assert.equal(clampHead({ yaw: 0.2 }, -1).yaw, 0)
 })

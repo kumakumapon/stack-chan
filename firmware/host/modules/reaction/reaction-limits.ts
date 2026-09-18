@@ -31,16 +31,23 @@ export function clamp(value: number, limit: number): number {
   return Math.max(-limit, Math.min(limit, value))
 }
 
-export function clampHead(target: HeadTarget, intensity = 1): { yaw: number; pitch: number; durationMs: number } {
+/**
+ * Clamps a head target and scales it by intensity. Clamping comes first so an
+ * out-of-range request at half intensity moves half as far as the robot would
+ * actually go, never the full limit. An axis the target leaves unset stays
+ * unset: the player holds the pre-reaction value for it.
+ */
+export function clampHead(target: HeadTarget, intensity = 1): HeadTarget & { durationMs: number } {
   const scale = Number.isFinite(intensity) ? Math.max(0, Math.min(1, intensity)) : 1
   const duration = target.durationMs ?? REACTION_LIMITS.defaultHeadDurationMs
-  return {
-    yaw: clamp((target.yaw ?? 0) * scale, REACTION_LIMITS.yawRad),
-    pitch: clamp((target.pitch ?? 0) * scale, REACTION_LIMITS.pitchRad),
+  const result: HeadTarget & { durationMs: number } = {
     durationMs: Number.isFinite(duration)
       ? Math.max(REACTION_LIMITS.minHeadDurationMs, Math.min(REACTION_LIMITS.maxHeadDurationMs, duration))
       : REACTION_LIMITS.defaultHeadDurationMs,
   }
+  if (target.yaw !== undefined) result.yaw = clamp(target.yaw, REACTION_LIMITS.yawRad) * scale
+  if (target.pitch !== undefined) result.pitch = clamp(target.pitch, REACTION_LIMITS.pitchRad) * scale
+  return result
 }
 
 function clamp01(value: number | undefined): number | undefined {

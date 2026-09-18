@@ -260,8 +260,8 @@
       "performance-types": [
         "./host/modules/performance/performance-types.ts"
       ],
-      "performance-clock": [
-        "./host/modules/performance/performance-clock.ts"
+      "timeline-clock": [
+        "./host/modules/reaction/timeline-clock.ts"
       ],
       "motion-catalog": [
         "./host/modules/performance/motion-catalog.ts"
