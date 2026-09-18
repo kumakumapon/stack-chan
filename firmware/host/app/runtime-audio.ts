@@ -39,6 +39,11 @@ export class StackchanRuntimeAudio {
     return this.#tts
   }
 
+  /** True while `say`, `sing`, `tone` or `playAudio` is in flight. */
+  get isActive(): boolean {
+    return this.#activeOperations > 0
+  }
+
   get webRadio(): WebRadioCapability | undefined {
     if (!this.#webRadio) return undefined
     const runtime = this

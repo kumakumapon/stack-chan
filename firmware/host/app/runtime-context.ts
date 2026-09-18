@@ -9,13 +9,17 @@ import type {
   LifecycleCapability,
   LightingCapability,
   MotionCapability,
+  PerformanceCapability,
+  ReactionCapability,
   RemoteConversationSession,
   RobotUI,
   RuntimeUICapability,
   ShowBalloonOptions,
   StackchanContext,
 } from 'capabilities'
+import { Emoticon, type EmoticonKey } from 'effects/emoticon'
 import type { Emotion, FaceEyeKey, FaceThemeKey } from 'face-state'
+import { isHandAnimationName } from 'hands'
 import { LocalPeerError, type LocalPeerSession } from 'local-peer-types'
 import { createI18nCapability } from 'localization'
 import {
@@ -28,6 +32,7 @@ import { type RuntimeAudioConstructorParam, StackchanRuntimeAudio } from 'runtim
 import { type RuntimeCameraConstructorParam, StackchanRuntimeCamera } from 'runtime-camera'
 import { type RuntimeInputConstructorParam, StackchanRuntimeInput } from 'runtime-input'
 import { type RuntimeLightingConstructorParam, StackchanRuntimeLighting } from 'runtime-lighting'
+import { createReactionRuntime, type ReactionRuntime } from 'runtime-reaction'
 import { StackchanRuntimeUI } from 'runtime-ui'
 import { type Maybe, type Pose, type Rotation, type Vector3, waitForCompletion } from 'stackchan-util'
 import Timer from 'timer'
@@ -65,6 +70,7 @@ export class StackchanRuntimeContext implements StackchanContext {
   #motionCapability: MotionCapability
   #motionController: MotionController
   #paused: boolean
+  #reactionRuntime: ReactionRuntime
   #uiCapability: RuntimeUICapability
   #uiRuntime: StackchanRuntimeUI
   #updateFaceHandler: Timer | undefined
@@ -103,6 +109,7 @@ export class StackchanRuntimeContext implements StackchanContext {
     this.#conversationCapability = this.createConversationCapability(params.remoteConversationSession)
     this.#connectivityCapability = this.createConnectivityCapability(params.connectivity ?? {})
     this.#uiCapability = this.createUICapability()
+    this.#reactionRuntime = this.createReactionRuntime()
   }
 
   get face(): FaceCapability {
@@ -139,6 +146,14 @@ export class StackchanRuntimeContext implements StackchanContext {
 
   get lifecycle(): LifecycleCapability {
     return this.#lifecycleCapability
+  }
+
+  get reaction(): ReactionCapability {
+    return this.#reactionRuntime.reaction
+  }
+
+  get performance(): PerformanceCapability {
+    return this.#reactionRuntime.performance
   }
 
   /**
@@ -552,6 +567,25 @@ export class StackchanRuntimeContext implements StackchanContext {
     }
   }
 
+  private createReactionRuntime(): ReactionRuntime {
+    const context = this
+    return createReactionRuntime({
+      face: this.#faceCapability,
+      ui: this.#uiCapability,
+      motion: this.#motionCapability,
+      audio: {
+        say: (text, volume) => this.#audioRuntime.say(text, volume),
+        sing: (koe, volume) => this.#audioRuntime.sing(koe, volume),
+        get isActive() {
+          return context.#audioRuntime.isActive
+        },
+      },
+      lighting: this.#lightingCapability,
+      createEffect: (key) => new Emoticon({ key: key as EmoticonKey, name: 'emotion' }),
+      isHandAnimationName,
+    })
+  }
+
   private createConversationCapability(remoteSession?: RemoteConversationSession): ConversationCapability {
     return {
       say: (text, volume) => this.say(text, volume),
@@ -690,6 +724,13 @@ export class StackchanRuntimeContext implements StackchanContext {
       if (hasCloseError) return
       closeError = error
       hasCloseError = true
+    }
+    try {
+      // Cancel any active reaction/performance (restoring pose, hand and effect) while
+      // motion, audio and UI are still live, before those runtimes themselves close.
+      this.#reactionRuntime.close()
+    } catch (error) {
+      rememberCloseError(error)
     }
     try {
       this.#motionController.close()

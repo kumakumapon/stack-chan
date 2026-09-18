@@ -5,11 +5,13 @@ import { fileURLToPath } from 'node:url'
 import type { RealtimeFunctionTool } from 'stackchan-realtime-session'
 import { writeAliasPackage } from '../modules/testing/node-alias-package.js'
 
-// 'face-state' is a real value import (Emotion, emotionFromName), so
-// `node --test` needs a resolvable package for it the way tsc's path mapping
-// already resolves it for type-checking.
+// 'face-state', 'reaction-types' and 'performance-types' are real value imports (Emotion,
+// emotionFromName, REACTION_NAMES, PERFORMANCE_NAMES), so `node --test` needs a resolvable
+// package for each the way tsc's path mapping already resolves them for type-checking.
 const hostRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 writeAliasPackage(hostRoot, 'face-state', resolve(hostRoot, 'modules/ui/state/face-state.js'))
+writeAliasPackage(hostRoot, 'reaction-types', resolve(hostRoot, 'modules/reaction/reaction-types.js'))
+writeAliasPackage(hostRoot, 'performance-types', resolve(hostRoot, 'modules/performance/performance-types.js'))
 
 const { Emotion } = await import('face-state')
 const { default: createRealtimeToolProvider } = await import('./realtime-tools.js')
@@ -21,6 +23,8 @@ const TOOL_NAMES = [
   'stackchan.motion.lookAt',
   'stackchan.light.set',
   'stackchan.camera.capture',
+  'stackchan.react',
+  'stackchan.perform',
 ]
 
 type MaybeResult = { success: boolean; value?: string; reason?: string }
@@ -35,6 +39,8 @@ type FullContextOverrides = {
   cameraStart?: (options: unknown) => Promise<void>
   cameraCapture?: (options: unknown) => Promise<unknown>
   cameraStop?: () => Promise<void>
+  reactionPlay?: (name: unknown, options?: unknown) => { ok: true } | { ok: false; error: string }
+  performancePlay?: (name: unknown, options?: unknown) => { ok: true } | { ok: false; error: string }
 }
 
 function fullContext(overrides: FullContextOverrides = {}) {
@@ -60,6 +66,13 @@ function fullContext(overrides: FullContextOverrides = {}) {
         overrides.cameraCapture ??
         (async () => ({ width: 320, height: 240, imageType: 'rgb565le', buffer: new ArrayBuffer(0) })),
       stop: overrides.cameraStop ?? (async () => undefined),
+    },
+    reaction: {
+      play: overrides.reactionPlay ?? ((() => ({ ok: true })) as NonNullable<FullContextOverrides['reactionPlay']>),
+    },
+    performance: {
+      play:
+        overrides.performancePlay ?? ((() => ({ ok: true })) as NonNullable<FullContextOverrides['performancePlay']>),
     },
   }
 }
@@ -126,6 +139,18 @@ test('omits the camera tool when the camera capability is missing', () => {
   const context = fullContext() as Record<string, unknown>
   delete context.camera
   assert.equal(toolNames(context).includes('stackchan.camera.capture'), false)
+})
+
+test('omits stackchan.react when the reaction capability is missing', () => {
+  const context = fullContext() as Record<string, unknown>
+  delete context.reaction
+  assert.equal(toolNames(context).includes('stackchan.react'), false)
+})
+
+test('omits stackchan.perform when the performance capability is missing', () => {
+  const context = fullContext() as Record<string, unknown>
+  delete context.performance
+  assert.equal(toolNames(context).includes('stackchan.perform'), false)
 })
 
 test('stackchan.say speaks the text and reports the TTS result', async () => {
@@ -383,4 +408,125 @@ test('stackchan.camera.capture stops the camera even when capture returns no fra
   const result = await tool.execute({})
   assert.deepEqual(result, { ok: false, error: 'camera capture returned no frame' })
   assert.deepEqual(calls, ['start', 'capture', 'stop'])
+})
+
+test('stackchan.react declares every reaction name and plays the requested one', async () => {
+  const seen: Array<{ name: unknown; options: unknown }> = []
+  const context = fullContext({
+    reactionPlay: (name, options) => {
+      seen.push({ name, options })
+      return { ok: true }
+    },
+  })
+  const tool = findTool(context, 'stackchan.react')
+  assert.deepEqual((tool.parameters as { properties: { name: { enum: string[] } } }).properties.name.enum, [
+    'yes',
+    'no',
+    'greeting',
+    'thinking',
+    'delighted',
+    'sleepy-yawn',
+    'success',
+    'failure',
+  ])
+  const result = await tool.execute({ name: 'greeting', intensity: 0.5 })
+  assert.deepEqual(result, { ok: true })
+  assert.deepEqual(seen, [{ name: 'greeting', options: { intensity: 0.5 } }])
+})
+
+test('stackchan.react omits options when intensity is not given', async () => {
+  const seen: Array<{ name: unknown; options: unknown }> = []
+  const context = fullContext({
+    reactionPlay: (name, options) => {
+      seen.push({ name, options })
+      return { ok: true }
+    },
+  })
+  const tool = findTool(context, 'stackchan.react')
+  await tool.execute({ name: 'yes' })
+  assert.deepEqual(seen, [{ name: 'yes', options: undefined }])
+})
+
+test('stackchan.react rejects an unknown reaction name without calling the capability', async () => {
+  let called = false
+  const context = fullContext({
+    reactionPlay: () => {
+      called = true
+      return { ok: true }
+    },
+  })
+  const tool = findTool(context, 'stackchan.react')
+  const result = await tool.execute({ name: 'ecstatic' })
+  assert.deepEqual(result, { ok: false, error: 'unknown reaction: ecstatic' })
+  assert.equal(called, false)
+})
+
+test('stackchan.react maps a capability refusal to ok:false', async () => {
+  const context = fullContext({ reactionPlay: () => ({ ok: false, error: 'performance active' }) })
+  const tool = findTool(context, 'stackchan.react')
+  const result = await tool.execute({ name: 'yes' })
+  assert.deepEqual(result, { ok: false, error: 'performance active' })
+})
+
+test('stackchan.react turns a thrown capability error into ok:false instead of throwing', async () => {
+  const context = fullContext({
+    reactionPlay: () => {
+      throw new Error('stage unavailable')
+    },
+  })
+  const tool = findTool(context, 'stackchan.react')
+  const result = await tool.execute({ name: 'yes' })
+  assert.deepEqual(result, { ok: false, error: 'stage unavailable' })
+})
+
+test('stackchan.perform declares every performance name and plays the requested one', async () => {
+  const seen: Array<{ name: unknown; options: unknown }> = []
+  const context = fullContext({
+    performancePlay: (name, options) => {
+      seen.push({ name, options })
+      return { ok: true }
+    },
+  })
+  const tool = findTool(context, 'stackchan.perform')
+  assert.deepEqual((tool.parameters as { properties: { name: { enum: string[] } } }).properties.name.enum, [
+    'greeting',
+    'happy-dance',
+    'cheer',
+    'sing-twinkle',
+  ])
+  const result = await tool.execute({ name: 'cheer' })
+  assert.deepEqual(result, { ok: true })
+  assert.deepEqual(seen, [{ name: 'cheer', options: undefined }])
+})
+
+test('stackchan.perform rejects an unknown performance name without calling the capability', async () => {
+  let called = false
+  const context = fullContext({
+    performancePlay: () => {
+      called = true
+      return { ok: true }
+    },
+  })
+  const tool = findTool(context, 'stackchan.perform')
+  const result = await tool.execute({ name: 'parade' })
+  assert.deepEqual(result, { ok: false, error: 'unknown performance: parade' })
+  assert.equal(called, false)
+})
+
+test('stackchan.perform maps a capability refusal to ok:false', async () => {
+  const context = fullContext({ performancePlay: () => ({ ok: false, error: 'unknown performance: parade' }) })
+  const tool = findTool(context, 'stackchan.perform')
+  const result = await tool.execute({ name: 'cheer' })
+  assert.deepEqual(result, { ok: false, error: 'unknown performance: parade' })
+})
+
+test('stackchan.perform turns a thrown capability error into ok:false instead of throwing', async () => {
+  const context = fullContext({
+    performancePlay: () => {
+      throw new Error('stage unavailable')
+    },
+  })
+  const tool = findTool(context, 'stackchan.perform')
+  const result = await tool.execute({ name: 'cheer' })
+  assert.deepEqual(result, { ok: false, error: 'stage unavailable' })
 })

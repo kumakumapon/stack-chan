@@ -41,6 +41,7 @@
       "../../app/runtime-context",
       "../../app/runtime-input",
       "../../app/runtime-lighting",
+      "../../app/runtime-reaction",
       "../../app/runtime-ui",
       "../../app/owned-resources"
     ],

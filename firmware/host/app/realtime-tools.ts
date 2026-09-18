@@ -1,13 +1,16 @@
 import type { RobotCamera } from 'camera'
 import type { StackchanContext } from 'capabilities'
 import { type Emotion, EmotionNames, emotionFromName } from 'face-state'
+import { PERFORMANCE_NAMES, type PerformanceName, type PerformanceOptions } from 'performance-types'
+import { REACTION_NAMES, type ReactionName, type ReactionOptions } from 'reaction-types'
 import type { RealtimeFunctionTool, RealtimeToolProvider } from 'stackchan-realtime-session'
 import type { Maybe, Pose, Vector3 } from 'stackchan-util'
 
 const INSTRUCTIONS =
   'Use the stackchan.* tools to speak and move the robot body. Call stackchan.say to speak instead of ' +
   'putting spoken words in tool output, and call the face/motion/light/camera tools instead of describing ' +
-  'those actions in your reply text.'
+  'those actions in your reply text. Call stackchan.react for a quick gesture and stackchan.perform for a ' +
+  'routine instead of chaining motion calls.'
 
 type ToolResult = { ok: true; [key: string]: unknown } | { ok: false; error: string }
 
@@ -33,6 +36,12 @@ type EmbodimentContext = {
     lightOff(ledName: string, index?: number, count?: number): void
   }
   camera?: RobotCamera
+  reaction?: {
+    play(name: ReactionName, options?: ReactionOptions): { ok: true } | { ok: false; error: string }
+  }
+  performance?: {
+    play(name: PerformanceName, options?: PerformanceOptions): { ok: true } | { ok: false; error: string }
+  }
 }
 
 /**
@@ -51,6 +60,8 @@ export default function createRealtimeToolProvider(context: StackchanContext): R
   if (hasFunction(ctx.motion, 'lookAt')) tools.push(createLookAtTool(ctx.motion))
   if (hasFunction(ctx.lighting, 'lightOn') && ctx.lighting?.led) tools.push(createLightSetTool(ctx.lighting))
   if (hasFunction(ctx.camera, 'capture')) tools.push(createCameraCaptureTool(ctx.camera))
+  if (hasFunction(ctx.reaction, 'play')) tools.push(createReactionPlayTool(ctx.reaction))
+  if (hasFunction(ctx.performance, 'play')) tools.push(createPerformancePlayTool(ctx.performance))
 
   return { instructions: INSTRUCTIONS, tools }
 }
@@ -282,6 +293,72 @@ function createCameraCaptureTool(camera: NonNullable<EmbodimentContext['camera']
             log(`[realtime-tools] camera stop failed: ${errorMessage(error)}\n`)
           }
         }
+      }
+    },
+  }
+}
+
+function createReactionPlayTool(reaction: NonNullable<EmbodimentContext['reaction']>): RealtimeFunctionTool {
+  return {
+    type: 'function',
+    name: 'stackchan.react',
+    description: 'Plays a short, named reaction gesture (face, hands, head and effect) and returns once it starts.',
+    parameters: {
+      type: 'object',
+      properties: {
+        name: { type: 'string', enum: [...REACTION_NAMES], description: 'Which reaction to play.' },
+        intensity: { type: 'number', description: 'Scales head motion amplitude, 0 to 1. Defaults to 1.' },
+      },
+      required: ['name'],
+      additionalProperties: false,
+    },
+    execute(arguments_) {
+      const name = typeof arguments_.name === 'string' ? arguments_.name : ''
+      if (!(REACTION_NAMES as readonly string[]).includes(name)) return failure(`unknown reaction: ${name}`)
+      const intensity = typeof arguments_.intensity === 'number' ? arguments_.intensity : undefined
+      try {
+        // Same permissive-shape workaround as stackchan.say: strictNullChecks is off for this
+        // project, so TS does not reliably narrow the {ok:true}|{ok:false;error} union branch by
+        // branch.
+        const result = reaction.play(name as ReactionName, intensity !== undefined ? { intensity } : undefined) as {
+          ok: boolean
+          error?: string
+        }
+        return result.ok ? success() : failure(result.error ?? 'reaction refused')
+      } catch (error) {
+        return failure(errorMessage(error))
+      }
+    },
+  }
+}
+
+function createPerformancePlayTool(performance: NonNullable<EmbodimentContext['performance']>): RealtimeFunctionTool {
+  return {
+    type: 'function',
+    name: 'stackchan.perform',
+    description:
+      'Plays a named, minutes-scale performance routine (speech, song, reactions and motion) and returns once it starts.',
+    parameters: {
+      type: 'object',
+      properties: {
+        name: { type: 'string', enum: [...PERFORMANCE_NAMES], description: 'Which performance to play.' },
+        intensity: { type: 'number', description: 'Scales head motion amplitude, 0 to 1. Defaults to 1.' },
+      },
+      required: ['name'],
+      additionalProperties: false,
+    },
+    execute(arguments_) {
+      const name = typeof arguments_.name === 'string' ? arguments_.name : ''
+      if (!(PERFORMANCE_NAMES as readonly string[]).includes(name)) return failure(`unknown performance: ${name}`)
+      const intensity = typeof arguments_.intensity === 'number' ? arguments_.intensity : undefined
+      try {
+        const result = performance.play(
+          name as PerformanceName,
+          intensity !== undefined ? { intensity } : undefined,
+        ) as { ok: boolean; error?: string }
+        return result.ok ? success() : failure(result.error ?? 'performance refused')
+      } catch (error) {
+        return failure(errorMessage(error))
       }
     },
   }

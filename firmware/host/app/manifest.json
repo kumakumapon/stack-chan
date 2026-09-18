@@ -49,6 +49,7 @@
       "./runtime-context",
       "./runtime-input",
       "./runtime-lighting",
+      "./runtime-reaction",
       "./runtime-ui",
       "./owned-resources",
       "$(MODULES)/network/http/*"
