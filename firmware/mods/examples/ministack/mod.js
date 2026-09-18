@@ -41,6 +41,8 @@ function encodeBase64(bytes) {
 }
 
 let active
+// MiniStack adds controls to the standard robot UI; it does not replace it.
+export const appendDefaultContextCreated = true
 export function onContextCreated(robot) {
   trace('[ministack] context created\n')
   active?.close()

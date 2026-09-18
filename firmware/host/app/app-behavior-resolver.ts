@@ -3,7 +3,12 @@ export type AppBehaviorModules = {
   importNow(specifier: string): unknown
 }
 
-export function resolveAppBehaviors<TBehavior extends object>(
+type ContextCreatedBehavior = {
+  appendDefaultContextCreated?: boolean
+  onContextCreated?: (context: unknown, option: unknown) => Promise<void> | void
+}
+
+export function resolveAppBehaviors<TBehavior extends ContextCreatedBehavior>(
   modules: AppBehaviorModules,
   defaultBehavior: TBehavior,
   onImportError?: (error: unknown) => void,
@@ -18,7 +23,7 @@ export function resolveAppBehaviors<TBehavior extends object>(
   return [defaultBehavior]
 }
 
-function mergeDefinedBehavior<TBehavior extends object>(
+function mergeDefinedBehavior<TBehavior extends ContextCreatedBehavior>(
   defaultBehavior: TBehavior,
   modBehavior: Partial<TBehavior>,
 ): TBehavior {
@@ -27,6 +32,14 @@ function mergeDefinedBehavior<TBehavior extends object>(
     const value = modBehavior[key]
     if (value !== undefined) {
       behavior[key] = value
+    }
+  }
+  const defaultContextCreated = defaultBehavior.onContextCreated
+  const modContextCreated = modBehavior.onContextCreated
+  if (modBehavior.appendDefaultContextCreated && defaultContextCreated && modContextCreated) {
+    behavior.onContextCreated = async (...args) => {
+      await defaultContextCreated(...args)
+      await modContextCreated(...args)
     }
   }
   return behavior

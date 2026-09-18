@@ -7,6 +7,7 @@ import type { AppBehaviorModules } from 'app-behavior-resolver'
 import { writeAliasPackage } from '../../modules/testing/node-alias-package.js'
 
 type AppBehavior = {
+  appendDefaultContextCreated?: boolean
   onLaunch?: () => boolean
   onContextCreated?: () => void
 }
@@ -63,14 +64,15 @@ test('resolveAppBehaviors lets an installed MOD override defined behavior hooks'
   assert.deepEqual(importedSpecifiers, ['mod'])
 })
 
-test('resolveAppBehaviors falls back to default launch when MOD only handles context creation', async () => {
+test('resolveAppBehaviors runs default context setup before MOD context setup', async () => {
   installBareSpecifierPackages()
   const { resolveAppBehaviors } = (await import('app-behavior-resolver')) as AppBehaviorResolverModule
   const defaultLaunch = () => true
-  const defaultContextCreated = () => {}
-  const modContextCreated = () => {}
+  const calls: string[] = []
+  const defaultContextCreated = () => calls.push('default')
+  const modContextCreated = () => calls.push('mod')
   const defaultBehavior: AppBehavior = { onLaunch: defaultLaunch, onContextCreated: defaultContextCreated }
-  const modBehavior: AppBehavior = { onContextCreated: modContextCreated }
+  const modBehavior: AppBehavior = { appendDefaultContextCreated: true, onContextCreated: modContextCreated }
   const modules: AppBehaviorModules = {
     has: (specifier) => {
       assert.equal(specifier, 'mod')
@@ -81,7 +83,8 @@ test('resolveAppBehaviors falls back to default launch when MOD only handles con
 
   const [behavior] = resolveAppBehaviors(modules, defaultBehavior)
   assert.equal(behavior.onLaunch, defaultLaunch)
-  assert.equal(behavior.onContextCreated, modContextCreated)
+  await behavior.onContextCreated?.()
+  assert.deepEqual(calls, ['default', 'mod'])
 })
 
 test('resolveAppBehaviors imports MOD independently from other archive entrypoints', async () => {
