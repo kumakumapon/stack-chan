@@ -99,6 +99,14 @@ export function createController({
     if (running) finish(running, false, 'cancelled')
   }
   return {
+    /**
+     * Cancels queued and running work without going through a request.
+     * The record history exists to deduplicate the PC's request IDs; a local
+     * control such as the head's long-press stop has none, and routing it
+     * through `receive('stop', ...)` would spend a slot on every press until
+     * the session filled up and refused the PC's own commands.
+     */
+    cancel,
     close() {
       closed = true
       cancel()
@@ -384,6 +392,57 @@ export function createEventOutbox({ now, capacity = EVENT_BUFFER }) {
     },
     get ackedThrough() {
       return ackedThrough
+    },
+  }
+}
+
+/**
+ * Delivers buffered events to the PC, one at a time and in id order.
+ *
+ * `send` is asynchronous with its own retries, so overlapping sends would
+ * reorder events, and the PC's state machine is built on their order. A send
+ * that fails leaves the event exactly where it was: only an `events.ack`
+ * removes one, so a failure costs a retry rather than the event.
+ *
+ * Sent-but-unacknowledged is tracked apart from acknowledged. Without that the
+ * pump would resend the same event on every tick forever, because the outbox
+ * keeps it until the PC acknowledges it.
+ */
+export function createEventPump({ events, send, isClosed = () => false }) {
+  let sentThrough = 0
+  let sending = false
+  function pump() {
+    if (sending || isClosed()) return
+    const next = events.pending.find((event) => event.eventId > sentThrough)
+    if (!next) return
+    sending = true
+    let settled
+    try {
+      settled = Promise.resolve(send(next))
+    } catch (error) {
+      globalThis.trace?.(`[ministack] event send failed: ${String(error)}\n`)
+      sending = false
+      return
+    }
+    settled.then(
+      () => {
+        sentThrough = next.eventId
+        sending = false
+        pump()
+      },
+      (error) => {
+        globalThis.trace?.(`[ministack] event send failed: ${String(error)}\n`)
+        sending = false
+      },
+    )
+  }
+  return {
+    pump,
+    get sentThrough() {
+      return sentThrough
+    },
+    get sending() {
+      return sending
     },
   }
 }

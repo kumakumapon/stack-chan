@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { createEventOutbox, createTransferRegistry, TRANSFER_CHUNK_MAX } from './controller.js'
+import { createEventOutbox, createEventPump, createTransferRegistry, TRANSFER_CHUNK_MAX } from './controller.js'
 
 const outbox = (capacity = 4, clock = { value: 0 }) => createEventOutbox({ now: () => clock.value, capacity })
 
@@ -163,4 +163,127 @@ test('closeAll releases every buffer the session still holds', () => {
   transfers.closeAll()
   assert.equal(closed, 2)
   assert.equal(transfers.size, 0)
+})
+
+const pumpFixture = (send) => {
+  const events = createEventOutbox({ now: () => 0 })
+  const pump = createEventPump({ events, send })
+  const emit = (kind) => {
+    events.emit(kind)
+    pump.pump()
+  }
+  return { events, pump, emit }
+}
+const deferred = () => {
+  let resolve
+  let reject
+  const promise = new Promise((done, fail) => {
+    resolve = done
+    reject = fail
+  })
+  return { promise, resolve, reject }
+}
+
+test('the pump sends one event at a time, in id order', async () => {
+  const sent = []
+  const gates = [deferred(), deferred()]
+  const { emit } = pumpFixture((event) => {
+    sent.push(event.eventId)
+    return gates[sent.length - 1].promise
+  })
+
+  emit('ready')
+  emit('touch')
+  // Overlapping sends would reorder events, and the PC's state machine is built on order.
+  assert.deepEqual(sent, [1])
+
+  gates[0].resolve()
+  await gates[0].promise
+  await Promise.resolve()
+  assert.deepEqual(sent, [1, 2])
+})
+
+test('a failed send retries the same event rather than skipping it', async () => {
+  const sent = []
+  let fail = true
+  const { pump, emit } = pumpFixture((event) => {
+    sent.push(event.eventId)
+    return fail ? Promise.reject(new Error('radio')) : Promise.resolve()
+  })
+
+  emit('ready')
+  await new Promise((done) => setImmediate(done))
+  assert.deepEqual(sent, [1])
+  assert.equal(pump.sentThrough, 0, 'a failure must not advance past the event')
+
+  fail = false
+  pump.pump()
+  await new Promise((done) => setImmediate(done))
+  assert.deepEqual(sent, [1, 1])
+  assert.equal(pump.sentThrough, 1)
+})
+
+test('an event already sent is not resent while it waits to be acknowledged', async () => {
+  // The outbox keeps an event until the PC acks it. Without tracking sent apart
+  // from acked, every tick would resend the same event forever.
+  const sent = []
+  const { pump, emit } = pumpFixture((event) => {
+    sent.push(event.eventId)
+    return Promise.resolve()
+  })
+
+  emit('ready')
+  await new Promise((done) => setImmediate(done))
+  pump.pump()
+  pump.pump()
+  await new Promise((done) => setImmediate(done))
+  assert.deepEqual(sent, [1])
+})
+
+test('a backlog drains without waiting for another trigger', async () => {
+  const sent = []
+  const { events, pump } = pumpFixture((event) => {
+    sent.push(event.eventId)
+    return Promise.resolve()
+  })
+  // Queued before any peer existed, as the boot 'ready' event is.
+  events.emit('ready')
+  events.emit('touch')
+  events.emit('error')
+
+  pump.pump()
+  await new Promise((done) => setImmediate(done))
+  assert.deepEqual(sent, [1, 2, 3])
+})
+
+test('a send that throws synchronously is treated as a failure, not a crash', async () => {
+  const { pump, emit } = pumpFixture(() => {
+    throw new Error('radio gone')
+  })
+  emit('ready')
+  await new Promise((done) => setImmediate(done))
+  assert.equal(pump.sending, false, 'the pump must not wedge itself shut')
+  assert.equal(pump.sentThrough, 0)
+})
+
+test('the pump stays quiet while no peer is connected', async () => {
+  const events = createEventOutbox({ now: () => 0 })
+  let connected = false
+  const sent = []
+  const pump = createEventPump({
+    events,
+    send: (event) => {
+      sent.push(event.eventId)
+      return Promise.resolve()
+    },
+    isClosed: () => !connected,
+  })
+  events.emit('ready')
+  pump.pump()
+  assert.deepEqual(sent, [])
+
+  connected = true
+  pump.pump()
+  await new Promise((done) => setImmediate(done))
+  assert.deepEqual(sent, [1])
 })

@@ -184,3 +184,29 @@ test('closing the session releases transfers the PC never finished reading', asy
   controller.close()
   assert.equal(closed, 1)
 })
+
+test('a local stop cancels queued work', async () => {
+  let release
+  const { controller } = build({
+    execute: () =>
+      new Promise((done) => {
+        release = done
+      }),
+  })
+  const running = controller.receive('head.set', action('a', { yawRad: 0, pitchRad: 0, durationMs: 700 }))
+  const queued = controller.receive('face.set', action('b', { emotion: 'HAPPY' }))
+
+  controller.cancel()
+  assert.equal((await running).error.code, 'cancelled')
+  assert.equal((await queued).error.code, 'cancelled')
+  release({})
+})
+
+test('a local stop spends no request-id slot, so the button cannot fill the session', async () => {
+  // The head's long-press stop has no PC request ID to deduplicate. Routing it
+  // through receive('stop', ...) would record one per press; 300 presses would
+  // exhaust the 256-entry history and every later PC command would be refused.
+  const { controller } = build()
+  for (let i = 0; i < 300; i++) controller.cancel()
+  assert.equal((await controller.receive('face.set', action('after', { emotion: 'HAPPY' }))).ok, true)
+})
