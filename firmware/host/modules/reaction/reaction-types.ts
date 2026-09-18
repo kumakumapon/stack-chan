@@ -66,6 +66,8 @@ export type ReactionOptions = {
   restore?: boolean
 }
 
+export type ReactionPlayResult = { ok: true } | { ok: false; error: string }
+
 export type ReactionEndReason = 'completed' | 'cancelled' | 'interrupted' | 'error'
 
 export type ReactionStatus = {

@@ -9,7 +9,9 @@ import type { LocalPeerCapability } from 'local-peer-types'
 import type { I18nCapability } from 'localization'
 import type { MiniAppRegistryCapability } from 'mini-app'
 import type { MotionControllerPose, MotionDriverDiagnostics, MotionDurationSeconds } from 'motion-controller'
+import type { PerformanceName, PerformanceOptions, PerformancePlayResult, PerformanceStatus } from 'performance-types'
 import type { Container as PiuContainer, Content as PiuContent } from 'piu/MC'
+import type { ReactionName, ReactionOptions, ReactionPlayResult, ReactionStatus } from 'reaction-types'
 import type { Maybe, Pose, Rotation, Vector3 } from 'stackchan-util'
 import type Touch from 'touch'
 import type TouchPanel from 'touch-panel'
@@ -273,6 +275,31 @@ export type UICapability = {
   hideBalloon(): void
 }
 
+/**
+ * Named, timeline-driven gestures (issue #35). Callers ask for a reaction by
+ * name; the host owns the timelines and the clamps, so a MOD or an agent tool
+ * can never hand the servos raw angles through this capability.
+ */
+export type ReactionCapability = {
+  readonly names: readonly ReactionName[]
+  play(name: ReactionName, options?: ReactionOptions): ReactionPlayResult
+  /** Stops the active reaction and restores the stage. False when nothing was playing. */
+  cancel(): boolean
+  status(): ReactionStatus
+}
+
+/**
+ * Minutes-scale choreography of speech, song, reactions and motions on one
+ * absolute-time clock (issue #36). Cancel stops scheduling and restores the
+ * pose; speech or song already handed to the TTS finishes on its own.
+ */
+export type PerformanceCapability = {
+  readonly names: readonly PerformanceName[]
+  play(name: PerformanceName, options?: PerformanceOptions): PerformancePlayResult
+  cancel(): boolean
+  status(): PerformanceStatus
+}
+
 export type StackchanCapabilityNamespaces = {
   face: FaceCapability
   motion: MotionCapability
@@ -289,6 +316,8 @@ export type StackchanCapabilityNamespaces = {
   connectivity: ConnectivityCapability
   lifecycle: LifecycleCapability
   ui: RuntimeUICapability
+  reaction: ReactionCapability
+  performance: PerformanceCapability
 }
 
 export type StackchanLegacyFlatCapability = FaceCapability &

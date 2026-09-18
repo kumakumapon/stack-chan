@@ -81,6 +81,8 @@ export type PerformanceOptions = {
   restore?: boolean
 }
 
+export type PerformancePlayResult = { ok: true } | { ok: false; error: string }
+
 export type PerformanceEndReason = 'completed' | 'cancelled' | 'interrupted' | 'error'
 
 export type PerformanceStatus = {

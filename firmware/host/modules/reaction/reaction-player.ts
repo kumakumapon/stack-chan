@@ -11,14 +11,13 @@ import type {
   ReactionFrame,
   ReactionName,
   ReactionOptions,
+  ReactionPlayResult,
   ReactionStage,
   ReactionStatus,
   ReactionTimeline,
   StageSnapshot,
 } from 'reaction-types'
 import { TimelineClock } from 'timeline-clock'
-
-export type ReactionPlayResult = { ok: true } | { ok: false; error: string }
 
 export type ReactionPlayerOptions = {
   stage: ReactionStage
@@ -29,9 +28,40 @@ export type ReactionPlayerOptions = {
   maxCatchUpMs?: number
 }
 
-function defaultTrace(message: string): void {
+export function defaultTrace(message: string): void {
   const sink = (globalThis as { trace?: (message: string) => void }).trace
   sink?.(message)
+}
+
+/**
+ * Puts face, hands and effect back to `baseline`, and the head too when
+ * `head` is set: torque is released only once the head move reports done.
+ * Shared by the reaction and performance players so both restore the same way.
+ */
+export function restoreStage(
+  stage: ReactionStage,
+  baseline: StageSnapshot,
+  options: { head: boolean },
+  trace: (message: string) => void,
+): void {
+  const safely = (action: () => void) => {
+    try {
+      action()
+    } catch (error) {
+      trace(`[reaction] restore failed: ${String(error)}\n`)
+    }
+  }
+  safely(() => {
+    stage.setEmotion(baseline.emotion)
+    stage.setEyeOpen(1, 1)
+    if (!stage.isAudioActive()) stage.setMouthOpen(0)
+    stage.setHand(baseline.hand)
+    stage.setEffect(baseline.effect)
+  })
+  if (!options.head) return
+  safely(() =>
+    stage.setHead(baseline.head, REACTION_LIMITS.defaultHeadDurationMs, () => safely(() => stage.releaseHead())),
+  )
 }
 
 export class ReactionPlayer {
@@ -148,21 +178,8 @@ export class ReactionPlayer {
   }
 
   #restoreStage(baseline: StageSnapshot, chained: boolean): void {
-    const stage = this.#stage
-    this.#safely(() => {
-      stage.setEmotion(baseline.emotion)
-      this.#eyes = { left: 1, right: 1 }
-      stage.setEyeOpen(1, 1)
-      if (!stage.isAudioActive()) stage.setMouthOpen(0)
-      stage.setHand(baseline.hand)
-      stage.setEffect(baseline.effect)
-    })
-    if (chained || !this.#headTouched) return
-    this.#safely(() =>
-      stage.setHead(baseline.head, REACTION_LIMITS.defaultHeadDurationMs, () =>
-        this.#safely(() => stage.releaseHead()),
-      ),
-    )
+    restoreStage(this.#stage, baseline, { head: !chained && this.#headTouched }, this.#trace)
+    if (!chained) this.#eyes = { left: 1, right: 1 }
   }
 
   #safely(action: () => void): void {
