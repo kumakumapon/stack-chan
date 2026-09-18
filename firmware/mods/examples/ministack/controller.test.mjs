@@ -87,7 +87,15 @@ test('rejects old sessions, malformed values and unsupported operations', async 
     ['head.set', request('b', { yawRad: NaN }), 'invalid-head'],
     ['head.set', request('c', { ttlMs: 0 }), 'invalid-ttl'],
     ['photo.capture', request('d'), 'unsupported'],
-    ['speech.say', request('e', { text: 'hello', interrupt: true }), 'invalid-speech'],
+    ['speech.say', request('e', { text: 'hello', interrupt: 'yes' }), 'invalid-speech'],
+    ['conversation.listen', request('f', { timeoutMs: 1000 }), 'unsupported'],
+    ['config.set', { v: 1, sessionId: 'boot1', requestId: 'g', speechVolume: 5 }, 'unsupported'],
+    ['events.ack', { v: 1, sessionId: 'boot1', requestId: 'h', lastEventId: 1 }, 'unsupported'],
+    [
+      'transfer.read',
+      { v: 1, sessionId: 'boot1', requestId: 'i', transferId: 'x', offset: 0, length: 8 },
+      'unsupported',
+    ],
   ])
     assert.equal((await c.receive(type, payload)).error.code, code)
 })

@@ -1,26 +1,39 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { MiniStackClient } from './client.mjs'
+import { MiniStackClient, createEventTracker, readTransfer, decodeBase64, TRANSFER_CHUNK_MAX } from './client.mjs'
 function fixture(options = {}) {
-  let listener
+  // Keyed by Local Peer message type: the client now subscribes to both
+  // 'response' and 'event', which a single shared listener could not tell apart.
+  const listeners = new Map()
   let closeCount = 0
   let openCount = 0
   let failOpen = false
   const sent = []
   const session = {
     discover: async () => [{ id: 'robot' }],
-    subscribe: (_, cb) => {
-      listener = cb
+    subscribe: (type, cb) => {
+      listeners.set(type, cb)
       return () => {
-        listener = undefined
+        if (listeners.get(type) === cb) listeners.delete(type)
       }
     },
     async send(peer, type, payload) {
       sent.push({ peer, type, payload })
       if (type === 'capabilities.get' || type === 'state.get')
-        listener({
+        listeners.get('response')?.({
           peer: { id: peer },
           payload: { v: 1, requestId: payload.requestId, sessionId: 'boot', ok: true, result: { sessionId: 'boot' } },
+        })
+      else if (type === 'events.since')
+        listeners.get('response')?.({
+          peer: { id: peer },
+          payload: {
+            v: 1,
+            requestId: payload.requestId,
+            sessionId: 'boot',
+            ok: true,
+            result: { events: [], gap: false },
+          },
         })
     },
     close() {
@@ -41,7 +54,8 @@ function fixture(options = {}) {
   return {
     client,
     sent,
-    reply: (p) => listener({ peer: { id: 'robot' }, payload: p }),
+    reply: (p) => listeners.get('response')?.({ peer: { id: 'robot' }, payload: p }),
+    event: (p) => listeners.get('event')?.({ peer: { id: 'robot' }, payload: p }),
     get closeCount() {
       return closeCount
     },
@@ -64,6 +78,22 @@ test('handshake binds subsequent requests to device boot session and rejects rem
   await assert.rejects(request, /invalid-head/)
   f.client.close()
 })
+test('a pushed event from another boot session is ignored, not deduplicated against this one', async () => {
+  // Event IDs restart at 1 on every boot. Without the session check, the first
+  // event of a restarted MOD looks like one already delivered and is dropped —
+  // losing exactly the 'ready' that announces the new session.
+  const delivered = []
+  const f = fixture({ onEvent: (event) => delivered.push(event.kind) })
+  await f.client.connect('test-only-shared-key')
+
+  f.event({ v: 1, sessionId: 'boot', eventId: 1, occurredAt: 0, kind: 'ready', data: {} })
+  f.event({ v: 1, sessionId: 'boot-2', eventId: 1, occurredAt: 0, kind: 'ready', data: {} })
+  f.event({ sessionId: 'boot', eventId: 2, occurredAt: 0, kind: 'touch', data: {} })
+
+  assert.deepEqual(delivered, ['ready'], 'only the event from the connected session is delivered')
+  f.client.close()
+})
+
 test('close rejects pending commands and detaches the sole connection', async () => {
   const f = fixture()
   await f.client.connect('test-only-shared-key')
@@ -173,4 +203,113 @@ test('reconnect is not attempted before a session was ever established', async (
   )
   await assert.rejects(client.connect('test-only-shared-key'), /device not found/)
   assert.equal(scheduled.length, 0)
+})
+
+// createEventTracker: the MOD delivers each event at least once (a pushed
+// 'event' message can be redelivered by a later events.since replay that
+// overlaps it), and the PC is the one responsible for deduplicating on eventId.
+
+test('a redelivered event is handed to the UI once, not twice', () => {
+  const delivered = []
+  const tracker = createEventTracker({ onEvent: (event) => delivered.push(event.eventId) })
+  const event = { eventId: 1, occurredAt: 0, kind: 'ready', data: {} }
+  tracker.ingest(event)
+  tracker.ingest(event)
+  tracker.ingestReplay({ events: [event], gap: false })
+  assert.deepEqual(delivered, [1])
+  assert.equal(tracker.cursor, 1)
+})
+
+test('a pushed event and an overlapping polled replay still deliver each id once, in order', () => {
+  const delivered = []
+  const tracker = createEventTracker({ onEvent: (event) => delivered.push(event.eventId) })
+  const events = [1, 2, 3].map((eventId) => ({ eventId, occurredAt: 0, kind: 'touch', data: {} }))
+  // The push for event 2 races ahead of the replay that is still catching up
+  // from the start; it must be held back rather than shown out of order.
+  tracker.ingest(events[1])
+  assert.deepEqual(delivered, [])
+  tracker.ingestReplay({ events, gap: false })
+  assert.deepEqual(delivered, [1, 2, 3])
+  assert.equal(tracker.cursor, 3)
+})
+
+test('gap: true surfaces as a resync signal instead of being swallowed', () => {
+  const delivered = []
+  let gaps = 0
+  const tracker = createEventTracker({
+    onEvent: (event) => delivered.push(event.eventId),
+    onGap: () => {
+      gaps += 1
+    },
+  })
+  // Event 1 is buffered, waiting on nothing yet to arrive before it.
+  tracker.ingest({ eventId: 1, occurredAt: 0, kind: 'ready', data: {} })
+  assert.deepEqual(delivered, [1])
+  // The MOD's buffer overran and dropped ids 2-4 for good; only 5 survives.
+  const survivor = { eventId: 5, occurredAt: 0, kind: 'touch', data: {} }
+  tracker.ingestReplay({ events: [survivor], gap: true })
+  assert.equal(gaps, 1)
+  // The survivor is still delivered — a gap loses the ids in between, not
+  // whatever the MOD still has on hand.
+  assert.deepEqual(delivered, [1, 5])
+  assert.equal(tracker.cursor, 5)
+  // The cursor has moved past the hole, so a later, stale redelivery of an id
+  // from before the gap is dropped rather than resurrected.
+  tracker.ingest({ eventId: 3, occurredAt: 0, kind: 'touch', data: {} })
+  assert.deepEqual(delivered, [1, 5])
+})
+
+// readTransfer / decodeBase64: chunked download of a photo or recording.
+
+function chunkedSource(bytes, { failOffsetsOnce = new Set() } = {}) {
+  const requests = []
+  const alreadyFailed = new Set()
+  const read = async (offset, length) => {
+    requests.push({ offset, length })
+    if (failOffsetsOnce.has(offset) && !alreadyFailed.has(offset)) {
+      alreadyFailed.add(offset)
+      throw new Error('peer did not acknowledge message')
+    }
+    const end = Math.min(offset + length, bytes.byteLength)
+    return {
+      transferId: 't1',
+      offset,
+      byteLength: bytes.byteLength,
+      chunk: btoa(String.fromCharCode(...bytes.subarray(offset, end))),
+      eof: end >= bytes.byteLength,
+    }
+  }
+  return { read, requests }
+}
+
+test('the chunk loop reassembles a multi-chunk payload byte-for-byte, including a final partial chunk', async () => {
+  const bytes = Uint8Array.from({ length: 2500 }, (_, index) => index % 256)
+  const { read, requests } = chunkedSource(bytes)
+  const result = await readTransfer(read, { chunkSize: 1000 })
+  assert.deepEqual([...result], [...bytes])
+  assert.deepEqual(
+    requests.map((r) => r.offset),
+    [0, 1000, 2000],
+  )
+  for (const r of requests) assert.ok(r.length <= TRANSFER_CHUNK_MAX)
+  // The final chunk is a partial 500 bytes, not padded up to the request size.
+  assert.equal(requests.at(-1).length, 1000)
+})
+
+test('a failed chunk read is retried at the same offset rather than restarting at 0', async () => {
+  const bytes = Uint8Array.from({ length: 300 }, (_, index) => (index * 7) % 256)
+  const { read, requests } = chunkedSource(bytes, { failOffsetsOnce: new Set([100]) })
+  const result = await readTransfer(read, { chunkSize: 100 })
+  assert.deepEqual([...result], [...bytes])
+  assert.deepEqual(
+    requests.map((r) => r.offset),
+    [0, 100, 100, 200],
+  )
+})
+
+test('base64 decoding round-trips bytes that are not a multiple of 3', () => {
+  const original = Uint8Array.from([0, 1, 2, 3, 4, 250, 251, 252, 253, 254, 255])
+  assert.notEqual(original.byteLength % 3, 0)
+  const encoded = btoa(String.fromCharCode(...original))
+  assert.deepEqual([...decodeBase64(encoded)], [...original])
 })
