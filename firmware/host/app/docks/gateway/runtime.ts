@@ -77,7 +77,7 @@ export function gatewayConversationState(
     case 'audio.completed':
       return current === 'standby' || current === 'blocked' ? undefined : 'listening'
     case 'agent.error':
-      return message.fatal ? 'blocked' : current === 'recognizing' ? 'listening' : undefined
+      return message.fatal ? 'blocked' : current === 'recognizing' || current === 'speaking' ? 'listening' : undefined
     default:
       return undefined
   }

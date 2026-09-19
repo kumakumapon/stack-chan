@@ -134,6 +134,9 @@ function harness(
       presented.push('audio:end')
     },
     onAgentError: (message) => presented.push(`error:${message}`),
+    interrupt: () => {
+      presented.push('interrupt')
+    },
     close() {
       closed.push('presentation')
     },
@@ -202,6 +205,41 @@ function harness(
 }
 
 const context = {} as StackchanContext
+
+test('interruption gates input until its acknowledgement and ignores stale audio', async () => {
+  let finish!: () => void
+  const dock = harness({
+    microphone: true,
+    playback: new Promise<void>((resolve) => {
+      finish = resolve
+    }),
+  })
+  dock.runtime.onContextCreated(context)
+  const session = dock.runtime.remoteConversationSession
+  assert.ok(session)
+  session.activate()
+  enableAudio(dock)
+  dock.emit(sideband({ type: 'transcript.output', text: 'old', final: true }))
+  session.interrupt?.()
+  assert.ok(dock.presented.includes('interrupt'))
+  const request = dock.sent.find((message) => (message as { type: string }).type === 'response.cancel') as {
+    requestId: string
+  }
+  assert.ok(request)
+  finish()
+  await new Promise<void>((resolve) => setImmediate(resolve))
+  assert.equal(dock.microphoneRunning, false)
+  dock.emit(sideband({ type: 'response.cancelled', requestId: 'unrelated' }))
+  assert.equal(dock.microphoneRunning, false)
+  dock.emit(sideband({ type: 'audio.started', responseId: 'old', format: PCM16 }))
+  assert.equal(dock.presented.includes('audio:start'), false)
+  dock.emit(sideband({ type: 'response.cancelled', requestId: request.requestId }))
+  assert.equal(session.state, 'listening')
+  assert.equal(dock.microphoneRunning, true)
+  dock.emit(sideband({ type: 'audio.chunk', responseId: 'old', seq: 0, payload: 'AAAA' }))
+  assert.equal(dock.presented.includes('audio:chunk'), false)
+  dock.runtime.close()
+})
 
 function enableAudio(dock: Harness) {
   dock.emit(
@@ -318,7 +356,7 @@ test('sideband messages update the conversation state and reach the presentation
     dock.states.map((entry) => entry.state),
     ['recognizing', 'speaking', 'listening'],
   )
-  assert.deepEqual(dock.presented, ['in:good morning', 'audio:start', 'audio:chunk', 'audio:end'])
+  assert.deepEqual(dock.presented, ['in:good morning', 'interrupt', 'audio:start', 'audio:chunk', 'audio:end'])
   dock.runtime.close()
 })
 

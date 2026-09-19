@@ -5,6 +5,26 @@ import { fileURLToPath } from 'node:url'
 import type AudioOut from '../../testing/fakes/audio-out.js'
 import { writeAliasPackage, writeAliasPackageSubpath } from '../../testing/node-alias-package.js'
 
+test('cancel closes speech resources once and late completion does not finish the next speech', async () => {
+  const { beginTTSPlayback } = await setup()
+  const owner = { streaming: false, cancel: undefined as (() => void) | undefined }
+  const completions: unknown[] = []
+  const old = beginTTSPlayback(owner, (error) => completions.push(error))
+  assert.ok(old)
+  const audio = old.openAudio({ streams: 1 }, 0.5) as AudioOut
+  owner.cancel?.()
+  assert.equal(audio.closed, true)
+  assert.equal(owner.streaming, false)
+  assert.ok(completions[0] instanceof Error)
+  const next = beginTTSPlayback(owner, (error) => completions.push(error))
+  assert.ok(next)
+  old.onDone()
+  assert.equal(owner.streaming, true)
+  assert.equal(completions.length, 1)
+  next.onDone()
+  assert.equal(completions.length, 2)
+})
+
 type FakeAudioOutModule = typeof import('../../testing/fakes/audio-out.js')
 
 function installBareSpecifierPackages(): void {

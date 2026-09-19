@@ -4,6 +4,21 @@ import { EMPTY_TOOL_PARAMETERS, type ToolDefinition } from '../tools/tool-types.
 import type { AgentEvent } from './agent-backend.ts'
 import { createEchoBackend } from './echo-backend.ts'
 
+test('cancel releases a turn waiting on a tool without a late turn.done', async () => {
+  const { session, events } = await openSession([EMOTION_TOOL])
+  const pending = session.inputText(':emotion=happy')
+  await session.cancel()
+  await pending
+  assert.equal(
+    events.some((event) => event.type === 'turn.done'),
+    false,
+  )
+  events.length = 0
+  await session.inputText('next')
+  assert.equal(events.filter((event) => event.type === 'turn.done').length, 1)
+  await session.close()
+})
+
 const EMOTION_TOOL: ToolDefinition = {
   name: 'stackchan.face.setEmotion',
   parameters: EMPTY_TOOL_PARAMETERS,

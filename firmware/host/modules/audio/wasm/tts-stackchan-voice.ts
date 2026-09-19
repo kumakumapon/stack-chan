@@ -107,6 +107,7 @@ export class TTS {
     }
     const render = isKoe ? renderStackchanVoiceKoeWav : renderStackchanVoiceWav
     void render(this.voice, source, {
+      isCancelled: () => completed,
       schedule: (callback) => schedule(audioBridge, callback, 0),
       speed: this.speed,
       volume: volume ?? this.volume,

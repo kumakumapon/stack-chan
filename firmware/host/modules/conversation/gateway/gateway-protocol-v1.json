@@ -4,6 +4,11 @@
   "acceptedServerMessages": [
     {
       "schema": "stackchan.gateway.v1",
+      "type": "response.cancelled",
+      "requestId": "cancel-1"
+    },
+    {
+      "schema": "stackchan.gateway.v1",
       "type": "session.ready",
       "protocolVersion": 1,
       "sessionId": "session-1",

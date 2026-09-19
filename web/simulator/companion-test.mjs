@@ -77,7 +77,7 @@ const gateway = createGatewayServer({
 })
 const address = await gateway.listen()
 const { baseUrl, server } = await startPreview({ port: 8097 })
-let browser
+let browser, diagnosticPage
 try {
   browser = await chromium.launch({
     executablePath: resolveChromium(),
@@ -92,6 +92,7 @@ try {
     ],
   })
   const page = await browser.newPage({ viewport: { width: 1280, height: 900 } })
+  diagnosticPage = page
   const errors = []
   page.on('pageerror', (error) => errors.push(error.message))
   await page.addInitScript(() => {
@@ -210,6 +211,12 @@ try {
   await mobilePage.screenshot({ path: join(tmpdir(), 'stackchan-companion-mobile.png') })
   await mobile.close()
   console.log('Companion WASM: text round trip, named tools, streamed PCM, interruption, restart, stop, and synthetic microphone passed')
+} catch (error) {
+  if (diagnosticPage) {
+    console.error(await diagnosticPage.locator('body').innerText())
+    await diagnosticPage.screenshot({ path: join(tmpdir(), 'stackchan-companion-failure.png') })
+  }
+  throw error
 } finally {
   await browser?.close()
   server?.kill()

@@ -107,17 +107,19 @@ carries `schema: 'stackchan.gateway.v1'` and a `type`.
 | `audio.chunk` | gateway → device | `responseId`, `seq`, `payload` (base64 PCM16 frame) |
 | `audio.completed` | gateway → device | `responseId` |
 | `agent.error` | gateway → device | `code`, `message`, `fatal` |
-| `robot.directive` | gateway → device | `directive`, `params` |
+| `robot.directive` | gateway → device | Reserved, ignored; use embodiment tools |
+| `response.cancel` | device → gateway | `requestId` |
+| `response.cancelled` | gateway → device | Matching `requestId` |
 
 `GatewayAudioFormat` is `{ codec: 'pcm16', sampleRate, channels }` throughout;
 V1 only ever negotiates `codec: 'pcm16'`. `GatewayErrorCode` is one of
 `unauthorized`, `unsupportedProtocol`, `unsupportedAudioFormat`,
 `agentUnavailable`, `sttFailure`, `ttsFailure`, `toolFailure`, `internal`.
 
-`robot.directive` is documented as the fire-and-forget variant for directives
-that expect no result — the schema exists on both sides, but nothing in this
-change sends or handles it yet (see
-[What is implemented and what is not](#what-is-implemented-and-what-is-not)).
+`robot.directive` is reserved for a future negotiated extension. Both parsers
+retain wire compatibility, but the Gateway does not send it and the firmware
+must ignore it. No independent directive execution path is enabled: named
+reactions, performances and motion already use the tool/approval boundary.
 Device-hosted tool calls are explicitly **not** part of this schema; they ride
 the realtime control plane described above.
 
@@ -418,10 +420,18 @@ is limited to its URL, device id and Gateway token.
 - Device-side reconnect with exponential backoff
   (`gateway-bridge.ts`: 1 s initial delay doubling up to 30 s), so a dropped
   WebSocket recovers without operator intervention.
-- Device-side playback of a streamed assistant turn: `presentation.ts`
-  buffers `audio.chunk` payloads and plays them as one contiguous buffer on
-  `audio.completed`, because Piu has no PCM sink that can be fed frame by
-  frame.
+- Incremental PCM playback through a Piu-independent bounded sink. Native
+  AudioOut and browser Web Audio consume the same queue; `audio.completed`
+  waits for the last queued buffer to play. The PCM queue is capped at 64 KiB,
+  with up to three buffers scheduled ahead. Overflow stops output and reports
+  an error. Gateway TTS sends 20 ms packets at playback rate.
+- Explicit response interruption from the face tap or Web panel. Local speech
+  and queued PCM stop immediately. `response.cancel` aborts Gateway synthesis,
+  pending STT and backend work; `response.cancelled` acknowledges the barrier.
+  Only its matching request id resumes listening. Old response ids, late
+  callbacks and pending approved-tool execution are discarded after cancellation.
+  Install matching Gateway and firmware versions; an older Gateway that lacks
+  the extension causes a visible interruption timeout instead of resuming input.
 
 Companion Mode adds opted-in CoreS3 microphone capture, stereo-to-mono 20 ms
 PCM frames, half-duplex gating, and the same Gateway flow in WASM with text
@@ -429,21 +439,16 @@ and optional browser microphone input. See [Companion setup and verification](..
 
 **Not implemented, deliberately deferred:**
 
-- **Full duplex, barge-in, and AEC.** The microphone pauses during recognition
-  and speech, and resumes only after playback completes.
-- **Frame-by-frame playback.** The device buffers a whole turn's `audio.chunk`
-  frames and plays them only once `audio.completed` arrives; there is no
-  streaming PCM sink yet, so the audible latency is one full assistant turn,
-  not the first chunk.
-- **`robot.directive` handling on the device.** The message type exists in
-  both protocol mirrors, but nothing sends or handles it: embodiment is
-  expressed exclusively through the tool-calling path described above, not
-  through this fire-and-forget directive channel.
+- **Voice-triggered full duplex and AEC.** The microphone pauses during
+  recognition and speech; interruption is an explicit touch/button action.
+- **Directives outside the tool boundary.** `robot.directive` is reserved and
+  ignored until a separate negotiated use case is specified.
 
-Nothing in this change has been run against physical Stack-chan hardware; the
-firmware-side pieces (`gateway-bridge.ts`, `gateway-protocol.ts`,
-`gateway-config.ts`, the Gateway Dock itself) are exercised by `node --test`
-against pure logic and mocked transports, not on a device.
+Physical acceptance is tracked separately in [Issue #43](https://github.com/kumakumapon/stack-chan/issues/43).
+Validation covers Node behavior tests, XS tests, all release builds and the
+compiled WASM Dock connected to a localhost Gateway. Browser tests verify
+incremental PCM before response completion, explicit interruption, another turn,
+named tools and synthetic microphone input without opening physical hardware.
 
 ## Phase map
 
@@ -453,9 +458,9 @@ The issue laid out four phases. What actually landed:
   `conversation.start`/`stop`, conversation-state sync via the sideband
   mapping, text LLM responses through any of the three Agent Backends, and
   the robot reading the answer with its own TTS.
-- **Phase 1 — Voice.** Half-duplex capture and buffered reply playback are
-  implemented. VAD/STT/TTS remain Gateway-owned. Physical microphone and speaker
-  quality verification is separate; incremental playback and AEC remain future work.
+- **Phase 1 — Voice.** Half-duplex capture, incremental reply playback and
+  touch/button interruption are implemented. VAD/STT/TTS remain Gateway-owned.
+  Physical microphone/speaker validation is separate; full duplex and AEC remain future work.
 - **Phase 2 — Embodiment.** Mostly implemented: all eight embodiment tools
   exist, are conditionally advertised based on device capability, and are
   invocable by any Agent Backend. Touch/IMU context being fed to the Agent as
