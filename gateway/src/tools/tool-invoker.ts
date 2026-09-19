@@ -18,7 +18,7 @@ export type ToolCall = {
 }
 
 export type ToolInvoker = {
-  invoke(call: ToolCall): Promise<ToolCallOutcome>
+  invoke(call: ToolCall, signal?: AbortSignal): Promise<ToolCallOutcome>
 }
 
 export type ToolInvokerOptions = {
@@ -35,7 +35,8 @@ export function createToolInvoker(options: ToolInvokerOptions): ToolInvoker {
   const logger = options.logger ?? (() => {})
 
   return {
-    async invoke(call) {
+    async invoke(call, signal) {
+      if (signal?.aborted) return { status: 'declined', message: 'Response cancelled' }
       const tool = registry.get(call.name)
       if (!tool) return { status: 'error', message: `Unknown tool: ${call.name}` }
 
@@ -50,6 +51,7 @@ export function createToolInvoker(options: ToolInvokerOptions): ToolInvoker {
         if (decision.status !== 'ok') return decision
       }
 
+      if (signal?.aborted) return { status: 'declined', message: 'Response cancelled' }
       const task = approval.beginTask()
       try {
         const result =

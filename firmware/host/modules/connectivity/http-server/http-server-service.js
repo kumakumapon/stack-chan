@@ -39,7 +39,7 @@ class Response {
   #body
   #headers
   #status = 200
-  constructor(body, options) {
+  constructor(body, options = {}) {
     this.#body = body instanceof ArrayBuffer ? body : ArrayBuffer.fromString(body.toString())
     const headers = new Headers()
     if (options.headers) {
@@ -53,7 +53,7 @@ class Response {
     }
     this.#headers = headers
 
-    this.#status = options?.status· ? options.status : 200
+    this.#status = options.status ?? 200
   }
   get body() {
     return this.#body
@@ -152,7 +152,7 @@ class HttpServerService {
       let response
 
       try {
-        const handler = this.#routes[req.method].get(req.path)
+        const handler = this.#routes[req.method]?.get(req.path)
         if (!handler) {
           response = context.text('Resource Not Found', 404)
         } else {
@@ -161,6 +161,10 @@ class HttpServerService {
       } catch (_e) {
         response = context.text('Internal Server Error', 500)
       } finally {
+        // Moddable listen() reuses its response promise and offset on keep-alive
+        // connections (issue #19). Enforce one response per connection even
+        // for custom handlers, as MCPServerService does. Do not vendor LGPL SDK code.
+        response.headers.set('connection', 'close')
         connection.respondWith(response)
       }
     }

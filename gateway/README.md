@@ -35,11 +35,14 @@ Only what `stackchan.event.v1` genuinely lacks lives in a new sideband schema,
 errors.
 
 ```text
-device -> gateway : session.hello, audio.input, audio.input.end, text.input
+device -> gateway : session.hello, audio.input, audio.input.end, text.input, response.cancel
 gateway -> device : session.ready, transcript.input, transcript.output,
                     audio.started, audio.chunk, audio.completed,
-                    agent.error, robot.directive
+                    agent.error, response.cancelled
+reserved          : robot.directive (not executed)
 ```
+
+See [implementation status (Japanese)](../docs/IMPLEMENTATION_STATUS_ja.md) for current behavior, tested targets and separate physical acceptance.
 
 ## Quick start
 

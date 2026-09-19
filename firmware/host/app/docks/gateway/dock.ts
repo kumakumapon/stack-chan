@@ -9,7 +9,7 @@ import { type GatewayConfig, requireGatewayIdentity, resolveGatewayConfig } from
 import { createGatewayPresentation } from 'stackchan-gateway-dock-presentation'
 import { createGatewayDockRuntime } from 'stackchan-gateway-dock-runtime'
 import createMicrophone from 'stackchan-gateway-microphone'
-import { pcmWave } from 'stackchan-gateway-pcm'
+import createAudio from 'stackchan-gateway-pcm-output'
 import { createGatewaySocket } from 'stackchan-gateway-socket'
 import type { RealtimeToolProvider } from 'stackchan-realtime-session'
 import { createRemoteSessionRuntime } from 'stackchan-remote-session-runtime'
@@ -66,7 +66,7 @@ const stackchanGatewayDock: StackchanDock = {
       createPresentation: (context, options) =>
         createGatewayPresentation(context, {
           ...options,
-          playAudio: (frames, format) => context.audio.playAudio(pcmWave(frames, format.sampleRate, format.channels)),
+          createAudio,
         }),
       // Only the explicitly enabled preference permits microphone acquisition.
       createMicrophone: gateway.microphone ? createMicrophone : undefined,

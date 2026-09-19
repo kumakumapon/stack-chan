@@ -3,6 +3,63 @@ import { test } from 'node:test'
 import type { AgentEvent } from './agent-backend.ts'
 import { createHermesBackend } from './hermes-backend.ts'
 
+test('an HTTP error body completing after cancellation does not emit a stale error', async () => {
+  let body!: ReadableStreamDefaultController<Uint8Array>
+  let count = 0
+  const { session, events } = await openSession((async (url, init) => {
+    if (String(url).endsWith('/sessions')) return new Response('{"id":"one"}')
+    if (init?.method === 'DELETE') return new Response('')
+    if (++count === 1)
+      return new Response(
+        new ReadableStream({
+          start(value) {
+            body = value
+          },
+        }),
+        { status: 500 },
+      )
+    return new Response(ndjsonStream([{ type: 'text', text: 'next' }, { type: 'done' }]))
+  }) as typeof fetch)
+  const pending = session.inputText('old')
+  while (!body) await Promise.resolve()
+  await session.cancel()
+  await session.inputText('next')
+  body.close()
+  await pending
+  assert.deepEqual(events, [{ type: 'text', text: 'next', final: true }, { type: 'turn.done' }])
+  await session.close()
+})
+
+test('cancel aborts the transport, drops a late frame and allows the next turn', async () => {
+  let pending!: ReadableStreamDefaultController<Uint8Array>
+  let requestSignal: AbortSignal | null | undefined
+  let count = 0
+  const { session, events } = await openSession((async (url, init) => {
+    if (String(url).endsWith('/sessions')) return new Response('{"id":"one"}')
+    if (init?.method === 'DELETE') return new Response('')
+    if (++count === 1) {
+      requestSignal = init?.signal
+      return new Response(
+        new ReadableStream({
+          start(controller) {
+            pending = controller
+          },
+        }),
+      )
+    }
+    return new Response(ndjsonStream([{ type: 'text', text: 'new' }, { type: 'done' }]))
+  }) as typeof fetch)
+  const old = session.inputText('old')
+  while (!pending) await Promise.resolve()
+  await session.cancel()
+  assert.equal(requestSignal?.aborted, true)
+  pending.enqueue(new TextEncoder().encode('{"type":"text","text":"late"}\n'))
+  await old
+  await session.inputText('new')
+  assert.deepEqual(events, [{ type: 'text', text: 'new', final: true }, { type: 'turn.done' }])
+  await session.close()
+})
+
 function ndjsonStream(lines: unknown[]): ReadableStream<Uint8Array> {
   const encoder = new TextEncoder()
   return new ReadableStream({

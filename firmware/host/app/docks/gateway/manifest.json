@@ -4,6 +4,8 @@
     "$(MODDABLE)/examples/io/tcp/websocket/manifest_websocket.json"
   ],
   "modules": {
+    "stackchan-gateway-pcm-output": "./pcm-output",
+    "stackchan-gateway-pcm-stream": "./pcm-stream",
     "stackchan-gateway-pcm": "./pcm",
     "stackchan-gateway-microphone": "./microphone-stream",
     "stackchan-dock": "./dock",

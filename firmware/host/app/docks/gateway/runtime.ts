@@ -77,7 +77,7 @@ export function gatewayConversationState(
     case 'audio.completed':
       return current === 'standby' || current === 'blocked' ? undefined : 'listening'
     case 'agent.error':
-      return message.fatal ? 'blocked' : current === 'recognizing' ? 'listening' : undefined
+      return message.fatal ? 'blocked' : current === 'recognizing' || current === 'speaking' ? 'listening' : undefined
     default:
       return undefined
   }
@@ -97,6 +97,8 @@ export function createGatewayDockRuntime(
   }
 
   let context: StackchanContext | undefined
+  let interruptActive: (() => void) | undefined
+  let cancelSequence = 0
   let contextAttached = false
   let closed = false
   const facade = createRemoteConversationSessionFacade(createActiveBinding)
@@ -110,6 +112,15 @@ export function createGatewayDockRuntime(
     let presentation: GatewayPresentation | undefined
     let bindingClosed = false
     let playbackPending = 0
+    let playbackGeneration = 0
+    let responseId: string | undefined
+    let cancelRequest: string | undefined
+    let cancelTimer: unknown
+    const clearCancelTimer = () => {
+      const timer = cancelTimer
+      cancelTimer = undefined
+      if (timer !== undefined) dependencies.scheduler?.clear(timer)
+    }
     let audioInputEnabled = false
     let speakLocally = true
     let sequence = 0
@@ -119,6 +130,7 @@ export function createGatewayDockRuntime(
     let removeTransport: (() => void) | undefined
     const canRecord = () =>
       !bindingClosed &&
+      !cancelRequest &&
       config.microphone === true &&
       audioInputEnabled &&
       activation.remoteConversationSession.state === 'listening' &&
@@ -173,9 +185,42 @@ export function createGatewayDockRuntime(
         presentation = dependencies.createPresentation(context, { speakLocally: true })
       }
       const activePresentation = presentation
+      const stopPlayback = () => {
+        playbackGeneration++
+        playbackPending = 0
+        responseId = undefined
+        activePresentation?.interrupt?.()
+      }
+      interruptActive = () => {
+        if (bindingClosed || cancelRequest) return
+        cancelRequest = `cancel-${++cancelSequence}`
+        activation.updateConversationState('recognizing')
+        stopPlayback()
+        syncMicrophone()
+        if (
+          bridge.sendGatewayMessage({
+            schema: 'stackchan.gateway.v1',
+            type: 'response.cancel',
+            requestId: cancelRequest,
+          }) !== 'queued'
+        ) {
+          activation.updateConversationState('blocked', 'Gateway interruption failed')
+          return
+        }
+        cancelTimer = dependencies.scheduler?.set(() => {
+          cancelTimer = undefined
+          if (!bindingClosed && cancelRequest)
+            activation.updateConversationState('blocked', 'Gateway interruption timed out')
+        }, 5000)
+      }
       removeState = activation.remoteConversationSession.subscribe(syncMicrophone)
       removeTransport = activation.remoteConversationSession.subscribeTransport((state) => {
-        if (state !== 'ready') audioInputEnabled = false
+        if (state !== 'ready') {
+          audioInputEnabled = false
+          cancelRequest = undefined
+          clearCancelTimer()
+          stopPlayback()
+        }
         syncMicrophone()
         if (state === 'ready' && activation.remoteConversationSession.state !== 'standby') {
           activation.remoteConversationSession.requestStart()
@@ -183,6 +228,25 @@ export function createGatewayDockRuntime(
       })
       tick()
       bridge.setSidebandHandler((message) => {
+        if (message.type === 'response.cancelled') {
+          if (cancelRequest !== message.requestId) return
+          cancelRequest = undefined
+          clearCancelTimer()
+          activation.updateConversationState('listening')
+          syncMicrophone()
+          return
+        }
+        if (cancelRequest && message.type !== 'agent.error') return
+        if (message.type === 'audio.started') {
+          stopPlayback()
+          responseId = message.responseId
+          speakLocally = false
+          activePresentation?.setSpeakLocally(false)
+        }
+        if ((message.type === 'audio.chunk' || message.type === 'audio.completed') && message.responseId !== responseId)
+          return
+        if (message.type === 'agent.error') stopPlayback()
+
         if (message.type === 'session.ready') {
           // The Gateway decides who speaks: it streams PCM when a TTS adapter
           // is configured, otherwise the robot reads the output transcript.
@@ -209,20 +273,24 @@ export function createGatewayDockRuntime(
         const finishesPlayback =
           message.type === 'audio.completed' || (message.type === 'transcript.output' && message.final && speakLocally)
         if (finishesPlayback) playbackPending++
+        const currentPlayback = playbackGeneration
         syncMicrophone()
         let completion: void | Promise<void>
         try {
           completion = deliver(activePresentation, message)
         } catch (error) {
+          stopPlayback()
           activation.updateConversationState('blocked', errorMessage(error))
           return
         }
         if (finishesPlayback)
           void Promise.resolve(completion)
             .catch((error) => {
-              if (!bindingClosed) activation.updateConversationState('blocked', errorMessage(error))
+              if (!bindingClosed && currentPlayback === playbackGeneration)
+                activation.updateConversationState('blocked', errorMessage(error))
             })
             .finally(() => {
+              if (currentPlayback !== playbackGeneration) return
               playbackPending--
               if (
                 bindingClosed ||
@@ -253,6 +321,8 @@ export function createGatewayDockRuntime(
       close() {
         if (bindingClosed) return
         bindingClosed = true
+        interruptActive = undefined
+        clearCancelTimer()
         if (poll !== undefined) dependencies.scheduler?.clear(poll)
         let firstError: unknown
         const attempt = (operation: () => void) => {
@@ -275,6 +345,9 @@ export function createGatewayDockRuntime(
 
   return {
     remoteConversationSession: Object.assign(facade.remoteSession, {
+      interrupt() {
+        interruptActive?.()
+      },
       sendText(text: string) {
         if (facade.remoteSession.activationState !== 'active' || facade.remoteSession.state !== 'listening') {
           throw new Error('Start the conversation and wait for listening before sending text')

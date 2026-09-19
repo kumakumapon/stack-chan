@@ -17,6 +17,14 @@ export function createConversationBridge({ WebSocketClass = globalThis.WebSocket
   let capture,
     captureGeneration = 0,
     captureError
+  let playback, playbackId = 0
+  const closePlayback = () => {
+    if (!playback) return
+    const current = playback
+    playback = undefined
+    for (const source of current.sources) { source.onended = null; source.stop(); source.disconnect() }
+    void current.context.close()
+  }
   const stopMic = () => {
     captureGeneration++
     if (capture) {
@@ -96,6 +104,7 @@ export function createConversationBridge({ WebSocketClass = globalThis.WebSocket
     socket = undefined
     events = []
     stopMic()
+    closePlayback()
   }
   return {
     configure(next) {
@@ -117,6 +126,47 @@ export function createConversationBridge({ WebSocketClass = globalThis.WebSocket
     close: closeSocket,
     exchange(request) {
       switch (request.action) {
+        case 'pcm-open': {
+          closePlayback()
+          const context = new AudioContext({ sampleRate: request.sampleRate })
+          playback = { id: ++playbackId, context, sources: new Set(), next: context.currentTime, played: 0 }
+          void context.resume()
+          return playback.id
+        }
+        case 'pcm-write': {
+          if (!playback || playback.id !== request.id) throw new Error('PCM output is closed')
+          const current = playback
+          const bytes = atob(request.payload)
+          const buffer = current.context.createBuffer(1, bytes.length / 2, current.context.sampleRate)
+          const samples = buffer.getChannelData(0)
+          for (let i = 0; i < samples.length; i++) {
+            const bits = bytes.charCodeAt(i * 2) | (bytes.charCodeAt(i * 2 + 1) << 8)
+            samples[i] = (bits >= 32768 ? bits - 65536 : bits) / 32768
+          }
+          const source = current.context.createBufferSource()
+          source.buffer = buffer
+          const gain = current.context.createGain()
+          gain.gain.value = 0.5
+          source.connect(gain).connect(current.context.destination)
+          current.sources.add(source)
+          source.onended = () => {
+            source.disconnect(); gain.disconnect(); current.sources.delete(source)
+            if (playback === current) current.played++
+          }
+          current.next = Math.max(current.next, current.context.currentTime)
+          source.start(current.next)
+          current.next += buffer.duration
+          return null
+        }
+        case 'pcm-played': {
+          if (!playback || playback.id !== request.id) return 0
+          const count = playback.played
+          playback.played = 0
+          return count
+        }
+        case 'pcm-close':
+          if (playback?.id === request.id) closePlayback()
+          return null
         case 'config':
           return config
         case 'open': {

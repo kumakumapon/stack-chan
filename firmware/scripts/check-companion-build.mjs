@@ -24,6 +24,8 @@ for (const name of [
   'stackchan-gateway-microphone',
   'stackchan-gateway-dock-runtime',
   'stackchan-gateway-pcm',
+  'stackchan-gateway-pcm-stream',
+  'stackchan-gateway-pcm-output',
 ]) {
   assert.ok(modules.has(name), `CoreS3 release is missing ${name}`)
 }

@@ -62,7 +62,10 @@ function harness(
   let speakLocally: boolean | undefined
   let conversationState: RemoteConversationState = 'listening'
   let stateListener = () => {}
+  const disconnectListeners = new Set<() => void>()
   let tick = () => {}
+  let timerSequence = 0
+  const timers = new Set<number>()
   let frame: ((payload: string) => void) | undefined
   let audioActive = false
   let microphoneRunning = false
@@ -102,7 +105,13 @@ function harness(
               stateListener = () => {}
             }
           },
-          subscribeTransport: () => () => undefined,
+          subscribeTransport(listener) {
+            const callback = () => listener('disconnected')
+            disconnectListeners.add(callback)
+            return () => {
+              disconnectListeners.delete(callback)
+            }
+          },
         },
         updateConversationState(state, error) {
           conversationState = state
@@ -134,6 +143,9 @@ function harness(
       presented.push('audio:end')
     },
     onAgentError: (message) => presented.push(`error:${message}`),
+    interrupt: () => {
+      presented.push('interrupt')
+    },
     close() {
       closed.push('presentation')
     },
@@ -153,11 +165,16 @@ function harness(
       createPresentation: () => presentation,
       scheduler: {
         set(callback) {
-          tick = callback
-          return 1
+          const id = ++timerSequence
+          timers.add(id)
+          tick = () => {
+            if (!timers.delete(id)) return
+            callback()
+          }
+          return id
         },
-        clear() {
-          tick = () => {}
+        clear(handle) {
+          assert.ok(timers.delete(handle as number), 'cannot clear an expired or already cleared timer')
         },
       },
       isAudioActive: () => audioActive,
@@ -182,6 +199,9 @@ function harness(
     presented,
     sent,
     tick: () => tick(),
+    disconnect: () => {
+      for (const listener of disconnectListeners) listener()
+    },
     frame: () => frame?.('AAAA'),
     setAudioActive(value: boolean) {
       audioActive = value
@@ -202,6 +222,41 @@ function harness(
 }
 
 const context = {} as StackchanContext
+
+test('interruption gates input until its acknowledgement and ignores stale audio', async () => {
+  let finish!: () => void
+  const dock = harness({
+    microphone: true,
+    playback: new Promise<void>((resolve) => {
+      finish = resolve
+    }),
+  })
+  dock.runtime.onContextCreated(context)
+  const session = dock.runtime.remoteConversationSession
+  assert.ok(session)
+  session.activate()
+  enableAudio(dock)
+  dock.emit(sideband({ type: 'transcript.output', text: 'old', final: true }))
+  session.interrupt?.()
+  assert.ok(dock.presented.includes('interrupt'))
+  const request = dock.sent.find((message) => (message as { type: string }).type === 'response.cancel') as {
+    requestId: string
+  }
+  assert.ok(request)
+  finish()
+  await new Promise<void>((resolve) => setImmediate(resolve))
+  assert.equal(dock.microphoneRunning, false)
+  dock.emit(sideband({ type: 'response.cancelled', requestId: 'unrelated' }))
+  assert.equal(dock.microphoneRunning, false)
+  dock.emit(sideband({ type: 'audio.started', responseId: 'old', format: PCM16 }))
+  assert.equal(dock.presented.includes('audio:start'), false)
+  dock.emit(sideband({ type: 'response.cancelled', requestId: request.requestId }))
+  assert.equal(session.state, 'listening')
+  assert.equal(dock.microphoneRunning, true)
+  dock.emit(sideband({ type: 'audio.chunk', responseId: 'old', seq: 0, payload: 'AAAA' }))
+  assert.equal(dock.presented.includes('audio:chunk'), false)
+  dock.runtime.close()
+})
 
 function enableAudio(dock: Harness) {
   dock.emit(
@@ -318,7 +373,7 @@ test('sideband messages update the conversation state and reach the presentation
     dock.states.map((entry) => entry.state),
     ['recognizing', 'speaking', 'listening'],
   )
-  assert.deepEqual(dock.presented, ['in:good morning', 'audio:start', 'audio:chunk', 'audio:end'])
+  assert.deepEqual(dock.presented, ['in:good morning', 'interrupt', 'audio:start', 'audio:chunk', 'audio:end'])
   dock.runtime.close()
 })
 
@@ -385,5 +440,17 @@ test('a second context attachment is refused', () => {
   const dock: Harness = harness()
   dock.runtime.onContextCreated(context)
   assert.throws(() => dock.runtime.onContextCreated(context), /already attached/)
+  dock.runtime.close()
+})
+
+test('disconnect clears a pending interrupt barrier so a reconnected stream is accepted', () => {
+  const dock = harness()
+  dock.runtime.onContextCreated(context)
+  dock.runtime.remoteConversationSession?.activate()
+  dock.runtime.remoteConversationSession?.interrupt?.()
+  dock.disconnect()
+  dock.emit(sideband({ type: 'audio.started', responseId: 'new-connection', format: PCM16 }))
+  dock.emit(sideband({ type: 'audio.chunk', responseId: 'new-connection', seq: 0, payload: 'AAAA' }))
+  assert.ok(dock.presented.includes('audio:chunk'))
   dock.runtime.close()
 })

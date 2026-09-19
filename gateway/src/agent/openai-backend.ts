@@ -57,6 +57,7 @@ export function createOpenAiBackend(options: {
 
       let pendingCallIds: Set<string> | undefined
       let round = 0
+      let closed = false
       let turnController: AbortController | undefined
 
       const abandonTurn = (): void => {
@@ -94,18 +95,21 @@ export function createOpenAiBackend(options: {
             signal: controller.signal,
           })
         } catch (cause) {
-          if (controller.signal.aborted) return abandonTurn() // cancel()/close() already handled this turn
+          if (controller.signal.aborted) return // cancel()/close() already handled this turn
           fail(`openai backend: request failed: ${describeError(cause)}`)
           return
         }
         if (controller !== turnController) return // superseded by a cancel
 
         if (!response.ok) {
-          fail(`openai backend: ${response.status} ${response.statusText}: ${await safeText(response)}`)
+          const detail = await safeText(response)
+          if (controller !== turnController || controller.signal.aborted) return
+          fail(`openai backend: ${response.status} ${response.statusText}: ${detail}`)
           return
         }
 
         const body = (await response.json()) as ChatCompletionResponse
+        if (controller !== turnController || controller.signal.aborted) return
         const message = body.choices?.[0]?.message
         if (!message) return fail('openai backend: response had no choices')
 
@@ -126,6 +130,8 @@ export function createOpenAiBackend(options: {
       }
 
       const startTurn = async (userText: string): Promise<void> => {
+        if (closed) return
+        turnController?.abort()
         messages.push({ role: 'user', content: userText })
         const controller = new AbortController()
         turnController = controller
@@ -156,10 +162,13 @@ export function createOpenAiBackend(options: {
           }
         },
         async cancel(): Promise<void> {
+          for (const callId of pendingCallIds ?? [])
+            messages.push({ role: 'tool', tool_call_id: callId, content: '{"cancelled":true}' })
           turnController?.abort()
           abandonTurn()
         },
         async close(): Promise<void> {
+          closed = true
           turnController?.abort()
           abandonTurn()
         },

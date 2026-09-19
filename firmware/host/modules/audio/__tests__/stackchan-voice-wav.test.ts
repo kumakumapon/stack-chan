@@ -1,6 +1,34 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
+test('cancelled scheduled synthesis cannot read or reset the next voice', async () => {
+  const tasks: Array<() => void> = []
+  let cancelled = false,
+    reads = 0,
+    starts = 0
+  const pending = renderStackchanVoiceWav(
+    {
+      say() {
+        starts++
+      },
+      koe() {},
+      read24() {
+        reads++
+        return 1
+      },
+    },
+    'old',
+    { schedule: (task) => tasks.push(task), isCancelled: () => cancelled },
+  )
+  const rejection = assert.rejects(pending, /cancelled/)
+  tasks.shift()?.()
+  cancelled = true
+  tasks.shift()?.()
+  await rejection
+  assert.equal(starts, 1)
+  assert.equal(reads, 1)
+})
+
 import {
   renderStackchanVoiceKoeWav,
   renderStackchanVoiceWav,

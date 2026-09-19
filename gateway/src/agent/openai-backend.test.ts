@@ -4,6 +4,31 @@ import type { ToolDefinition } from '../tools/tool-types.ts'
 import type { AgentEvent } from './agent-backend.ts'
 import { createOpenAiBackend } from './openai-backend.ts'
 
+test('late cancelled HTTP rejection cannot abandon the replacement turn', async () => {
+  let rejectOld!: (error: Error) => void
+  let finishNew!: (response: Response) => void
+  let count = 0
+  const { session, events } = await openSession((async () => {
+    count++
+    if (count === 1)
+      return new Promise<Response>((_resolve, reject) => {
+        rejectOld = reject
+      })
+    return new Promise<Response>((resolve) => {
+      finishNew = resolve
+    })
+  }) as typeof fetch)
+  const old = session.inputText('old')
+  await session.cancel()
+  const next = session.inputText('new')
+  rejectOld(new Error('aborted'))
+  await old
+  finishNew(jsonResponse({ choices: [{ message: { content: 'new answer' } }] }))
+  await next
+  assert.deepEqual(events, [{ type: 'text', text: 'new answer', final: true }, { type: 'turn.done' }])
+  await session.close()
+})
+
 const WEATHER_TOOL: ToolDefinition = {
   name: 'get_weather',
   description: 'Gets the weather',
@@ -11,6 +36,31 @@ const WEATHER_TOOL: ToolDefinition = {
   host: 'gateway',
   permission: 'safe',
 }
+
+test('an HTTP error body completing after cancellation cannot fail the next turn', async () => {
+  let body!: ReadableStreamDefaultController<Uint8Array>
+  let count = 0
+  const { session, events } = await openSession((async () => {
+    if (++count === 1)
+      return new Response(
+        new ReadableStream({
+          start(value) {
+            body = value
+          },
+        }),
+        { status: 500 },
+      )
+    return jsonResponse({ choices: [{ message: { content: 'next' } }] })
+  }) as typeof fetch)
+  const pending = session.inputText('old')
+  await Promise.resolve()
+  await session.cancel()
+  await session.inputText('next')
+  body.close()
+  await pending
+  assert.deepEqual(events, [{ type: 'text', text: 'next', final: true }, { type: 'turn.done' }])
+  await session.close()
+})
 
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status })

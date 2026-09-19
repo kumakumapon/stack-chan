@@ -37,6 +37,8 @@ export function createAudioSession(options: AudioSessionOptions): AudioSession {
   const sampleRate = options.inputFormat.sampleRate
   const maxSamples = MAX_UTTERANCE_SECONDS * sampleRate
   const vad = options.manualTurns ? undefined : createEnergyVad({ sampleRate })
+  let generation = 0
+  let controller = new AbortController()
   let buffered: Int16Array[] = []
   let bufferedSamples = 0
   let capturing = options.manualTurns === true
@@ -65,15 +67,17 @@ export function createAudioSession(options: AudioSessionOptions): AudioSession {
   const transcribe = async () => {
     if (bufferedSamples === 0) return
     const utterance = take()
+    const current = generation
     let text: string
     try {
-      const result = await options.stt.transcribe(utterance, sampleRate)
+      const result = await options.stt.transcribe(utterance, sampleRate, controller.signal)
       text = result.text.trim()
     } catch (error) {
+      if (current !== generation) return
       options.onError(error instanceof Error ? error.message : String(error))
       return
     }
-    if (!text) return
+    if (!text || current !== generation) return
     await options.onUtterance(text)
   }
 
@@ -108,6 +112,9 @@ export function createAudioSession(options: AudioSessionOptions): AudioSession {
       await transcribe()
     },
     reset() {
+      generation++
+      controller.abort()
+      controller = new AbortController()
       buffered = []
       bufferedSamples = 0
       capturing = options.manualTurns === true

@@ -320,6 +320,7 @@
       "web-radio-byte-ring": [
         "./host/modules/audio/platforms/m5stackchan-cores3/shared-byte-ring.ts"
       ],
+      "stackchan-gateway-pcm": ["./host/app/docks/gateway/pcm.ts"],
       "stackchan-gateway-protocol": [
         "./host/modules/conversation/gateway/gateway-protocol.ts"
       ],

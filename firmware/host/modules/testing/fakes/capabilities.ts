@@ -44,6 +44,7 @@ export type RemoteConversationSession = RemoteConversationSessionDelegate & {
   readonly activationState: RemoteConversationActivationState
   activate(): void
   deactivate(): void
+  interrupt?(): void
 }
 
 export type StackchanContext = unknown

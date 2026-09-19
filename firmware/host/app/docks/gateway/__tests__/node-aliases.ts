@@ -11,6 +11,7 @@ export function installGatewayDockTestAliases(): void {
   const remoteSessionRoot = resolve(hostRoot, 'app/remote-session')
   const gatewayRoot = resolve(hostRoot, 'modules/conversation/gateway')
   const gatewayDockRoot = resolve(hostRoot, 'app/docks/gateway')
+  writeAliasPackage(hostRoot, 'stackchan-gateway-pcm', resolve(gatewayDockRoot, 'pcm.js'))
   writeAliasPackage(hostRoot, 'stackchan-application-event', resolve(remoteSessionRoot, 'application-event.js'))
   writeAliasPackage(hostRoot, 'stackchan-remote-session-facade', resolve(remoteSessionRoot, 'facade.js'))
   writeAliasPackage(hostRoot, 'stackchan-gateway-protocol', resolve(gatewayRoot, 'gateway-protocol.js'))

@@ -21,6 +21,7 @@
     "../../app/docks/gateway/manifest_common.json"
   ],
   "modules": {
+    "stackchan-gateway-pcm-output": "../../app/docks/gateway/wasm/pcm-output",
     "stackchan-dock": "../../app/docks/conversation-router",
     "stackchan-gateway-browser": "../../app/docks/gateway/wasm/browser",
     "stackchan-gateway-socket": "../../app/docks/gateway/wasm/socket",

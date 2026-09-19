@@ -15,6 +15,7 @@ export default function install(context) {
         session?.activate()
         session?.requestStart()
       }
+      if (command?.action === 'interrupt') session?.interrupt?.()
       if (command?.action === 'stop') session?.deactivate()
       if (command?.action === 'text') session?.sendText?.(command.text)
     } catch (error) {

@@ -2,6 +2,8 @@
 
 English version: [conversation-gateway.md](./conversation-gateway.md)
 
+PR #42を含む実装に合わせて更新しています。全体構成・検証範囲・実機の残件は[現在の実装状況](../IMPLEMENTATION_STATUS_ja.md)を参照してください。
+
 ## 目的
 
 Stack-chanの会話スタックは4つの層に分かれます。
@@ -29,7 +31,7 @@ Conversation Gatewayは、この**2つの契約をそのまま**、USBではな�
 - `gateway/src/protocol/stackchan-event-v1.ts`は、デバイス側`stackchan.event.v1`コーデックのGateway側ミラーです。
 - `gateway/src/protocol/realtime-control.ts`は、Android USB Dockが話すのと同じRealtime制御プレーンのGateway側実装です。
 
-ワイヤ形式が変わらないため、`RemoteConversationSession`、`createRealtimeSession()`（`realtime-session.ts`）、そして`createRemoteSessionRuntime()`（`firmware/host/app/remote-session/runtime.ts`、`firmware/host/app/remote-session/conversation-session.ts`経由）は、Gateway Dockから1行も変更せずに再利用されます。Direct-modeの`ChatService`セッションは無傷のままです。一つのターゲットのMODは常にDockを一つだけ選び、Gateway Dock（`firmware/host/app/docks/gateway/`）は`conversation.backend = 'gateway'`かつGatewayエンドポイントが設定されているときだけ起動します。
+ワイヤ形式が変わらないため、`RemoteConversationSession`、`createRealtimeSession()`（`realtime-session.ts`）、そして`createRemoteSessionRuntime()`（`firmware/host/app/remote-session/runtime.ts`、`firmware/host/app/remote-session/conversation-session.ts`経由）は、共通の会話基盤としてGateway Dockからも再利用されます。Direct-modeの`ChatService`を使うMODも引き続き利用できます。Conversation RouterがDockを一つ選び、Gateway Dock（`firmware/host/app/docks/gateway/`）は`conversation.backend = 'gateway'`かつGatewayエンドポイントが設定されているときだけ起動します。
 
 **issueが想定していなかった帰結:** デバイスがホストする身体性ツール（`stackchan.say`、`stackchan.face.setEmotion`など）には、専用の新しいメッセージ型が不要です。issueのサイドバンド候補には`tool.request`/`tool.result`が挙がっていましたが、これは不要だと判明しました。ロボットにはすでに、実行できるツールを`session.update`（`firmware/host/app/realtime-tools.ts`が構築する`RealtimeToolProvider`）で広告するチャネルがあり、Gatewayはそのツールを、USB Dockの相手側であるAndroidがすでに送っているのと同じイベント`response.function_call_arguments.done`で呼び出します。`gateway/src/conversation/conversation-session.ts`は、`session.update`をデバイスツールが「そもそも存在するかどうか」の唯一の正とみなします（詳細は[ツールと承認](#ツールと承認)を参照）。
 
@@ -54,11 +56,13 @@ Gateway側は`gateway/src/protocol/stackchan-gateway-v1.ts`に定義され、デ
 | `audio.chunk` | gateway → device | `responseId`、`seq`、`payload`（base64エンコードされたPCM16フレーム） |
 | `audio.completed` | gateway → device | `responseId` |
 | `agent.error` | gateway → device | `code`、`message`、`fatal` |
+| `response.cancel` | device → gateway | `requestId` |
+| `response.cancelled` | gateway → device | 対応する`requestId` |
 | `robot.directive` | gateway → device | `directive`、`params` |
 
 `GatewayAudioFormat`は一貫して`{ codec: 'pcm16', sampleRate, channels }`です。V1では`codec: 'pcm16'`しかネゴシエーション対象になりません。`GatewayErrorCode`は`unauthorized`、`unsupportedProtocol`、`unsupportedAudioFormat`、`agentUnavailable`、`sttFailure`、`ttsFailure`、`toolFailure`、`internal`のいずれかです。
 
-`robot.directive`は、結果を期待しないディレクティブ向けのfire-and-forget版として文書化されています。スキーマは双方に存在しますが、本変更ではまだ送信も処理もされません（[実装済みの範囲と未実装の範囲](#実装済みの範囲と未実装の範囲)を参照）。デバイスがホストするツール呼び出しは、明示的にこのスキーマの対象外です。前述のRealtime制御プレーンに乗ります。
+`robot.directive`は将来拡張用の予約メッセージです。双方で構文を受け付けますが、現在のデバイスは受信しても実行しません。身体操作には、能力広告と承認を持つ既存のRealtimeツール経路を使用します。
 
 ### 独立して保守される2つのミラー
 
@@ -89,7 +93,8 @@ GatewayとファームウェアはRemoteConversationStateという1つの状態�
 | `transcript.input` | `recognizing` |
 | `transcript.output` | `speaking` |
 | `audio.started` | `speaking` |
-| `audio.completed` | `listening` |
+| `audio.completed` | ローカル再生が完了した後に`listening` |
+| `fatal: false`の`agent.error` | 認識中・発話中なら音声を停止して`listening` |
 | `fatal: true`の`agent.error` | `blocked` |
 | それ以外 | 変化なし |
 
@@ -105,15 +110,27 @@ issueが述べていた**VAD → STT → Agent → TTS**のループは、Gatewa
 
 **GatewayにTTSアダプターが設定されていない場合**（デフォルトの`tts.type: none`）、アダプターは`createNullTts()`となり、その`synthesize()`は一切チャンクを生成しません。このとき`session.ready.features.audioOutput`は`false`になり、Gatewayは`transcript.output`だけを送信します。ロボット側は、それを自前のローカルTTSで読み上げることが期待されます。これが、Phase 0のテキストMVPが、双方に音声インフラを一切持たずに成立している理由です。Gateway Dockのプレゼンテーション層（`firmware/host/app/docks/gateway/presentation.ts`）はこの契約を実装しています。デフォルトでは「ローカルで話す」モードから始まり、`runtime.ts`は`session.ready`が来るたびに`features.audioOutput`を読み直して`setSpeakLocally()`を切り替えます。誰が話すかは、静的なデバイス設定フラグではなく、セッションごとにGatewayが決めます。
 
+### デバイスの音声入出力と中断
+
+マイク入力は`gateway.microphone`を明示的に有効化した場合だけ送信します。PCM16 / 16 kHz / monoの20 msフレームを使い、ネイティブのステレオ入力は平均してmonoへ変換します。会話が待受け中で、音声入力がネゴシエーション済み、接続が有効、再生・中断確認待ちがない場合に限って送信する半二重方式です。
+
+出力はPiuに依存しないPCMシンクで受信中から逐次再生します。`pcm-stream.ts`の共通キューをNative AudioOutとブラウザのWeb Audioが消費します。キュー上限は64 KiB、先行投入は最大3バッファです。GatewayのTTS出力は20 msパケットに分割して再生速度に合わせて送信します。`audio.completed`は送信完了を表すため、デバイスは残りの再生が完了してから待受けとマイク入力を再開します。
+
+顔タップまたはWebの中断操作は、ローカルTTSとPCM再生を停止して`response.cancel`を送ります。Gatewayは合成、保留中のSTT、Agentの処理をキャンセルし、対応する`requestId`の`response.cancelled`で確認します。デバイスは確認後に待受けへ戻り、5秒以内に確認できなければ`blocked`になります。会話を終了する停止操作とは異なり、応答中断では会話を継続します。
+
+中断前の非同期結果や再生完了が次の応答を変更しないよう、世代とIDで検証します。実行済みの外部ツールの副作用を取り消す機能ではありません。常時送受信する全二重方式、音声検出による割り込み、AECは未実装です。
+
 ## ツールと承認
 
 `gateway/src/tools/tool-registry.ts`は、1つの会話につき1つの統合ツールセットを保持します。`ChatTool`互換なので（`gateway/src/tools/tool-types.ts`）、同じツール記述がDirect-modeの`ChatService`セッションとGateway-modeのAgentセッションの両方に使えます。ツールは`gateway`ホストか`device`ホストのいずれかです（`ToolHost`）。
 
 - **Gateway-hostedツール**はGatewayプロセス内で実行されます。`gateway/src/tools/mcp-adapter.ts`経由で到達するMCPサーバー（設定の`tools.mcp: true`と`tools.servers`リストで有効化）と、任意の組み込みツールです。
-- **Device-hostedツール**はロボット自身で実行され、前述のRealtime制御プレーン越しに呼び出されます。代表例は6つの身体性ツールで、`gateway/src/tools/stackchan-tools.ts`にリッチなJSON Schemaパラメーターとともに一度だけ定義され、デバイス側では`firmware/host/app/realtime-tools.ts`で実装されています。
+- **Device-hostedツール**はロボット自身で実行され、前述のRealtime制御プレーン越しに呼び出されます。代表例は8つの身体性ツールで、`gateway/src/tools/stackchan-tools.ts`にリッチなJSON Schemaパラメーターとともに一度だけ定義され、デバイス側では`firmware/host/app/realtime-tools.ts`で実装されています。
 
   | ツール | パラメーター |
   | --- | --- |
+  | `stackchan.react` | `name`（必須）、`intensity`（0–1、任意）。短いリアクション |
+  | `stackchan.perform` | `name`（必須）、`intensity`（0–1、任意）。歌・踊りなどの演目 |
   | `stackchan.say` | `text`（文字列、必須） |
   | `stackchan.face.setEmotion` | `emotion`（文字列enum、必須）: `neutral`、`angry`、`sad`、`happy`、`sleepy`、`doubtful`、`cold`、`hot` |
   | `stackchan.motion.setPose` | `yaw`（数値、必須）、`pitch`（数値、必須）、`durationSeconds`（数値） |
@@ -142,11 +159,11 @@ issueが述べていた**VAD → STT → Agent → TTS**のループは、Gatewa
 | `deviceId` | このロボットの安定したid。`session.hello`で送信されます。 |
 | `clientId` | クライアントインスタンスのid。同じく`session.hello`で送信されます。 |
 | `token` | 任意のデバイストークン。詳細は[セキュリティ](#セキュリティ)を参照。 |
-| `autoStart` | ヘッドタッチジェスチャーを待たず、Stack-chanコンテキストが作成された時点でリモート会話セッションを起動します。 |
+| `autoStart` | 顔タップや開始操作を待たず、Stack-chanコンテキストが作成された時点でリモート会話セッションを起動します。 |
 | `presentationEnabled` | DockがバルーンやTTSなど自前のプレゼンテーションを表示するかどうか（`false`で無効化。プレゼンテーションを別の方法で行うMOD向け）。 |
 | `microphone` | gatewayメディアプレーン越しのマイクストリーミングをオプトインします。デフォルトはオフです（[実装済みの範囲と未実装の範囲](#実装済みの範囲と未実装の範囲)を参照）。 |
 
-`endpoint`、`deviceId`、`clientId`はいずれも有効化に必須です。1つでも欠けていると、Dock起動時にどのフィールドが欠けているかを名指しして即座に失敗します（`requireGatewayIdentity()`）。デバイスが自分自身を識別できないエンドポイントへソケットを開いてしまうことはありません。
+標準Dockは未指定の`deviceId`を`stackchan-01`、`clientId`を`companion`で補います。補完後の`endpoint`、`deviceId`、`clientId`はいずれも有効化に必須です。1つでも欠けていると、Dock起動時にどのフィールドが欠けているかを名指しして即座に失敗します（`requireGatewayIdentity()`）。デバイスが自分自身を識別できないエンドポイントへソケットを開いてしまうことはありません。
 
 **Gateway側**: 完全なスキーマは`gateway/gateway.example.yaml`と`gateway/src/config.ts`を参照してください——`gateway.listen`、`gateway.token`/`gateway.devices`、`agent.*`、`stt.*`、`tts.*`、`tools.*`です。YAML内の任意の文字列値は`${NAME}`として環境変数を参照でき、未設定の参照は空文字列になる代わりに起動時に失敗します。
 
@@ -164,30 +181,28 @@ issueが述べていた**VAD → STT → Agent → TTS**のループは、Gatewa
 
 **実装済み:**
 
-- 完全な`stackchan.gateway.v1`制御プレーン（ハンドシェイク、メディアプレーン、トランスクリプト、Agentエラー）と、既存の`stackchan.event.v1`およびRealtime制御プレーンの再利用。Gateway・ファームウェア双方。
-- `session.hello` → `session.ready`ハンドシェイク。双方向のプロトコルバージョン拒否とPCM音声フォーマットのネゴシエーションを含みます。
-- エンドツーエンドのテキスト会話: `text.input`またはGateway側STT → Agent → `transcript.output`。GatewayにTTSアダプターが設定されていない場合はデバイスがローカルで読み上げます。これがPhase 0の経路であり、音声トランスポートを一切必要としません。
-- デバイスがホストする身体性ツール: `stackchan.say`、`stackchan.face.setEmotion`、`stackchan.motion.setPose`、`stackchan.motion.lookAt`、`stackchan.light.set`、`stackchan.camera.capture`。デバイスの`StackchanContext`が実際にサポートする範囲に応じて条件付きで広告され、Realtime制御プレーン越しに呼び出されます。
-- `tools/mcp-adapter.ts`経由のGateway-hostedなMCPツール。
-- 承認: `approval.request → presented → response → resolved`の完全なハンドシェイクと、タイムアウト時の`approval.suspended`、すべてのツール呼び出しを括る`task.status`。
-- 3つのAgent Backend: `echo`（オフライン、決定的、結合テストのダブルとしても使用）、`openai`（tool callingに対応したChat Completions）、`hermes`（`gateway/src/agent/hermes-backend.ts`に記述された契約を実装する任意のHTTP + NDJSONエージェント）。
-- Gateway側の音声パイプライン: エネルギーベースのVAD、`SttAdapter`/`TtsAdapter`のペア（OpenAIバックエンドまたはnullパススルー）、ネゴシエーションされた出力フォーマットへ合わせるPCMリサンプリング。
-- 指数バックオフによるデバイス側の再接続（`gateway-bridge.ts`: 初期遅延1秒、最大30秒まで倍増）。WebSocketが切れても操作者の介入なしに復旧します。
-- ストリーミングされたAgentターンのデバイス側再生: `presentation.ts`は`audio.chunk`のペイロードをバッファし、`audio.completed`が来た時点で1つの連続したバッファとして再生します。Piuにはフレーム単位で供給できるPCMシンクがないためです。
+- ハンドシェイク、認証、音声フォーマットのネゴシエーション、再接続。
+- テキスト会話と、Gateway側のVAD → STT → Agent → TTS。Gatewayが音声出力を提供しない場合はデバイスのローカルTTSで読み上げます。
+- オプトインのマイク送信、逐次PCM再生、再生完了後の入力再開。
+- 顔タップ／Web操作による応答中断と、キャンセル確認後の待受け復帰。
+- 8種類の身体性ツールのスキーマ。実際に広告・利用できるツールはデバイスの能力によります。
+- Gateway-hostedのMCPツール、承認の要求・応答・タイムアウト、実行中の`task.status`。
+- Echo、OpenAI、HermesのAgent Backendと、キャンセル後の遅延結果の破棄。
 
-**未実装、意図的に後回しにされているもの:**
+**未実装・別途確認:**
 
-- **デバイス上での継続的なマイクキャプチャ。** Gatewayのプロトコルと`audio-session.ts`は`audio.input`/`audio.input.end`を完全に受け付けますし、デバイス側の`GatewayConfig.microphone`フラグもオプトインのスイッチとして存在しますが、ファームウェアにはまだ実際にマイクフレームをキャプチャして`audioInput()`/`audioInputEnd()`（`gateway-protocol.ts`）を呼び出すコードパスがありません。Android USB Dockがすでに持っているのと同種のオーディオワーカーが必要です。現状、Gateway Dockが Agentへ到達する経路は`text.input`だけです。
-- **フレーム単位の再生。** デバイスは1ターン分の`audio.chunk`フレームをまとめてバッファし、`audio.completed`が届いてから初めて再生します。ストリーミングPCMシンクはまだ存在せず、可聴遅延は最初のチャンクではなくAgentのターン1回分になります。
-- **デバイス上での`robot.directive`処理。** このメッセージ型は双方のプロトコルミラーに存在しますが、送信も処理も行われません。身体性の表現は、このfire-and-forgetなディレクティブチャネルではなく、前述のツール呼び出しの経路だけを通じて行われます。
+- 全二重音声、音声検出による割り込み、AEC。
+- `robot.directive`の実行。予約のままにし、身体操作にはツール経路を使用します。
+- Touch/IMUのコンテキストをAgentへの入力として継続送信する機能。
+- 実マイク、スピーカー末尾、物理タップ、サーボ、Wi-Fi復帰などの実機受け入れ確認。
 
-本変更は実機のStack-chanハードウェアでは一切実行されていません。ファームウェア側の各実装（`gateway-bridge.ts`、`gateway-protocol.ts`、`gateway-config.ts`、Gateway Dock自体）は、`node --test`によって純粋なロジックとモック化されたトランスポートに対して検証されていますが、デバイス上では検証されていません。
+純粋なロジックのNodeテスト、XSテスト、Web/WASMとlocalhost Gateway、各ターゲットのビルドで検証しています。ブラウザ試験は合成入力とモックを使用しており、物理マイクや有料AIサービスの実接続確認ではありません。基準コミットとCI記録は[現在の実装状況](../IMPLEMENTATION_STATUS_ja.md)、実機チェックリストは[Issue #43](https://github.com/kumakumapon/stack-chan/issues/43)にまとめています。
 
 ## Phaseマッピング
 
-issueは4つのPhaseを定義していました。実際に実装された内容は次の通りです。
+当初のPhaseと現在のコードの対応は次の通りです。リリース済み・実機確認済みを意味する分類ではありません。
 
-- **Phase 0 — Gateway Text MVP。** 完全に実装済みです。Gateway接続、`conversation.start`/`stop`、サイドバンドマッピングによる会話状態の同期、3つのAgent Backendいずれかを通じたテキストLLM応答、そしてロボットが自前のTTSで応答を読み上げることまで含みます。
-- **Phase 1 — Voice。** 部分的に実装済みです。ループのGateway側半分は完成しています——VAD、STT、TTS合成、ストリーミングされる`audio.chunk`出力はすべて存在し、ユニットテストされています。デバイス側半分は未完成です。ストリーミングマイクキャプチャがまだ存在せず（前述の通り）、再生はフレーム単位ではなくターンごとのバッファリングです。進行中のAgentターンの割り込み/キャンセルは`AgentSession`インターフェース（`cancel()`）として定義されていますが、本変更ではデバイス発のどのイベントからも配線されていません。
-- **Phase 2 — Embodiment。** ほぼ実装済みです。6つの身体性ツールすべてが存在し、デバイスの能力に応じて条件付きで広告され、どのAgent Backendからも呼び出し可能です。Touch/IMUのコンテキストをAgentへの入力として渡すこと（Agentがツール経由で出力を駆動するのとは逆方向）は、本変更の対象外です。
-- **Phase 3 — Agent / MCP。** 実装済みです。`echo`に加えて`hermes`・`openai`のAgent Backend、MCPツールレジストリ、承認、`task.status`のすべてが揃っており、エンドツーエンドで配線されています。
+- **Phase 0 — Gateway Text MVP。** 接続、会話開始・停止、状態同期、テキスト応答とローカルTTSを実装済み。
+- **Phase 1 — Voice。** GatewayのVAD/STT/TTSに加え、デバイスのマイク送信・逐次再生・明示的中断まで実装済み。実機受け入れと全二重／AECは残件です。
+- **Phase 2 — Embodiment。** 8種類のツールと能力に応じた広告を実装済み。Touch/IMUのAgent入力は対象外です。
+- **Phase 3 — Agent / MCP。** 3種類のBackend、MCP、承認、タスク状態を接続済み。外部サービス・実機を含む運用品質は別途検証します。

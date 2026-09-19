@@ -12,6 +12,7 @@
  * owns the transport and hands parsed messages in.
  */
 
+import { setTimeout as delay } from 'node:timers/promises'
 import type { AgentBackend, AgentEvent, AgentSession } from '../agent/agent-backend.ts'
 import type { ApprovalController } from '../approval/approval-controller.ts'
 import type { SttAdapter } from '../audio/stt.ts'
@@ -90,6 +91,10 @@ export function createConversationSession(options: ConversationSessionOptions): 
   let state: RemoteConversationState = 'standby'
   let agent: AgentSession | undefined
   let closed = false
+  let generation = 0
+  let sessionGeneration = 0
+  let cancelling = false
+  let speechController = new AbortController()
   /** `event_id` of the last `session.update` we acknowledged. The device drops
    *  function calls that do not echo it, so every call must carry it. */
   let sessionUpdateId: string | undefined
@@ -141,26 +146,37 @@ export function createConversationSession(options: ConversationSessionOptions): 
   }
 
   const speakText = async (text: string) => {
-    if (!text) return
+    if (!text || closed || cancelling) return
+    const currentGeneration = generation
+    const signal = speechController.signal
     const responseId = createId('response')
     let seq = 0
     let started = false
     try {
-      for await (const chunk of options.tts.synthesize(text)) {
-        if (closed) return
+      for await (const chunk of options.tts.synthesize(text, signal)) {
+        if (closed || currentGeneration !== generation) return
         if (!started) {
           started = true
           speaking = true
           setState('speaking')
           options.sendGateway(audioStarted(responseId, options.outputFormat))
         }
-        options.sendGateway(
-          audioChunk(responseId, seq++, encodeChunk(chunk.audio, chunk.sampleRate, options.outputFormat)),
-        )
+        const pcm = Buffer.from(encodeChunk(chunk.audio, chunk.sampleRate, options.outputFormat), 'base64')
+        // Pace 20 ms packets so a fast synthesizer cannot fill the device queue
+        // with an entire utterance before the first samples have played.
+        const frameBytes = Math.floor(options.outputFormat.sampleRate / 50) * 2
+        for (let offset = 0; offset < pcm.length; offset += frameBytes) {
+          if (closed || currentGeneration !== generation) return
+          const frame = pcm.subarray(offset, offset + frameBytes)
+          options.sendGateway(audioChunk(responseId, seq++, frame.toString('base64')))
+          await delay((frame.length * 500) / options.outputFormat.sampleRate, undefined, { signal })
+        }
       }
     } catch (error) {
+      if (closed || currentGeneration !== generation) return
       options.sendGateway(agentError('ttsFailure', errorMessage(error), false))
     }
+    if (closed || currentGeneration !== generation) return
     if (started) {
       options.sendGateway(audioCompleted(responseId))
       speaking = false
@@ -169,7 +185,7 @@ export function createConversationSession(options: ConversationSessionOptions): 
   }
 
   const handleAgentEvent = (event: AgentEvent) => {
-    if (closed) return
+    if (closed || cancelling || !agent) return
     switch (event.type) {
       case 'transcript':
         options.sendGateway(transcript(event.direction, event.text, event.final))
@@ -218,8 +234,10 @@ export function createConversationSession(options: ConversationSessionOptions): 
   }
 
   const runToolCall = async (callId: string, name: string, parameters: Record<string, unknown>) => {
-    const outcome = await invoker.invoke({ callId, name, arguments: parameters })
-    if (closed || !agent) return
+    const currentGeneration = generation
+    const currentAgent = agent
+    const outcome = await invoker.invoke({ callId, name, arguments: parameters }, speechController.signal)
+    if (closed || !agent || agent !== currentAgent || generation !== currentGeneration) return
     const result =
       outcome.status === 'ok'
         ? outcome.result
@@ -237,15 +255,24 @@ export function createConversationSession(options: ConversationSessionOptions): 
       return
     }
     setState('connecting')
+    const currentSession = ++sessionGeneration
     try {
-      agent = await options.backend.createSession({
+      const createdAgent = await options.backend.createSession({
         deviceId: options.deviceId,
         instructions: joinInstructions(options.instructions, deviceInstructions),
         tools: options.registry.snapshot(),
         inputSampleRate: options.inputFormat.sampleRate,
-        onEvent: handleAgentEvent,
+        onEvent: (event) => {
+          if (currentSession === sessionGeneration) handleAgentEvent(event)
+        },
       })
+      if (closed || currentSession !== sessionGeneration) {
+        await createdAgent.close()
+        return
+      }
+      agent = createdAgent
     } catch (error) {
+      if (closed || currentSession !== sessionGeneration) return
       setState('blocked')
       options.sendGateway(agentError('agentUnavailable', errorMessage(error), true))
       options.sendEvent(conversationResult(requestId, false, 'blocked', errorMessage(error)))
@@ -255,7 +282,7 @@ export function createConversationSession(options: ConversationSessionOptions): 
       stt: options.stt,
       inputFormat: options.inputFormat,
       onUtterance: async (text) => {
-        if (!agent || closed) return
+        if (!agent || closed || cancelling || currentSession !== sessionGeneration) return
         options.sendGateway(transcript('input', text, true))
         setState('recognizing')
         await agent.inputText(text)
@@ -267,7 +294,38 @@ export function createConversationSession(options: ConversationSessionOptions): 
     options.sendEvent(conversationResult(requestId, true, 'listening'))
   }
 
+  const interruptConversation = async (requestId: string) => {
+    if (closed || cancelling) return
+    cancelling = true
+    generation++
+    speechController.abort()
+    speechController = new AbortController()
+    audio?.reset()
+    speaking = false
+    agentResponseId = undefined
+    for (const [callId, pending] of pendingDeviceCalls) {
+      scheduler.clear(pending.timer)
+      pending.resolve({ ok: false, error: 'response cancelled' })
+      pendingDeviceCalls.delete(callId)
+    }
+    const currentSession = sessionGeneration
+    try {
+      await agent?.cancel()
+      if (closed || currentSession !== sessionGeneration) return
+      setState(agent ? 'listening' : 'standby')
+      options.sendGateway({ schema: 'stackchan.gateway.v1', type: 'response.cancelled', requestId })
+    } catch (error) {
+      emitAgentError({ type: 'error', code: 'agentUnavailable', message: errorMessage(error), fatal: true })
+    } finally {
+      cancelling = false
+    }
+  }
+
   const stopConversation = async (requestId?: string) => {
+    sessionGeneration++
+    generation++
+    speechController.abort()
+    speechController = new AbortController()
     const current = agent
     agent = undefined
     audio?.reset()
@@ -343,18 +401,21 @@ export function createConversationSession(options: ConversationSessionOptions): 
     },
     async handleGatewayMessage(message) {
       switch (message.type) {
+        case 'response.cancel':
+          await interruptConversation(message.requestId)
+          break
         case 'text.input':
-          if (!agent) return
+          if (!agent || cancelling) return
           options.sendGateway(transcript('input', message.text, true))
           setState('recognizing')
           await agent.inputText(message.text)
           break
         case 'audio.input':
-          if (!agent || !audio) return
+          if (!agent || !audio || cancelling) return
           await audio.pushFrame(message.payload)
           break
         case 'audio.input.end':
-          if (!agent || !audio) return
+          if (!agent || !audio || cancelling) return
           await audio.flush()
           break
         case 'session.hello':

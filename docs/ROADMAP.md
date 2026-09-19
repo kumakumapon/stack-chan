@@ -2,6 +2,8 @@
 
 Last updated: 2026-03-27
 
+This is the planning baseline. For implemented behavior and verification evidence, see [current implementation status (Japanese)](IMPLEMENTATION_STATUS_ja.md); roadmap dates are not release or implementation status.
+
 ## Purpose
 
 This document defines an execution-oriented roadmap for Stack-chan.

@@ -26,10 +26,14 @@ export function createEchoBackend(options: { prefix?: string } = {}): AgentBacke
       let audioFrames: Int16Array[] = []
       let pendingTool: { callId: string; resolve: () => void } | undefined
       let callSeq = 0
+      let generation = 0
+      let closed = false
 
       const emit = (event: AgentEvent): void => onEvent(event)
 
       const runTurn = async (transcriptText: string, replyText: string): Promise<void> => {
+        if (closed) return
+        const current = generation
         emit({ type: 'transcript', direction: 'input', text: transcriptText, final: true })
 
         const emotionMatch = hasEmotionTool ? replyText.match(EMOTION_PATTERN) : null
@@ -49,7 +53,7 @@ export function createEchoBackend(options: { prefix?: string } = {}): AgentBacke
 
         emit({ type: 'text', text: replyText, final: true })
         if (waitForResult) await waitForResult
-        emit({ type: 'turn.done' })
+        if (current === generation && !closed) emit({ type: 'turn.done' })
       }
 
       return {
@@ -72,11 +76,16 @@ export function createEchoBackend(options: { prefix?: string } = {}): AgentBacke
           }
         },
         async cancel(): Promise<void> {
+          generation++
           audioFrames = []
+          pendingTool?.resolve()
           pendingTool = undefined
         },
         async close(): Promise<void> {
+          closed = true
+          generation++
           audioFrames = []
+          pendingTool?.resolve()
           pendingTool = undefined
         },
       }
