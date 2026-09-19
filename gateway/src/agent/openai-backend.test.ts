@@ -37,6 +37,31 @@ const WEATHER_TOOL: ToolDefinition = {
   permission: 'safe',
 }
 
+test('an HTTP error body completing after cancellation cannot fail the next turn', async () => {
+  let body!: ReadableStreamDefaultController<Uint8Array>
+  let count = 0
+  const { session, events } = await openSession((async () => {
+    if (++count === 1)
+      return new Response(
+        new ReadableStream({
+          start(value) {
+            body = value
+          },
+        }),
+        { status: 500 },
+      )
+    return jsonResponse({ choices: [{ message: { content: 'next' } }] })
+  }) as typeof fetch)
+  const pending = session.inputText('old')
+  await Promise.resolve()
+  await session.cancel()
+  await session.inputText('next')
+  body.close()
+  await pending
+  assert.deepEqual(events, [{ type: 'text', text: 'next', final: true }, { type: 'turn.done' }])
+  await session.close()
+})
+
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status })
 }

@@ -102,7 +102,9 @@ export function createOpenAiBackend(options: {
         if (controller !== turnController) return // superseded by a cancel
 
         if (!response.ok) {
-          fail(`openai backend: ${response.status} ${response.statusText}: ${await safeText(response)}`)
+          const detail = await safeText(response)
+          if (controller !== turnController || controller.signal.aborted) return
+          fail(`openai backend: ${response.status} ${response.statusText}: ${detail}`)
           return
         }
 

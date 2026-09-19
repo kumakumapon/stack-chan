@@ -89,10 +89,13 @@ export function createHermesBackend(options: {
           return undefined
         }
         if (!response.ok) {
-          fail(`hermes backend: open failed: ${response.status} ${response.statusText}: ${await safeText(response)}`)
+          const detail = await safeText(response)
+          if (turn !== controller || turn.signal.aborted) return undefined
+          fail(`hermes backend: open failed: ${response.status} ${response.statusText}: ${detail}`)
           return undefined
         }
         const body = (await response.json()) as { id?: unknown }
+        if (turn !== controller || turn.signal.aborted) return undefined
         if (typeof body.id !== 'string' || body.id.length === 0) {
           fail('hermes backend: open response missing "id"')
           return undefined
@@ -134,7 +137,9 @@ export function createHermesBackend(options: {
         }
         if (turn.signal.aborted || turn !== controller) return
         if (!response.ok) {
-          fail(`hermes backend: ${response.status} ${response.statusText}: ${await safeText(response)}`)
+          const detail = await safeText(response)
+          if (turn !== controller || turn.signal.aborted) return
+          fail(`hermes backend: ${response.status} ${response.statusText}: ${detail}`)
           return
         }
         try {
