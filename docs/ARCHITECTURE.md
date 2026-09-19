@@ -1,5 +1,7 @@
 # Stack-chan アーキテクチャ
 
+現在の実装と検証範囲は[実装状況](IMPLEMENTATION_STATUS_ja.md)、会話のワイヤ契約は[Gateway仕様](specs/conversation-gateway_ja.md)を参照してください。
+
 ## System Context
 
 ```mermaid
@@ -8,11 +10,15 @@ graph TB
     Browser["Web Browser"]
     Device["M5StackChan / M5Stack"]
     ExtAPI["External APIs<br/>(OpenAI, VoiceVox, etc)"]
+    Gateway["Conversation Gateway<br/>session / STT / TTS / Agent / tools"]
     
     User -->|"Use Browser Tools"| Browser
     Browser -->|"USB: Flash firmware"| Device
     Browser -->|"BLE: Settings"| Device
-    Device -->|"Network API calls"| ExtAPI
+    Device -->|"Direct-mode MOD APIs"| ExtAPI
+    Device <-->|"Gateway Dock / WebSocket"| Gateway
+    Browser <-->|"WASM Gateway Dock / WebSocket"| Gateway
+    Gateway -->|"Agent / audio adapters"| ExtAPI
     Device -->|"Display/Speaker/Motor"| User
 ```
 
@@ -25,7 +31,7 @@ graph TB
 ```
 firmware/host/app/main.ts
 ├── startStackchanDock()
-│   └── MOD Manager UI
+│   └── Conversation Router → Gateway / USB Dock
 ├── initializeLocalization()
 ├── startHostBootServices()
 │   ├── WiFi Connection

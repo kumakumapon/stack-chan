@@ -212,7 +212,7 @@ receiving. That mapping lives in `gatewayConversationState()`
 | `transcript.input` | `recognizing` |
 | `transcript.output` | `speaking` |
 | `audio.started` | `speaking` |
-| `audio.completed` | `listening` |
+| `audio.completed` | `listening` after local playback drains |
 | `agent.error` with `fatal: true` | `blocked` |
 | anything else | no change |
 

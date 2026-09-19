@@ -86,6 +86,8 @@ See the [schematics](./schematics/README.md) for board information.
 
 ## Development
 
+- [Current implementation and validation status (Japanese)](./docs/IMPLEMENTATION_STATUS_ja.md)
+
 - [Firmware development](./firmware/README.md)
 - [MOD development](./firmware/mods/README.md)
 - [Firmware API](./firmware/docs/api.md)
