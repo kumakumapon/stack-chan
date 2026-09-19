@@ -1,4 +1,6 @@
+import loadPreferences from 'loadPreference'
 import type { StackchanContext } from 'capabilities'
+import { DOMAIN } from 'consts'
 import type { StackchanDock } from 'dock'
 import config from 'mc/config'
 import Modules from 'modules'
@@ -6,6 +8,8 @@ import { createGatewayBridge } from 'stackchan-gateway-bridge'
 import { type GatewayConfig, requireGatewayIdentity, resolveGatewayConfig } from 'stackchan-gateway-config'
 import { createGatewayPresentation } from 'stackchan-gateway-dock-presentation'
 import { createGatewayDockRuntime } from 'stackchan-gateway-dock-runtime'
+import createMicrophone from 'stackchan-gateway-microphone'
+import { pcmWave } from 'stackchan-gateway-pcm'
 import { createGatewaySocket } from 'stackchan-gateway-socket'
 import type { RealtimeToolProvider } from 'stackchan-realtime-session'
 import { createRemoteSessionRuntime } from 'stackchan-remote-session-runtime'
@@ -21,7 +25,14 @@ import Timer from 'timer'
 
 const stackchanGatewayDock: StackchanDock = {
   start(modConfig) {
-    const gateway = resolveGatewayConfig((config as { gateway?: GatewayConfig }).gateway, modConfig)
+    const saved = loadPreferences(DOMAIN.gateway)
+    if (Modules.has('stackchan-gateway-browser')) Object.assign(saved, (modConfig as { gateway?: object })?.gateway)
+    const gateway = resolveGatewayConfig({ ...(config as { gateway?: GatewayConfig }).gateway, ...saved }, modConfig)
+    if (gateway) {
+      gateway.deviceId ||= 'stackchan-01'
+      gateway.clientId ||= 'companion'
+      gateway.microphone = saved.microphone === 1 || saved.microphone === true
+    }
     if (!gateway?.enabled) return
     // Fails fast with the missing field named, rather than opening a socket
     // to an endpoint the device cannot identify itself on.
@@ -52,7 +63,15 @@ const stackchanGatewayDock: StackchanDock = {
         return createRemoteSessionRuntime(bridge, scheduler)
       },
       createRealtimeToolProvider,
-      createPresentation: (context, options) => createGatewayPresentation(context, options),
+      createPresentation: (context, options) =>
+        createGatewayPresentation(context, {
+          ...options,
+          playAudio: (frames, format) => context.audio.playAudio(pcmWave(frames, format.sampleRate, format.channels)),
+        }),
+      // Only the explicitly enabled preference permits microphone acquisition.
+      createMicrophone: gateway.microphone ? createMicrophone : undefined,
+      scheduler,
+      isAudioActive: (context) => context.audio.isActive === true,
     })
   },
 }

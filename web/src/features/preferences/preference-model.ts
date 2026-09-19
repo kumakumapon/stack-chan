@@ -1,4 +1,13 @@
 export const PREFERENCE_KEYS = [
+  'conversation.backend',
+  'conversation.autoStart',
+  'gateway.endpoint',
+  'gateway.deviceId',
+  'gateway.clientId',
+  'gateway.token',
+  'gateway.microphone',
+  'companion.greetingOnBoot',
+  'companion.idleReactions',
   'wifi.ssid',
   'wifi.password',
   'driver.type',
@@ -21,6 +30,15 @@ export type PreferenceKey = (typeof PREFERENCE_KEYS)[number]
 export type PreferenceValues = Record<PreferenceKey, string>
 
 export const DEFAULT_PREFERENCES: PreferenceValues = {
+  'conversation.backend': 'none',
+  'conversation.autoStart': '0',
+  'gateway.endpoint': '',
+  'gateway.deviceId': 'stackchan-01',
+  'gateway.clientId': 'companion',
+  'gateway.token': '',
+  'gateway.microphone': '0',
+  'companion.greetingOnBoot': '1',
+  'companion.idleReactions': '1',
   'wifi.ssid': '',
   'wifi.password': '',
   'driver.type': 'm5stackchan',

@@ -107,10 +107,14 @@ function harness(options: { presentationEnabled?: boolean; autoStart?: boolean }
       speakLocally = enabled
     },
     onInputTranscript: (text) => presented.push(`in:${text}`),
-    onOutputTranscript: (text) => presented.push(`out:${text}`),
+    onOutputTranscript: (text) => {
+      presented.push(`out:${text}`)
+    },
     onAudioStarted: () => presented.push('audio:start'),
     onAudioChunk: () => presented.push('audio:chunk'),
-    onAudioCompleted: () => presented.push('audio:end'),
+    onAudioCompleted: () => {
+      presented.push('audio:end')
+    },
     onAgentError: (message) => presented.push(`error:${message}`),
     close() {
       closed.push('presentation')
@@ -165,7 +169,7 @@ test('activation binds the sideband and deactivation releases it', () => {
   dock.runtime.close()
 })
 
-test('sideband messages update the conversation state and reach the presentation', () => {
+test('sideband messages update the conversation state and reach the presentation', async () => {
   const dock: Harness = harness()
   dock.runtime.onContextCreated(context)
   dock.runtime.remoteConversationSession?.activate()
@@ -173,6 +177,7 @@ test('sideband messages update the conversation state and reach the presentation
   dock.emit(sideband({ type: 'audio.started', responseId: 'r1', format: PCM16 }))
   dock.emit(sideband({ type: 'audio.chunk', responseId: 'r1', seq: 0, payload: 'AAAA' }))
   dock.emit(sideband({ type: 'audio.completed', responseId: 'r1' }))
+  await new Promise<void>((resolve) => setImmediate(resolve))
   assert.deepEqual(
     dock.states.map((entry) => entry.state),
     ['recognizing', 'speaking', 'listening'],

@@ -61,6 +61,10 @@ function installPlatformInputBridge(): void {
 }
 
 function installPlatformPerformanceBridge(context: StackchanContext): void {
+  if (Modules.has('wasm-conversation-control')) {
+    const install = Modules.importNow('wasm-conversation-control') as (context: StackchanContext) => void
+    install(context)
+  }
   if (!Modules.has('wasm-performance-bridge')) return
   try {
     const bridge = Modules.importNow('wasm-performance-bridge') as {

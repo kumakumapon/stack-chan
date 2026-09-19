@@ -938,6 +938,7 @@ export class SimulatorEngine {
     })
     this.audioOutBridge = createHostAudioOutBridge()
     this.audioInBridge = createHostAudioInBridge()
+    this.conversationBridge = createConversationBridge()
     this.cameraBridge = createHostCameraBridge()
     this.performance = resolvePerformanceMode(performanceMode)
     this.scene = new StackchanScene({
@@ -964,6 +965,7 @@ export class SimulatorEngine {
       // Unlike the profile-gated sensors above, every profile's firmware links the
       // reaction/performance capabilities, so Host.Performance is always present.
       Performance: this.performanceBridge,
+      Conversation: this.conversationBridge,
     }
     this.wasmView = new WasmView({
       scene: this.scene,
@@ -1135,7 +1137,9 @@ export class SimulatorEngine {
 
   setHeadTouchPosition(position) {
     if (!this.profile.inputs.headTouch) {
-      this.onTrace(`[simulator] setHeadTouchPosition(${position}) ignored: ${this.profile.label} has no head touch panel`)
+      this.onTrace(
+        `[simulator] setHeadTouchPosition(${position}) ignored: ${this.profile.label} has no head touch panel`
+      )
       return
     }
     this.touchPanelBridge.setPosition(position)
@@ -1186,6 +1190,17 @@ export class SimulatorEngine {
     this.performanceBridge.enqueue({ target: 'performance', action: 'cancel' })
   }
 
+  async configureConversation(config) {
+    this.conversationBridge.configure(config)
+    await this.restart()
+  }
+  conversationCommand(command) {
+    this.conversationBridge.command(command)
+  }
+  get conversationStatus() {
+    return this.conversationBridge.status
+  }
+
   dispose() {
     if (this.disposed) return
     this.disposed = true
@@ -1194,8 +1209,10 @@ export class SimulatorEngine {
     this.wasmView.dispose()
     this.scene.dispose()
     this.cameraBridge.stop()
+    this.conversationBridge.close()
     this.audioOutBridge.close()
     this.touchPanelBridge.cancel()
     this.imuBridge.cancel()
   }
 }
+import { createConversationBridge } from '../../../simulator/conversation-bridge.mjs'

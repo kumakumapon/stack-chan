@@ -34,12 +34,13 @@ type WebSocketClientConstructor = {
 
 export const createGatewaySocket: GatewaySocketFactory = (options: GatewaySocketOptions): GatewaySocket => {
   const device = (globalThis as { device?: { network?: Record<string, { io?: WebSocketClientConstructor }> } }).device
-  const network = (options.secure ? device?.network?.wss : device?.network?.ws) ?? device?.network?.ws
+  const network = options.secure ? device?.network?.wss : device?.network?.ws
   const WebSocketClient = network?.io
   if (!network || !WebSocketClient) throw new Error('this target has no WebSocket client for the Gateway Dock')
 
   const encoder = new TextEncoder()
   let pending: Uint8Array[] = []
+  let pendingBytes = 0
   let writable = 0
   let opened = false
   let closed = false
@@ -68,6 +69,7 @@ export const createGatewaySocket: GatewaySocketFactory = (options: GatewaySocket
       }
       if (writable < frame.byteLength) return
       pending.shift()
+      pendingBytes -= frame.byteLength
       writable -= frame.byteLength
       socket.write(frame, TEXT_FRAME)
     }
@@ -107,6 +109,11 @@ export const createGatewaySocket: GatewaySocketFactory = (options: GatewaySocket
   let partial: string = ''
   function accumulate(buffer: ArrayBuffer, more: boolean): void {
     partial += fromArrayBuffer(buffer)
+    if (partial.length > 262144) {
+      partial = ''
+      finish('Gateway input overflow')
+      return
+    }
     if (more) return
     const message = partial
     partial = ''
@@ -116,7 +123,10 @@ export const createGatewaySocket: GatewaySocketFactory = (options: GatewaySocket
   return {
     write(data: string): void {
       if (closed) throw new Error('the Gateway socket is closed')
-      pending.push(encoder.encode(data))
+      const frame = encoder.encode(data)
+      if (pendingBytes + frame.byteLength > 32768) throw new Error('Gateway output overflow')
+      pendingBytes += frame.byteLength
+      pending.push(frame)
       flush()
     },
     close(): void {

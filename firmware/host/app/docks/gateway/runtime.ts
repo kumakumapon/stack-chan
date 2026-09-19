@@ -46,6 +46,12 @@ export type GatewayDockRuntime = {
 }
 
 export type GatewayDockDependencies = {
+  scheduler?: { set(callback: () => void, milliseconds: number): unknown; clear(handle: unknown): void }
+  createMicrophone?(
+    onFrame: (payload: string) => void,
+    onError: (message: string) => void,
+  ): { start(): void; stop(): void }
+  isAudioActive?(context: StackchanContext): boolean
   createBridge(): GatewayBridge
   createRemoteRuntime(bridge: RealtimeEventBridge): GatewayRemoteRuntime
   createRealtimeToolProvider(context: StackchanContext): RealtimeToolProvider
@@ -99,8 +105,66 @@ export function createGatewayDockRuntime(
     if (!contextAttached || !context) {
       throw new Error('Gateway Dock cannot activate before the Stack-chan context is attached')
     }
-    const activation = remoteRuntime.activate(context, dependencies.createRealtimeToolProvider(context))
+    const activeContext = context
+    const activation = remoteRuntime.activate(activeContext, dependencies.createRealtimeToolProvider(activeContext))
     let presentation: GatewayPresentation | undefined
+    let bindingClosed = false
+    let playbackPending = 0
+    let audioInputEnabled = false
+    let speakLocally = true
+    let sequence = 0
+    let recording = false
+    let poll: unknown
+    let removeState: (() => void) | undefined
+    let removeTransport: (() => void) | undefined
+    const canRecord = () =>
+      !bindingClosed &&
+      config.microphone === true &&
+      audioInputEnabled &&
+      activation.remoteConversationSession.state === 'listening' &&
+      bridge.transportState === 'ready' &&
+      playbackPending === 0 &&
+      !dependencies.isAudioActive?.(activeContext)
+    const microphone =
+      config.microphone === true
+        ? dependencies.createMicrophone?.(
+            (payload) => {
+              if (!canRecord()) return
+              const result = bridge.sendGatewayMessage({
+                schema: 'stackchan.gateway.v1',
+                type: 'audio.input',
+                seq: sequence++,
+                payload,
+              })
+              if (result !== 'queued') {
+                microphone?.stop()
+                recording = false
+                activation.updateConversationState('blocked', 'Microphone send failed')
+              }
+            },
+            (message) => activation.updateConversationState('blocked', message),
+          )
+        : undefined
+    const syncMicrophone = () => {
+      const next = canRecord()
+      if (recording === next) return
+      recording = next
+      if (next) microphone?.start()
+      else {
+        microphone?.stop()
+        if (bridge.transportState === 'ready')
+          bridge.sendGatewayMessage({
+            schema: 'stackchan.gateway.v1',
+            type: 'audio.input.end',
+            seq: sequence++,
+          })
+      }
+    }
+    const tick = () => {
+      if (bindingClosed) return
+      syncMicrophone()
+      poll = dependencies.scheduler?.set(tick, 20)
+    }
     try {
       if (config.presentationEnabled !== false) {
         // The Gateway advertises whether it streams assistant audio only in
@@ -109,22 +173,68 @@ export function createGatewayDockRuntime(
         presentation = dependencies.createPresentation(context, { speakLocally: true })
       }
       const activePresentation = presentation
+      removeState = activation.remoteConversationSession.subscribe(syncMicrophone)
+      removeTransport = activation.remoteConversationSession.subscribeTransport((state) => {
+        if (state !== 'ready') audioInputEnabled = false
+        syncMicrophone()
+        if (state === 'ready' && activation.remoteConversationSession.state !== 'standby') {
+          activation.remoteConversationSession.requestStart()
+        }
+      })
+      tick()
       bridge.setSidebandHandler((message) => {
         if (message.type === 'session.ready') {
           // The Gateway decides who speaks: it streams PCM when a TTS adapter
           // is configured, otherwise the robot reads the output transcript.
-          activePresentation?.setSpeakLocally(message.features.audioOutput !== true)
+          speakLocally = message.features.audioOutput !== true
+          audioInputEnabled =
+            message.features.audioInput &&
+            message.audio.input.sampleRate === 16000 &&
+            message.audio.input.channels === 1 &&
+            message.audio.input.codec === 'pcm16'
+          activePresentation?.setSpeakLocally(speakLocally)
+          syncMicrophone()
         }
+        const stopped =
+          activation.remoteConversationSession.state === 'standby' ||
+          activation.remoteConversationSession.state === 'blocked'
+        if (stopped && message.type !== 'session.ready' && message.type !== 'agent.error') return
         const next = gatewayConversationState(message, activation.remoteConversationSession.state)
-        if (next) {
+        if (next && message.type !== 'audio.completed') {
           activation.updateConversationState(
             next,
             message.type === 'agent.error' && message.fatal ? message.message : undefined,
           )
         }
-        deliver(activePresentation, message)
+        const finishesPlayback =
+          message.type === 'audio.completed' || (message.type === 'transcript.output' && message.final && speakLocally)
+        if (finishesPlayback) playbackPending++
+        syncMicrophone()
+        const completion = deliver(activePresentation, message)
+        if (finishesPlayback)
+          void Promise.resolve(completion)
+            .catch((error) => {
+              if (!bindingClosed) activation.updateConversationState('blocked', errorMessage(error))
+            })
+            .finally(() => {
+              playbackPending--
+              if (
+                bindingClosed ||
+                playbackPending ||
+                activation.remoteConversationSession.state === 'standby' ||
+                activation.remoteConversationSession.state === 'blocked'
+              )
+                return
+              activation.updateConversationState('listening')
+              syncMicrophone()
+            })
       })
     } catch (error) {
+      bindingClosed = true
+      if (poll !== undefined) dependencies.scheduler?.clear(poll)
+      tryClose(() => microphone?.stop())
+      tryClose(() => removeState?.())
+      tryClose(() => removeTransport?.())
       tryClose(() => bridge.setSidebandHandler(undefined))
       tryClose(() => presentation?.close())
       tryClose(() => activation.close())
@@ -132,12 +242,12 @@ export function createGatewayDockRuntime(
     }
 
     const activePresentation = presentation
-    let bindingClosed = false
     return {
       remoteSession: activation.remoteConversationSession,
       close() {
         if (bindingClosed) return
         bindingClosed = true
+        if (poll !== undefined) dependencies.scheduler?.clear(poll)
         let firstError: unknown
         const attempt = (operation: () => void) => {
           try {
@@ -146,6 +256,9 @@ export function createGatewayDockRuntime(
             firstError ??= error
           }
         }
+        attempt(() => microphone?.stop())
+        attempt(() => removeState?.())
+        attempt(() => removeTransport?.())
         attempt(() => bridge.setSidebandHandler(undefined))
         attempt(() => activePresentation?.close())
         attempt(() => activation.close())
@@ -155,7 +268,17 @@ export function createGatewayDockRuntime(
   }
 
   return {
-    remoteConversationSession: facade.remoteSession,
+    remoteConversationSession: Object.assign(facade.remoteSession, {
+      sendText(text: string) {
+        if (facade.remoteSession.activationState !== 'active' || facade.remoteSession.state !== 'listening') {
+          throw new Error('Start the conversation and wait for listening before sending text')
+        }
+        if (!text.trim() || text.length > 4000) throw new Error('Text must contain 1–4000 characters')
+        if (bridge.sendGatewayMessage({ schema: 'stackchan.gateway.v1', type: 'text.input', text }) !== 'queued') {
+          throw new Error('Gateway is not ready')
+        }
+      },
+    }),
     onContextCreated(nextContext) {
       if (closed) throw new Error('Gateway Dock runtime is closed')
       if (contextAttached) throw new Error('Gateway Dock context is already attached')
@@ -164,6 +287,7 @@ export function createGatewayDockRuntime(
       if (config.autoStart) {
         try {
           facade.remoteSession.activate()
+          facade.remoteSession.requestStart()
         } catch (error) {
           log(`[gateway-dock] auto-start activation failed: ${errorMessage(error)}\n`)
         }
@@ -189,7 +313,7 @@ export function createGatewayDockRuntime(
   }
 }
 
-function deliver(presentation: GatewayPresentation | undefined, message: GatewayServerMessage): void {
+function deliver(presentation: GatewayPresentation | undefined, message: GatewayServerMessage): void | Promise<void> {
   if (!presentation) return
   try {
     switch (message.type) {
@@ -197,8 +321,7 @@ function deliver(presentation: GatewayPresentation | undefined, message: Gateway
         presentation.onInputTranscript(message.text, message.final)
         break
       case 'transcript.output':
-        presentation.onOutputTranscript(message.text, message.final)
-        break
+        return presentation.onOutputTranscript(message.text, message.final)
       case 'audio.started':
         presentation.onAudioStarted(message.format)
         break
@@ -206,8 +329,7 @@ function deliver(presentation: GatewayPresentation | undefined, message: Gateway
         presentation.onAudioChunk(message.payload)
         break
       case 'audio.completed':
-        presentation.onAudioCompleted()
-        break
+        return presentation.onAudioCompleted()
       case 'agent.error':
         presentation.onAgentError(message.message, message.fatal)
         break

@@ -43,7 +43,9 @@ export function createGatewayServer(options: GatewayServerOptions): GatewayServe
       allowAnonymous: config.devices.length === 0 && config.token === undefined,
     }),
     ...(options.gatewayTools ? { gatewayTools: options.gatewayTools } : {}),
-    ...(config.agent.instructions === undefined ? {} : { instructions: config.agent.instructions }),
+    instructions:
+      config.agent.instructions ??
+      'あなたは卓上ロボット「ｽﾀｯｸﾁｬﾝ」。返答は短く自然な会話にしてください。必要なときだけstackchan.reactやstackchan.performで気持ちを表現してください。生のサーボ値を生成せず名前付きの表現を優先してください。',
     policy: config.tools.policy,
     approvalTimeoutMs: config.approvalTimeoutMs,
     logger,

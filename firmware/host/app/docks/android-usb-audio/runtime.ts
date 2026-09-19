@@ -47,7 +47,14 @@ export function resolveUsbAudioConfig(
   modConfig: unknown,
 ): UsbAudioConfig | undefined {
   const enabledByMod = (modConfig as { usbAudio?: { enabled?: unknown } } | null)?.usbAudio?.enabled === true
-  return enabledByMod ? { ...(hostConfig ?? {}), enabled: true } : hostConfig
+  const override = (modConfig as { usbAudio?: { autoStart?: boolean } } | null)?.usbAudio
+  return enabledByMod
+    ? {
+        ...(hostConfig ?? {}),
+        enabled: true,
+        ...(override?.autoStart === undefined ? {} : { autoStart: override.autoStart }),
+      }
+    : hostConfig
 }
 
 type StartUsbAudioBridge<Status> = (options?: UsbAudioBridgeOptions) => UsbAudioBridgeControl<Status>

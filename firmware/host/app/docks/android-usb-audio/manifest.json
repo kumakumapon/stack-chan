@@ -2,6 +2,7 @@
   "include": ["./manifest_presentation.json"],
   "modules": {
     "stackchan-dock": "./dock",
+    "stackchan-usb-dock": "./dock",
     "stackchan-application-event": "../../remote-session/application-event",
     "stackchan-approval-model": "../../remote-session/approval-model",
     "stackchan-approval-session": "../../remote-session/approval-session",

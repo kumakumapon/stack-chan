@@ -79,6 +79,14 @@ export class AppController extends Behavior {
     return this.#application as PiuApplication
   }
 
+  get companionIdle(): boolean {
+    return (
+      this.#miniAppScreen === 'face' &&
+      !this.#viewBehavior?.drawerOpen &&
+      this.#viewBehavior?.main === this.#viewBehavior?.faceMain
+    )
+  }
+
   get miniApps(): MiniAppRegistryCapability {
     return this.#miniAppRegistry
   }

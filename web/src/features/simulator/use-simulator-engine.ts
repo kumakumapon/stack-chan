@@ -190,6 +190,11 @@ export function useSimulatorEngine({
     },
     installMod: (file: File) => run((engine) => engine.installMod(file)),
     restart: () => run((engine) => engine.restart()),
+    configureConversation: (config: Parameters<SimulatorEngine['configureConversation']>[0]) =>
+      run((engine) => engine.configureConversation(config)),
+    conversationCommand: (command: { action: string; text?: string }) =>
+      engineRef.current?.conversationCommand(command),
+    getConversationStatus: () => engineRef.current?.conversationStatus,
     clearMod: () => run((engine) => engine.clearMod()),
     connectCamera: (options?: { facingMode?: 'user' | 'environment' }) =>
       run(async (engine) => {

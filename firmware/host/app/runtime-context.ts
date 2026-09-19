@@ -492,6 +492,9 @@ export class StackchanRuntimeContext implements StackchanContext {
   private createAudioCapability(): AudioCapability {
     const context = this
     return {
+      get isActive() {
+        return context.#audioRuntime.isActive
+      },
       get tts() {
         return context.tts
       },
@@ -542,6 +545,7 @@ export class StackchanRuntimeContext implements StackchanContext {
 
   private createLifecycleCapability(): LifecycleCapability {
     return {
+      onClose: (handler) => this.#ownedResources.add(handler),
       close: () => this.#close(),
     }
   }

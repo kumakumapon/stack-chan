@@ -1,7 +1,7 @@
 {
   "include": [
     "./manifest.json",
-    "./docks/android-usb-audio/manifest.json",
+    "./docks/manifest_conversation.json",
     "../modules/usb-audio/manifest.json"
   ],
   "modules": {

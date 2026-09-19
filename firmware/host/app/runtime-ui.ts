@@ -59,6 +59,8 @@ export class StackchanRuntimeUI {
   #drawerButtonSpecs = new Map<string, DrawerButtonSpec>()
   #drawerButtonStates = new Map<string, boolean>()
   #drawerRegistry: DrawerCapability
+  #drawerGroup: string | undefined
+  #groupKeys = new Set<string>()
   #emotion: Emotion
   #eyeOpen = { left: 1, right: 1 }
   #eyeGazePoint: Vector3 = [0, 0, 0]
@@ -168,11 +170,22 @@ export class StackchanRuntimeUI {
     this.#ui.update(interval, this.#faceState)
   }
 
-  private addDrawerButton({ key, label, callback, kind, initialState, value, options, icon }: DrawerButtonSpec): void {
-    const spec = { key, label, callback, kind, initialState, value, options, icon }
+  private addDrawerButton({
+    key,
+    label,
+    callback,
+    kind,
+    initialState,
+    value,
+    options,
+    icon,
+    group,
+  }: DrawerButtonSpec): void {
+    const spec = { key, label, callback, kind, initialState, value, options, icon, group }
     this.#drawerButtonSpecs.set(key, spec)
     this.bindDrawerButton(spec)
     this.#ui.addDrawerButton({ key, label, kind, value, options, icon })
+    if (group || this.#groupKeys.size) this.rebuildDrawerBindings()
     if (initialState !== undefined) {
       this.setDrawerButtonState(key, initialState)
     }
@@ -201,12 +214,14 @@ export class StackchanRuntimeUI {
     this.#drawerButtonStates.delete(key)
     this.#ui.unbindDrawerAction(key)
     this.#ui.removeDrawerButton(key)
+    if (this.#groupKeys.size) this.rebuildDrawerBindings()
   }
 
   private clearDrawerButtons(): void {
     this.detachDrawerBindings()
     this.#drawerButtonSpecs.clear()
     this.#drawerButtonStates.clear()
+    this.#drawerGroup = undefined
     this.#ui.setDrawerButtons([])
   }
 
@@ -216,6 +231,8 @@ export class StackchanRuntimeUI {
   }
 
   private detachDrawerBindings(): void {
+    for (const key of this.#groupKeys) this.#ui.unbindDrawerAction(key)
+    this.#groupKeys.clear()
     for (const key of this.#drawerButtonSpecs.keys()) {
       this.#ui.unbindDrawerAction(key)
     }
@@ -223,8 +240,27 @@ export class StackchanRuntimeUI {
 
   private rebuildDrawerBindings(): void {
     const buttons: DrawerButtonViewSpec[] = []
+    for (const key of this.#groupKeys) this.#ui.unbindDrawerAction(key)
+    this.#groupKeys.clear()
+    const groups = new Set<string>()
+    const navigate = (key: string, label: string, group?: string) => {
+      this.#groupKeys.add(key)
+      this.#ui.bindDrawerAction(key, () => {
+        this.#drawerGroup = group
+        this.rebuildDrawerBindings()
+      })
+      buttons.push({ key, label })
+    }
+    if (this.#drawerGroup) navigate('__drawerBack', '‹ Back')
     for (const spec of this.#drawerButtonSpecs.values()) {
       this.bindDrawerButton(spec)
+      if (spec.group !== this.#drawerGroup) {
+        if (!this.#drawerGroup && spec.group && !groups.has(spec.group)) {
+          groups.add(spec.group)
+          navigate(`__drawerGroup${groups.size}`, `${spec.group} ›`, spec.group)
+        }
+        continue
+      }
       buttons.push({
         key: spec.key,
         label: spec.label,

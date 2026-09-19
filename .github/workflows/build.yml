@@ -211,6 +211,18 @@ jobs:
         run: |
           npm --prefix ../web run test:visual
           npm --prefix ../web run test:i18n-visual
+      - name: Upload compiled simulator
+        uses: actions/upload-artifact@v7
+        with:
+          name: companion-wasm
+          path: |
+            web/simulator/mc.js
+            web/simulator/mc.wasm
+          if-no-files-found: error
+      - name: Verify companion browser transport
+        working-directory: ./firmware
+        run: |
+          node --test ../web/simulator/conversation-bridge.test.mjs
       - name: Upload browser screenshots
         if: always()
         uses: actions/upload-artifact@v7

@@ -128,6 +128,9 @@ export class ViewportControlsGate {
 }
 
 export class SimulatorEngine {
+  configureConversation(config: { endpoint: string; token: string; deviceId: string; clientId: string; microphone: boolean }): Promise<void>
+  conversationCommand(command: { action: string; text?: string }): void
+  readonly conversationStatus: { state: string; transport: string; activation: string; error?: string }
   constructor(options: {
     viewport: HTMLCanvasElement
     screen: HTMLCanvasElement

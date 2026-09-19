@@ -2,6 +2,7 @@ import { SimulatorMobileSurface } from '@/components/stackchan/simulator-mobile-
 import { SimulatorSurface } from '@/components/stackchan/simulator-surface'
 import { useSimulatorEngine } from '@/features/simulator/use-simulator-engine'
 import { useMediaQuery } from '@/hooks/use-media-query'
+import { ConversationPanel } from './conversation-panel'
 
 // `(pointer: coarse) and (max-width: 1023px)` on purpose: a touch pointer plus a phone-class
 // width, not an aspect ratio or plain width breakpoint. A portrait phone (390x844) and the same
@@ -13,5 +14,10 @@ const MOBILE_SURFACE_QUERY = '(pointer: coarse) and (max-width: 1023px)'
 export function SimulatorPage() {
   const isMobile = useMediaQuery(MOBILE_SURFACE_QUERY)
   const simulator = useSimulatorEngine(isMobile ? { performanceMode: 'mobile' } : undefined)
-  return isMobile ? <SimulatorMobileSurface controller={simulator} /> : <SimulatorSurface controller={simulator} />
+  return (
+    <>
+      {isMobile ? <SimulatorMobileSurface controller={simulator} /> : <SimulatorSurface controller={simulator} />}
+      <ConversationPanel controller={simulator} />
+    </>
+  )
 }

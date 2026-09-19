@@ -429,6 +429,23 @@ export const FaceMainTemplate: TemplateFunction<FaceViewParams, PiuContainer> = 
       bottom: 0,
       skin,
       contents: [faceRegion, effects],
+      active: true,
+      Behavior: class extends Behavior {
+        x = 0
+        y = 0
+        moved = false
+        onTouchBegan(_content: PiuContainer, _id: number, x: number, y: number) {
+          this.x = x
+          this.y = y
+          this.moved = false
+        }
+        onTouchMoved(_content: PiuContainer, _id: number, x: number, y: number) {
+          if (Math.abs(x - this.x) + Math.abs(y - this.y) > 12) this.moved = true
+        }
+        onTouchEnded(content: PiuContainer) {
+          if (!this.moved) content.bubble('onCompanionTap')
+        }
+      },
     }
   },
 ) as unknown as TemplateFunction<FaceViewParams, PiuContainer>
