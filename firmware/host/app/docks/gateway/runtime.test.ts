@@ -62,6 +62,7 @@ function harness(
   let speakLocally: boolean | undefined
   let conversationState: RemoteConversationState = 'listening'
   let stateListener = () => {}
+  let disconnect = () => {}
   let tick = () => {}
   let frame: ((payload: string) => void) | undefined
   let audioActive = false
@@ -102,7 +103,12 @@ function harness(
               stateListener = () => {}
             }
           },
-          subscribeTransport: () => () => undefined,
+          subscribeTransport(listener) {
+            disconnect = () => listener('disconnected')
+            return () => {
+              disconnect = () => {}
+            }
+          },
         },
         updateConversationState(state, error) {
           conversationState = state
@@ -185,6 +191,7 @@ function harness(
     presented,
     sent,
     tick: () => tick(),
+    disconnect: () => disconnect(),
     frame: () => frame?.('AAAA'),
     setAudioActive(value: boolean) {
       audioActive = value
@@ -423,5 +430,17 @@ test('a second context attachment is refused', () => {
   const dock: Harness = harness()
   dock.runtime.onContextCreated(context)
   assert.throws(() => dock.runtime.onContextCreated(context), /already attached/)
+  dock.runtime.close()
+})
+
+test('disconnect clears a pending interrupt barrier so a reconnected stream is accepted', () => {
+  const dock = harness()
+  dock.runtime.onContextCreated(context)
+  dock.runtime.remoteConversationSession?.activate()
+  dock.runtime.remoteConversationSession?.interrupt?.()
+  dock.disconnect()
+  dock.emit(sideband({ type: 'audio.started', responseId: 'new-connection', format: PCM16 }))
+  dock.emit(sideband({ type: 'audio.chunk', responseId: 'new-connection', seq: 0, payload: 'AAAA' }))
+  assert.ok(dock.presented.includes('audio:chunk'))
   dock.runtime.close()
 })

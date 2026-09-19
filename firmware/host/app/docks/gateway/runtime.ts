@@ -211,6 +211,8 @@ export function createGatewayDockRuntime(
       removeTransport = activation.remoteConversationSession.subscribeTransport((state) => {
         if (state !== 'ready') {
           audioInputEnabled = false
+          cancelRequest = undefined
+          if (cancelTimer !== undefined) dependencies.scheduler?.clear(cancelTimer)
           stopPlayback()
         }
         syncMicrophone()
