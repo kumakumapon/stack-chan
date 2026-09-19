@@ -3,7 +3,6 @@ import { installCompanion } from 'app-default-behavior/companion'
 import { DogFace, ImageFace, SimpleFace } from 'behaviors/face'
 import type { CameraImageType } from 'camera'
 import { type CameraPreviewFrame, createCameraPreviewDialog, prepareCameraPreviewFrame } from 'camera-preview'
-import type { DrawerButtonSpec } from 'capabilities'
 import { Emoticon, type EmoticonKey } from 'effects/emoticon'
 import { Emotion } from 'face-state'
 import { type HandAnimationName, isHandAnimationName } from 'hands'
@@ -61,7 +60,7 @@ function errorMessage(error: unknown): string {
 
 export const onContextCreated: NonNullable<StackchanAppBehavior['onContextCreated']> = (robot, options) => {
   installCompanion(robot, options)
-  const addDiagnostic = (button: DrawerButtonSpec) =>
+  const addDiagnostic: typeof robot.drawer.addDrawerButton = (button) =>
     robot.drawer.addDrawerButton({
       ...button,
       group: button.key === 'toggleFace' || button.key === 'toggleColor' ? '設定' : '診断',

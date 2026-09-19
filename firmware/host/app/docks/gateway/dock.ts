@@ -87,7 +87,12 @@ function createRealtimeToolProvider(context: StackchanContext): RealtimeToolProv
   if (typeof createProvider !== 'function') {
     throw new TypeError('stackchan-realtime-tools does not export a provider factory')
   }
-  return createProvider(context)
+  const provider = createProvider(context)
+  return {
+    ...provider,
+    instructions:
+      'Your reply text is spoken automatically. Keep replies brief. Use stackchan.react or stackchan.perform sparingly for named expressions; do not repeat the reply with stackchan.say or generate raw servo sequences.',
+  }
 }
 
 export default stackchanGatewayDock

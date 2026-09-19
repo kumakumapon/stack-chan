@@ -1,7 +1,6 @@
 {
   "modules": {
     "stackchan-gateway-pcm": "./pcm",
-    "stackchan-gateway-microphone": "./microphone-stream",
     "stackchan-gateway-dock": "./dock",
     "stackchan-application-event": "../../remote-session/application-event",
     "stackchan-approval-model": "../../remote-session/approval-model",

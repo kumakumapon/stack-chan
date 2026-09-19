@@ -6,12 +6,16 @@ import Timer from 'timer'
 export const installCompanion: NonNullable<StackchanAppBehavior['onContextCreated']> = (robot, options) => {
   const settings = options?.config?.companion ?? {}
   const remote = robot.conversation.remoteSession
-  const controller = robot.ui.application?.behavior as unknown as
-    | {
-        readonly companionIdle?: boolean
-        onCompanionTap?: () => void
-      }
-    | undefined
+  const controller = (
+    robot.ui.application as
+      | {
+          behavior?: {
+            readonly companionIdle?: boolean
+            onCompanionTap?: () => void
+          }
+        }
+      | undefined
+  )?.behavior
   let closed = false
   let lastAction = Date.now()
   let lastIdle = ''

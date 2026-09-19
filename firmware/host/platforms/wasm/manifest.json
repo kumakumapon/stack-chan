@@ -23,7 +23,7 @@
   "modules": {
     "stackchan-dock": "../../app/docks/conversation-router",
     "stackchan-gateway-browser": "../../app/docks/gateway/wasm/browser",
-    "stackchan-gateway-socket": "../../app/docks/gateway/wasm/browser",
+    "stackchan-gateway-socket": "../../app/docks/gateway/wasm/socket",
     "stackchan-gateway-microphone": "../../app/docks/gateway/wasm/microphone",
     "wasm-conversation-control": "../../app/docks/gateway/wasm/control",
     "*": [

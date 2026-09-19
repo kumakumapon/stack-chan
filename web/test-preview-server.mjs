@@ -9,6 +9,8 @@ export function resolveChromium() {
     '/usr/bin/chromium',
     '/usr/bin/chromium-browser',
     '/usr/bin/google-chrome',
+    'C:/Program Files/Google/Chrome/Application/chrome.exe',
+    'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',
   ].find((candidate) => candidate && existsSync(candidate))
   if (!executablePath) throw new Error('Chromium executable not found; set CHROMIUM_PATH')
   return executablePath
@@ -31,8 +33,8 @@ export async function startPreview({ port, url }) {
   const server = url
     ? undefined
     : spawn(
-        resolve('node_modules/.bin/vite'),
-        ['preview', '--host', '127.0.0.1', '--port', String(port), '--strictPort'],
+        process.execPath,
+        [resolve('node_modules/vite/bin/vite.js'), 'preview', '--host', '127.0.0.1', '--port', String(port), '--strictPort'],
         { cwd: process.cwd(), stdio: 'inherit' }
       )
   let startupFinished = false

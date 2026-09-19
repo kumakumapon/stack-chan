@@ -52,20 +52,31 @@ test('a fatal agent error blocks the conversation and a recoverable one does not
 
 type Harness = ReturnType<typeof harness>
 
-function harness(options: { presentationEnabled?: boolean; autoStart?: boolean } = {}) {
+function harness(
+  options: { presentationEnabled?: boolean; autoStart?: boolean; microphone?: boolean; playback?: Promise<void> } = {},
+) {
   let sidebandHandler: ((message: GatewayServerMessage) => void) | undefined
   const closed: string[] = []
   const states: Array<{ state: RemoteConversationState; error?: string }> = []
   const presented: string[] = []
   let speakLocally: boolean | undefined
   let conversationState: RemoteConversationState = 'listening'
+  let stateListener = () => {}
+  let tick = () => {}
+  let frame: ((payload: string) => void) | undefined
+  let audioActive = false
+  let microphoneRunning = false
+  const sent: object[] = []
 
   const bridge: GatewayBridge = {
     transportState: 'ready',
     setEventHandler() {},
     setTransportStateHandler() {},
     sendEvent: async () => 'queued',
-    sendGatewayMessage: () => 'queued',
+    sendGatewayMessage: (message) => {
+      sent.push(message)
+      return 'queued'
+    },
     setSidebandHandler(handler) {
       sidebandHandler = handler
     },
@@ -85,12 +96,18 @@ function harness(options: { presentationEnabled?: boolean; autoStart?: boolean }
           transportState: 'ready',
           requestStart: () => 'start-1',
           requestStop: () => 'stop-1',
-          subscribe: () => () => undefined,
+          subscribe: (listener) => {
+            stateListener = () => listener(conversationState)
+            return () => {
+              stateListener = () => {}
+            }
+          },
           subscribeTransport: () => () => undefined,
         },
         updateConversationState(state, error) {
           conversationState = state
           states.push({ state, error })
+          stateListener()
         },
         close() {
           closed.push('activation')
@@ -109,6 +126,7 @@ function harness(options: { presentationEnabled?: boolean; autoStart?: boolean }
     onInputTranscript: (text) => presented.push(`in:${text}`),
     onOutputTranscript: (text) => {
       presented.push(`out:${text}`)
+      return options.playback
     },
     onAudioStarted: () => presented.push('audio:start'),
     onAudioChunk: () => presented.push('audio:chunk'),
@@ -122,12 +140,38 @@ function harness(options: { presentationEnabled?: boolean; autoStart?: boolean }
   }
 
   const runtime = createGatewayDockRuntime(
-    { enabled: true, autoStart: options.autoStart ?? false, presentationEnabled: options.presentationEnabled ?? true },
+    {
+      enabled: true,
+      autoStart: options.autoStart ?? false,
+      presentationEnabled: options.presentationEnabled ?? true,
+      microphone: options.microphone,
+    },
     {
       createBridge: () => bridge,
       createRemoteRuntime: (_bridge: RealtimeEventBridge) => remoteRuntime,
       createRealtimeToolProvider: () => ({ tools: [] }),
       createPresentation: () => presentation,
+      scheduler: {
+        set(callback) {
+          tick = callback
+          return 1
+        },
+        clear() {
+          tick = () => {}
+        },
+      },
+      isAudioActive: () => audioActive,
+      createMicrophone(onFrame) {
+        frame = onFrame
+        return {
+          start() {
+            microphoneRunning = true
+          },
+          stop() {
+            microphoneRunning = false
+          },
+        }
+      },
     },
   )
 
@@ -136,6 +180,15 @@ function harness(options: { presentationEnabled?: boolean; autoStart?: boolean }
     closed,
     states,
     presented,
+    sent,
+    tick: () => tick(),
+    frame: () => frame?.('AAAA'),
+    setAudioActive(value: boolean) {
+      audioActive = value
+    },
+    get microphoneRunning() {
+      return microphoneRunning
+    },
     emit(message: GatewayServerMessage) {
       sidebandHandler?.(message)
     },
@@ -149,6 +202,89 @@ function harness(options: { presentationEnabled?: boolean; autoStart?: boolean }
 }
 
 const context = {} as StackchanContext
+
+function enableAudio(dock: Harness) {
+  dock.emit(
+    sideband({
+      type: 'session.ready',
+      protocolVersion: 1,
+      sessionId: 's',
+      audio: { input: PCM16, output: PCM16 },
+      features: { audioInput: true, audioOutput: false, approval: true, tools: true },
+    }),
+  )
+}
+
+test('microphone requires opt-in and negotiated audio input', () => {
+  for (const enabled of [false, true]) {
+    const dock = harness({ microphone: enabled })
+    dock.runtime.onContextCreated(context)
+    dock.runtime.remoteConversationSession?.activate()
+    assert.equal(dock.microphoneRunning, false)
+    enableAudio(dock)
+    assert.equal(dock.microphoneRunning, enabled)
+    dock.runtime.close()
+    assert.equal(dock.microphoneRunning, false)
+  }
+})
+
+test('half duplex pauses capture for local audio and waits for actual TTS completion', async () => {
+  let finish!: () => void
+  const playback = new Promise<void>((resolve) => {
+    finish = resolve
+  })
+  const dock = harness({ microphone: true, playback })
+  dock.runtime.onContextCreated(context)
+  dock.runtime.remoteConversationSession?.activate()
+  enableAudio(dock)
+  dock.frame()
+  assert.equal(dock.sent.length, 1)
+  dock.setAudioActive(true)
+  dock.tick()
+  assert.equal(dock.microphoneRunning, false)
+  dock.frame()
+  assert.equal(dock.sent.length, 2, 'only audio.input.end was added')
+  dock.setAudioActive(false)
+  dock.tick()
+  assert.equal(dock.microphoneRunning, true)
+  dock.emit(sideband({ type: 'transcript.input', text: 'hello', final: true }))
+  assert.equal(dock.microphoneRunning, false)
+  dock.emit(sideband({ type: 'transcript.output', text: 'こんにちは', final: true }))
+  await new Promise<void>((resolve) => setImmediate(resolve))
+  assert.equal(dock.runtime.remoteConversationSession?.state, 'speaking')
+  assert.equal(dock.microphoneRunning, false)
+  finish()
+  await new Promise<void>((resolve) => setImmediate(resolve))
+  assert.equal(dock.runtime.remoteConversationSession?.state, 'listening')
+  assert.equal(dock.microphoneRunning, true)
+  dock.runtime.remoteConversationSession?.deactivate()
+  const count = dock.sent.length
+  dock.frame()
+  dock.tick()
+  assert.equal(dock.microphoneRunning, false)
+  assert.equal(dock.sent.length, count, 'no late frames after deactivation')
+  dock.runtime.close()
+})
+
+test('completion of a stopped reply cannot reactivate the microphone', async () => {
+  let finish!: () => void
+  const dock = harness({
+    microphone: true,
+    playback: new Promise<void>((resolve) => {
+      finish = resolve
+    }),
+  })
+  dock.runtime.onContextCreated(context)
+  dock.runtime.remoteConversationSession?.activate()
+  enableAudio(dock)
+  dock.emit(sideband({ type: 'transcript.output', text: 'hello', final: true }))
+  dock.runtime.remoteConversationSession?.deactivate()
+  finish()
+  await new Promise<void>((resolve) => setImmediate(resolve))
+  assert.equal(dock.runtime.remoteConversationSession?.activationState, 'inactive')
+  assert.equal(dock.microphoneRunning, false)
+  dock.runtime.close()
+})
 
 test('activation cannot happen before the context is attached', () => {
   const dock: Harness = harness()

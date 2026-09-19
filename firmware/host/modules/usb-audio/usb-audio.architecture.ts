@@ -41,7 +41,12 @@ test('CoreS3 composes the USB Dock without leaking it into shared or WASM graphs
   for (const specifier of [...sharedModules, ...wasmModules]) {
     assert.doesNotMatch(specifier, /usb|remote-session|approval/)
   }
-  assert.ok(coreS3Manifest.include?.includes('./docks/android-usb-audio/manifest.json'))
+  const routerManifest = readManifest('host/app/docks/manifest_conversation.json')
+  assert.ok(coreS3Manifest.include?.includes('./docks/manifest_conversation.json'))
+  assert.ok(routerManifest.include?.includes('./android-usb-audio/manifest.json'))
+  assert.ok(routerManifest.include?.includes('./gateway/manifest_common.json'))
+  assert.equal(routerManifest.modules?.['stackchan-dock'], './conversation-router')
+  assert.equal(dockManifest.modules?.['stackchan-usb-dock'], './dock')
   assert.ok(coreS3Manifest.include?.includes('../modules/usb-audio/manifest.json'))
   assert.deepEqual(usbAppManifest.include, ['./manifest_m5stackchan_cores3.json'])
   assert.equal(dockManifest.modules?.['stackchan-dock'], './dock')
