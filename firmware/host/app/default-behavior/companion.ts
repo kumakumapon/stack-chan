@@ -62,6 +62,7 @@ export const installCompanion: NonNullable<StackchanAppBehavior['onContextCreate
       robot.showBalloon('会話はWeb設定でGatewayまたはUSBを選んでね')
       return
     }
+    if (remote.activationState === 'active') remote.deactivate()
     remote.activate()
     remote.requestStart()
   }
@@ -102,7 +103,12 @@ export const installCompanion: NonNullable<StackchanAppBehavior['onContextCreate
     }
   })
   const boot = Timer.set(() => {
-    if (settings.greetingOnBoot !== 0 && settings.greetingOnBoot !== false && isFree()) play('greeting')
+    if (settings.greetingOnBoot !== 0 && settings.greetingOnBoot !== false && isFree()) {
+      // Legacy local TTS accepts resource keys, not arbitrary Japanese text.
+      // Targets without a synthesizer still greet visibly without missing-resource errors.
+      if ((options?.config?.tts?.type ?? 'local') === 'local') robot.reaction.play('greeting', { intensity: 0.3 })
+      else play('greeting')
+    }
   }, 800)
   let idle: ReturnType<typeof Timer.set> | undefined
   const removeTouch = robot.touchPanel?.subscribe(() => {

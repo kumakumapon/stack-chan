@@ -70,10 +70,9 @@ export function createGatewayPresentation(
       if (!final) return
       showBalloon(text)
       if (!speakLocally || closed) return
-      try {
-        await context.audio.say(text)
-      } catch (error) {
-        log(`[gateway-dock] local TTS failed: ${errorMessage(error)}\n`)
+      const result = await context.audio.say(text)
+      if (result && typeof result === 'object' && 'success' in result && result.success === false) {
+        throw new Error('reason' in result ? String(result.reason) : 'Local speech failed')
       }
     },
     onAudioStarted(nextFormat) {
@@ -100,11 +99,7 @@ export function createGatewayPresentation(
       frames = []
       format = undefined
       if (closed || pending.length === 0 || !pendingFormat || !options.playAudio) return
-      try {
-        await options.playAudio(pending, pendingFormat)
-      } catch (error) {
-        log(`[gateway-dock] audio playback failed: ${errorMessage(error)}\n`)
-      }
+      if ((await options.playAudio(pending, pendingFormat)) === false) throw new Error('Audio playback failed')
     },
     onAgentError(message, fatal) {
       showBalloon(fatal ? `Agent stopped: ${message}` : message)

@@ -77,7 +77,7 @@ export function gatewayConversationState(
     case 'audio.completed':
       return current === 'standby' || current === 'blocked' ? undefined : 'listening'
     case 'agent.error':
-      return message.fatal ? 'blocked' : undefined
+      return message.fatal ? 'blocked' : current === 'recognizing' ? 'listening' : undefined
     default:
       return undefined
   }
@@ -210,7 +210,13 @@ export function createGatewayDockRuntime(
           message.type === 'audio.completed' || (message.type === 'transcript.output' && message.final && speakLocally)
         if (finishesPlayback) playbackPending++
         syncMicrophone()
-        const completion = deliver(activePresentation, message)
+        let completion: void | Promise<void>
+        try {
+          completion = deliver(activePresentation, message)
+        } catch (error) {
+          activation.updateConversationState('blocked', errorMessage(error))
+          return
+        }
         if (finishesPlayback)
           void Promise.resolve(completion)
             .catch((error) => {
@@ -338,6 +344,7 @@ function deliver(presentation: GatewayPresentation | undefined, message: Gateway
     }
   } catch (error) {
     log(`[gateway-dock] presentation failed: ${errorMessage(error)}\n`)
+    throw error
   }
 }
 

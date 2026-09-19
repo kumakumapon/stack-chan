@@ -18,8 +18,8 @@ export default function createMicrophone(onFrame: (payload: string) => void, onE
           next.close()
           throw new Error('Expected 16kHz PCM16 microphone')
         }
-        framer = new PCMFramer(next.channels, (bytes) => onFrame(encodePCM(bytes)))
         input = next
+        framer = new PCMFramer(next.channels, (bytes) => onFrame(encodePCM(bytes)))
         next.start()
       } catch (error) {
         input?.close()

@@ -223,6 +223,11 @@ jobs:
         working-directory: ./firmware
         run: |
           node --test ../web/simulator/conversation-bridge.test.mjs
+          npm --prefix ../gateway ci
+          npm --prefix ../gateway run build
+      - name: Verify Companion through the WASM simulator and localhost Gateway
+        working-directory: ./web
+        run: node simulator/companion-test.mjs
       - name: Upload browser screenshots
         if: always()
         uses: actions/upload-artifact@v7
