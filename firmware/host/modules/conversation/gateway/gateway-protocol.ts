@@ -86,7 +86,17 @@ export type TextInput = {
   text: string
 }
 
-export type GatewayDeviceMessage = SessionHello | AudioInput | AudioInputEnd | TextInput
+export type ResponseCancel = {
+  schema: typeof STACKCHAN_GATEWAY_SCHEMA
+  type: 'response.cancel'
+  requestId: string
+}
+export type ResponseCancelled = {
+  schema: typeof STACKCHAN_GATEWAY_SCHEMA
+  type: 'response.cancelled'
+  requestId: string
+}
+export type GatewayDeviceMessage = SessionHello | AudioInput | AudioInputEnd | TextInput | ResponseCancel
 
 // ---------------------------------------------------------------------------
 // Gateway -> Device
@@ -148,6 +158,7 @@ export type AgentError = {
   fatal: boolean
 }
 
+/** Reserved for future negotiation. Receivers must not execute directives; use approved tools. */
 export type RobotDirective = {
   schema: typeof STACKCHAN_GATEWAY_SCHEMA
   type: 'robot.directive'
@@ -157,6 +168,7 @@ export type RobotDirective = {
 
 export type GatewayServerMessage =
   | SessionReady
+  | ResponseCancelled
   | TranscriptInput
   | TranscriptOutput
   | AudioStarted
@@ -176,6 +188,9 @@ export function isGatewayEnvelope(value: unknown): value is Record<string, unkno
 export function parseGatewayServerMessage(value: unknown): GatewayServerMessage | undefined {
   if (!isGatewayEnvelope(value) || typeof value.type !== 'string') return
   switch (value.type) {
+    case 'response.cancelled':
+      if (!isNonEmptyString(value.requestId)) return
+      return { schema: STACKCHAN_GATEWAY_SCHEMA, type: 'response.cancelled', requestId: value.requestId }
     case 'session.ready': {
       const audio = value.audio
       if (!isRecord(audio)) return

@@ -58,6 +58,7 @@ export class TTS {
   onPlayed?: TTSPlaybackListener
   onDone?: TTSDoneListener
   streaming = false
+  cancel?: () => void
   readonly volume: number
   readonly speed: number
   readonly voice: StackchanVoice
@@ -86,8 +87,11 @@ export class TTS {
     }
     this.streaming = true
 
+    let completed = false
     const finish = (error?: unknown): void => {
-      if (!this.streaming) return
+      if (completed) return
+      completed = true
+      this.cancel = undefined
       this.streaming = false
       try {
         this.onDone?.()
@@ -97,6 +101,10 @@ export class TTS {
     }
 
     const audioBridge = getAudioBridge()
+    this.cancel = () => {
+      audioBridge.close()
+      finish(new Error('Speech cancelled'))
+    }
     const render = isKoe ? renderStackchanVoiceKoeWav : renderStackchanVoiceWav
     void render(this.voice, source, {
       schedule: (callback) => schedule(audioBridge, callback, 0),
@@ -104,7 +112,7 @@ export class TTS {
       volume: volume ?? this.volume,
     }).then(
       (rendered) => {
-        if (!this.streaming) return
+        if (completed) return
         if (rendered.samples === 0) {
           finish()
           return
@@ -115,7 +123,7 @@ export class TTS {
           this.onPlayed?.(rendered.power)
 
           const poll = () => {
-            if (!this.streaming) return
+            if (completed) return
             const status = audioBridge.playStatus()
             if (status === 0) {
               schedule(audioBridge, poll, WASM_AUDIO_BRIDGE_POLL_INTERVAL_MS)

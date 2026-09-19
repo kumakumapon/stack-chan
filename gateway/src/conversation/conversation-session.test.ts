@@ -137,7 +137,7 @@ test('assistant text is synthesized when a TTS adapter is configured', async () 
   const { session, of } = harness(scripted.backend, tts)
   await session.handleDeviceEvent(START)
   scripted.emit({ type: 'text', text: 'hello', final: true })
-  await new Promise((resolve) => setTimeout(resolve, 5))
+  for (let i = 0; i < 100 && !of('audio.completed').length; i++) await new Promise((resolve) => setTimeout(resolve, 5))
   assert.equal(of('transcript.output')[0]?.text, 'hello')
   assert.equal(of('audio.started').length, 1)
   assert.equal(of('audio.chunk').length, 2)
@@ -169,5 +169,40 @@ test('a text turn before conversation.start is ignored', async () => {
   const { session, sent } = harness(scripted.backend)
   await session.handleGatewayMessage({ schema: STACKCHAN_GATEWAY_SCHEMA, type: 'text.input', text: 'hello' })
   assert.deepEqual(sent, [])
+  await session.close()
+})
+
+test('interrupt aborts synthesis, drops late audio and permits another turn', async () => {
+  const scripted = scriptedBackend(false)
+  let resume!: () => void, signal: AbortSignal | undefined
+  const { session, of } = harness(scripted.backend, {
+    name: 'delayed',
+    sampleRate: 16000,
+    async *synthesize(_text, currentSignal) {
+      signal = currentSignal
+      yield { audio: new Int16Array(320), sampleRate: 16000 }
+      await new Promise<void>((resolve) => {
+        resume = resolve
+      })
+      yield { audio: new Int16Array(320), sampleRate: 16000 }
+    },
+  })
+  await session.handleDeviceEvent(START)
+  scripted.emit({ type: 'text', text: 'hello', final: true })
+  for (let i = 0; i < 100 && !resume; i++) await new Promise((resolve) => setTimeout(resolve, 5))
+  assert.equal(of('audio.chunk').length, 1, 'playback can begin while synthesis is still pending')
+  await session.handleGatewayMessage({
+    schema: STACKCHAN_GATEWAY_SCHEMA,
+    type: 'response.cancel',
+    requestId: 'cancel-1',
+  })
+  assert.equal(signal?.aborted, true)
+  assert.equal(of('response.cancelled')[0]?.requestId, 'cancel-1')
+  resume()
+  await new Promise((resolve) => setTimeout(resolve, 30))
+  assert.equal(of('audio.chunk').length, 1)
+  assert.equal(of('audio.completed').length, 0)
+  assert.equal(of('agent.error').length, 0)
+  assert.equal(session.state, 'listening')
   await session.close()
 })

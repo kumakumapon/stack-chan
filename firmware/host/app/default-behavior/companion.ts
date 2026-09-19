@@ -81,9 +81,10 @@ export const installCompanion: NonNullable<StackchanAppBehavior['onContextCreate
     controller.onCompanionTap = () => {
       lastAction = Date.now()
       if (remote) {
-        if (remote.activationState === 'active' && remote.state !== 'standby' && remote.state !== 'blocked')
-          remote.deactivate()
-        else start()
+        if (remote.activationState === 'active' && remote.state !== 'standby' && remote.state !== 'blocked') {
+          if (remote.interrupt && (remote.state === 'speaking' || remote.state === 'recognizing')) remote.interrupt()
+          else remote.deactivate()
+        } else start()
       } else if (isFree()) play(Math.random() < 0.5 ? 'greeting' : 'cheer')
     }
   const unsubscribe = remote?.subscribe((state, error) => {

@@ -1,4 +1,5 @@
 import type { GatewayAudioFormat } from 'stackchan-gateway-protocol'
+import type { PCMStream } from './pcm-stream.js'
 
 /**
  * The slice of `StackchanContext` the presentation actually touches. Naming it
@@ -8,7 +9,7 @@ import type { GatewayAudioFormat } from 'stackchan-gateway-protocol'
 export type GatewayPresentationContext = {
   showBalloon?(text: string): void
   hideBalloon?(): void
-  audio: { say(text: string, volume?: number): Promise<unknown> }
+  audio: { say(text: string, volume?: number): Promise<unknown>; tts?: { cancel?(): void } }
 }
 
 /**
@@ -26,6 +27,7 @@ export type GatewayPresentation = {
   onAudioChunk(payload: string): void
   onAudioCompleted(): void | Promise<void>
   onAgentError(message: string, fatal: boolean): void
+  interrupt?(): void
   close(): void
 }
 
@@ -36,19 +38,23 @@ export type GatewayPresentationOptions = {
    * final output transcript with its own TTS instead. This is the Phase 0 path.
    */
   speakLocally: boolean
-  /** Accumulated base64 PCM frames are played through this when the turn ends. */
-  playAudio?(frames: string[], format: GatewayAudioFormat): undefined | Promise<unknown>
+  createAudio?(format: GatewayAudioFormat): PCMStream
 }
 
 export function createGatewayPresentation(
   context: GatewayPresentationContext,
   options: GatewayPresentationOptions,
 ): GatewayPresentation {
-  let frames: string[] = []
-  let encodedBytes = 0
-  let format: GatewayAudioFormat | undefined
+  let stream: PCMStream | undefined
+  let generation = 0
   let closed = false
   let speakLocally = options.speakLocally
+  const interrupt = () => {
+    generation++
+    stream?.stop()
+    stream = undefined
+    context.audio.tts?.cancel?.()
+  }
 
   const showBalloon = (text: string) => {
     if (closed || !text) return
@@ -70,44 +76,35 @@ export function createGatewayPresentation(
       if (!final) return
       showBalloon(text)
       if (!speakLocally || closed) return
+      const current = generation
       const result = await context.audio.say(text)
+      if (current !== generation) return
       if (result && typeof result === 'object' && 'success' in result && result.success === false) {
         throw new Error('reason' in result ? String(result.reason) : 'Local speech failed')
       }
     },
     onAudioStarted(nextFormat) {
-      frames = []
-      encodedBytes = 0
-      format = nextFormat
+      if (closed) return
+      stream?.stop()
+      stream = options.createAudio?.(nextFormat)
     },
     onAudioChunk(payload) {
-      // The turn is buffered rather than streamed: Piu has no PCM sink that can
-      // be fed frame by frame, and playAudio() wants one contiguous buffer.
-      // Latency is one assistant turn; streaming needs an audio worker.
-      if (closed || !format) return
-      if (encodedBytes + payload.length > 256000) {
-        frames = []
-        format = undefined
-        throw new Error('Gateway audio reply exceeds buffer limit')
-      }
-      encodedBytes += payload.length
-      frames.push(payload)
+      if (!closed) stream?.push(payload)
     },
     async onAudioCompleted() {
-      const pending = frames
-      const pendingFormat = format
-      frames = []
-      format = undefined
-      if (closed || pending.length === 0 || !pendingFormat || !options.playAudio) return
-      if ((await options.playAudio(pending, pendingFormat)) === false) throw new Error('Audio playback failed')
+      const pending = stream
+      if (closed || !pending) return
+      await pending.finish()
+      if (stream === pending) stream = undefined
     },
     onAgentError(message, fatal) {
+      interrupt()
       showBalloon(fatal ? `Agent stopped: ${message}` : message)
     },
+    interrupt,
     close() {
       closed = true
-      frames = []
-      format = undefined
+      interrupt()
       try {
         context.hideBalloon?.()
       } catch {

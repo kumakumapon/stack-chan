@@ -44,12 +44,16 @@ test('Gateway completion waits for PCM playback and never duplicates local TTS',
     },
     {
       speakLocally: false,
-      playAudio: (frames) => {
-        played = frames
-        return new Promise<void>((resolve) => {
-          finish = resolve
-        })
-      },
+      createAudio: () => ({
+        push: (frame) => {
+          played.push(frame)
+        },
+        finish: () =>
+          new Promise<void>((resolve) => {
+            finish = resolve
+          }),
+        stop() {},
+      }),
     },
   )
   await p.onOutputTranscript('hello', true)
@@ -66,8 +70,34 @@ test('Gateway completion waits for PCM playback and never duplicates local TTS',
   await pending
   assert.equal(complete, true)
 })
-test('oversized Gateway audio is rejected and drops the buffered turn', () => {
-  const p = createGatewayPresentation({ audio: { say: async () => {} } }, { speakLocally: false })
+test('interrupt stops streaming audio and cancels local speech', () => {
+  let stopped = 0,
+    cancelled = 0
+  const p = createGatewayPresentation(
+    {
+      audio: {
+        say: async () => {},
+        tts: {
+          cancel: () => {
+            cancelled++
+          },
+        },
+      },
+    },
+    {
+      speakLocally: false,
+      createAudio: () => ({
+        push() {},
+        finish: async () => {},
+        stop: () => {
+          stopped++
+        },
+      }),
+    },
+  )
   p.onAudioStarted({ codec: 'pcm16', sampleRate: 16000, channels: 1 })
-  assert.throws(() => p.onAudioChunk('A'.repeat(256004)), /buffer limit/)
+  p.interrupt?.()
+  p.onAudioChunk('AAAA')
+  assert.equal(stopped, 1)
+  assert.equal(cancelled, 1)
 })

@@ -31,6 +31,7 @@ export type {
 export { LocalPeerError } from 'local-peer-types'
 
 export type TTS = {
+  cancel?(): void
   stream: (text: string, volume?: number, callback?: TTSCompletion) => void
   /** Streams raw stackchan-voice koe notation when the provider supports singing. */
   streamKoe?: (koe: string, volume?: number, callback?: TTSCompletion) => void
@@ -210,6 +211,8 @@ export type RemoteConversationSession = RemoteConversationSessionDelegate & {
   readonly activationState: RemoteConversationActivationState
   activate(): void
   deactivate(): void
+  /** Interrupt the response and keep the conversation listening, when supported. */
+  interrupt?(): void
 }
 
 export type ConversationCapability = {

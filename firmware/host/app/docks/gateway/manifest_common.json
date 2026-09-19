@@ -1,5 +1,6 @@
 {
   "modules": {
+    "stackchan-gateway-pcm-stream": "./pcm-stream",
     "stackchan-gateway-pcm": "./pcm",
     "stackchan-gateway-dock": "./dock",
     "stackchan-application-event": "../../remote-session/application-event",

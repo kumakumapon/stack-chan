@@ -71,7 +71,11 @@ export function ConversationPanel({ controller }: { controller: ReturnType<typeo
           {status.transport} / {status.state}
         </p>
         {status.error && <p role="alert">{status.error}</p>}
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" disabled={status.state !== 'speaking' && status.state !== 'recognizing'}
+            onClick={() => controller.conversationCommand({ action: 'interrupt' })}>
+            {t('応答を中断')}
+          </Button>
           <Button onClick={() => controller.conversationCommand({ action: 'start' })}>{t('会話を開始')}</Button>
           <Button variant="outline" onClick={() => controller.conversationCommand({ action: 'stop' })}>
             {t('会話を停止')}

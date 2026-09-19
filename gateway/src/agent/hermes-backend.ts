@@ -64,6 +64,8 @@ export function createHermesBackend(options: {
     async createSession(sessionOptions: AgentSessionOptions): Promise<AgentSession> {
       const { onEvent, tools, deviceId, instructions, signal } = sessionOptions
       let sessionId: string | undefined
+      let controller = new AbortController()
+      let closed = false
       const pendingCallIds = new Set<string>()
 
       const fail = (message: string): void => {
@@ -71,7 +73,7 @@ export function createHermesBackend(options: {
         onEvent({ type: 'turn.done' })
       }
 
-      const ensureSession = async (): Promise<string | undefined> => {
+      const ensureSession = async (turn: AbortController): Promise<string | undefined> => {
         if (sessionId) return sessionId
         let response: Response
         try {
@@ -79,9 +81,10 @@ export function createHermesBackend(options: {
             method: 'POST',
             headers: headers(),
             body: JSON.stringify({ deviceId, instructions, tools, agent: options.agent }),
-            ...(signal ? { signal } : {}),
+            signal: signal ? AbortSignal.any([signal, turn.signal]) : turn.signal,
           })
         } catch (cause) {
+          if (turn.signal.aborted) return undefined
           fail(`hermes backend: open request failed: ${describeError(cause)}`)
           return undefined
         }
@@ -98,37 +101,47 @@ export function createHermesBackend(options: {
         return sessionId
       }
 
-      const consume = async (response: Response): Promise<void> => {
+      const consume = async (response: Response, turn: AbortController): Promise<void> => {
         if (!response.body) return fail('hermes backend: response has no body')
         for await (const frame of readNdjsonFrames(response.body)) {
+          if (closed || turn.signal.aborted || turn !== controller) return
           const event = translateFrame(frame)
           if (!event) continue
           if (event.type === 'tool.call') pendingCallIds.add(event.callId)
           if (event.type === 'turn.done') pendingCallIds.clear()
           onEvent(event)
+          if (event.type === 'turn.done') return
         }
       }
 
       const send = async (body: Record<string, unknown>): Promise<void> => {
-        const id = await ensureSession()
-        if (!id) return
+        const turn = controller
+        if (closed || turn.signal.aborted) return
+        const id = await ensureSession(turn)
+        if (!id || closed || turn !== controller || turn.signal.aborted) return
         let response: Response
         try {
           response = await fetchImpl(`${endpoint}/sessions/${id}/messages`, {
             method: 'POST',
             headers: headers(),
             body: JSON.stringify(body),
-            ...(signal ? { signal } : {}),
+            signal: signal ? AbortSignal.any([signal, turn.signal]) : turn.signal,
           })
         } catch (cause) {
+          if (turn.signal.aborted) return
           fail(`hermes backend: request failed: ${describeError(cause)}`)
           return
         }
+        if (turn.signal.aborted || turn !== controller) return
         if (!response.ok) {
           fail(`hermes backend: ${response.status} ${response.statusText}: ${await safeText(response)}`)
           return
         }
-        await consume(response)
+        try {
+          await consume(response, turn)
+        } catch (cause) {
+          if (!turn.signal.aborted && turn === controller) fail(`hermes stream failed: ${describeError(cause)}`)
+        }
       }
 
       return {
@@ -143,9 +156,13 @@ export function createHermesBackend(options: {
           await send({ type: 'tool_result', callId, result: result ?? null })
         },
         async cancel(): Promise<void> {
+          controller.abort()
+          controller = new AbortController()
           pendingCallIds.clear()
         },
         async close(): Promise<void> {
+          closed = true
+          controller.abort()
           pendingCallIds.clear()
           if (!sessionId) return
           try {
@@ -210,6 +227,7 @@ async function* readNdjsonFrames(body: ReadableStream<Uint8Array>): AsyncIterabl
       if (done) return
     }
   } finally {
+    await reader.cancel().catch(() => {})
     reader.releaseLock()
   }
 }

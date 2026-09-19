@@ -16,6 +16,7 @@ type Closable = {
 export type TTSPlaybackOwner = {
   audio?: AudioOut
   streaming: boolean
+  cancel?: () => void
   onPlayed?: TTSPlaybackListener
   onDone?: TTSDoneListener
 }
@@ -48,6 +49,7 @@ export function createTTSPlaybackLifecycle(owner: TTSPlaybackOwner, callback?: T
   const finish = (error?: unknown): void => {
     if (completed) return
     completed = true
+    if (owner.cancel === cancel) owner.cancel = undefined
     owner.streaming = false
 
     for (let index = cleanupTasks.length - 1; index >= 0; index -= 1) {
@@ -60,6 +62,9 @@ export function createTTSPlaybackLifecycle(owner: TTSPlaybackOwner, callback?: T
     owner.onDone?.()
     callback?.(error)
   }
+
+  const cancel = () => finish(new Error('Speech cancelled'))
+  owner.cancel = cancel
 
   return {
     openAudio(options: AudioOutOptions, volume: number): AudioOut {
