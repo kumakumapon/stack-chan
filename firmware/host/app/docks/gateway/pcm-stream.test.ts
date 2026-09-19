@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
+import { installGatewayDockTestAliases } from './__tests__/node-aliases.js'
 import { encodePCM } from './pcm.js'
-import { createPCMStream } from './pcm-stream.js'
+
+installGatewayDockTestAliases()
+const { createPCMStream } = await import('./pcm-stream.js')
 
 const format = { codec: 'pcm16' as const, sampleRate: 16000, channels: 1 }
 test('PCM starts before completion, drains in order and handles replies larger than the queue', async () => {

@@ -69,6 +69,9 @@ async function verifySequentialRequests() {
     equal(response.status, status, path)
     equal(response.headers.get('connection'), 'close', path)
     equal(await response.text(), body, path)
+    // SDK fetch evicts its cached client on the asynchronous socket-close event,
+    // not on body completion. Let that event run before the next request.
+    await new Promise((resolve) => Timer.set(resolve, 100))
   }
   equal(new Response('default').status, 200)
   trace('ok\n')

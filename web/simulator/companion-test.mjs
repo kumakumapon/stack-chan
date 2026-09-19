@@ -6,7 +6,6 @@ import { chromium } from 'playwright-core'
 import { createGatewayServer } from '../../gateway/dist/server/gateway-server.js'
 import { parseGatewayConfig } from '../../gateway/dist/config.js'
 import { createNullStt } from '../../gateway/dist/audio/stt.js'
-import { createNullTts } from '../../gateway/dist/audio/tts.js'
 import { resolveChromium, startPreview } from '../test-preview-server.mjs'
 
 assert.ok(existsSync('simulator/mc.wasm'), 'build the WASM simulator before this test')
@@ -36,7 +35,7 @@ const backend = {
           })
           await pending
         }
-        onEvent({ type: 'text', text: 'こんにちは。', final: true })
+        onEvent({ type: 'text', text: text === 'long' ? 'long' : 'こんにちは。', final: true })
         onEvent({ type: 'turn.done' })
       },
       async inputAudio() {},
@@ -54,6 +53,16 @@ const backend = {
     }
   },
 }
+let streamAudio = false
+const syntheticTts = {
+  get name() { return streamAudio ? 'synthetic' : 'null' },
+  sampleRate: 16000,
+  async *synthesize(text, signal) {
+    if (!streamAudio) return
+    const audio = Int16Array.from({ length: text === 'long' ? 128000 : 8000 }, (_, i) => Math.round(Math.sin(i * 0.1) * 1000))
+    if (!signal?.aborted) yield { audio, sampleRate: 16000 }
+  },
+}
 const gateway = createGatewayServer({
   config: parseGatewayConfig({
     gateway: {
@@ -63,7 +72,7 @@ const gateway = createGatewayServer({
   }),
   backend,
   stt: createNullStt(),
-  tts: createNullTts(),
+  tts: syntheticTts,
   logger: () => {},
 })
 const address = await gateway.listen()
@@ -89,7 +98,24 @@ try {
     localStorage.setItem('stackchan.locale', 'ja')
     const NativeSocket = globalThis.WebSocket
     globalThis.companionFrames = []
+    globalThis.gatewayFrames = []
+    globalThis.playedBuffers = []
+    globalThis.stoppedBuffers = 0
+    const start = AudioBufferSourceNode.prototype.start
+    const stop = AudioBufferSourceNode.prototype.stop
+    AudioBufferSourceNode.prototype.start = function (...args) {
+      globalThis.playedBuffers.push({ duration: this.buffer?.duration, time: performance.now() })
+      return start.apply(this, args)
+    }
+    AudioBufferSourceNode.prototype.stop = function (...args) {
+      globalThis.stoppedBuffers++
+      return stop.apply(this, args)
+    }
     globalThis.WebSocket = class extends NativeSocket {
+      constructor(...args) {
+        super(...args)
+        this.addEventListener('message', (event) => globalThis.gatewayFrames.push(JSON.parse(event.data)))
+      }
       send(data) {
         globalThis.companionFrames.push(JSON.parse(data))
         return super.send(data)
@@ -125,6 +151,32 @@ try {
   await page.evaluate(() => window.scrollTo(0, 0))
   await page.waitForTimeout(250)
   await page.screenshot({ path: join(tmpdir(), 'stackchan-companion-conversation.png') })
+  // Negotiate streamed output and verify the real WASM sink, browser scheduling,
+  // cancellation acknowledgement, and a fresh turn after interruption.
+  streamAudio = true
+  await page.getByRole('button', { name: '適用して再起動' }).click()
+  await page.getByText('シミュレーターを実行中').waitFor({ timeout: 45000 })
+  await page.getByRole('button', { name: '会話を開始', exact: true }).click()
+  await status.filter({ hasText: 'listening' }).waitFor({ timeout: 30000 })
+  await page.evaluate(() => { globalThis.playedBuffers = []; globalThis.gatewayFrames = [] })
+  await page.getByRole('textbox', { name: 'Conversation text' }).fill('long')
+  await page.getByRole('button', { name: '送信', exact: true }).click()
+  await page.waitForFunction(() => globalThis.playedBuffers.some((buffer) => buffer.duration > 0 && buffer.duration < 0.1))
+  assert.equal(await page.evaluate(() => globalThis.gatewayFrames.some((frame) => frame.type === 'audio.completed')), false)
+  await page.getByRole('button', { name: '応答を中断', exact: true }).click()
+  await status.filter({ hasText: 'listening' }).waitFor({ timeout: 10000 })
+  assert.ok(await page.evaluate(() => globalThis.gatewayFrames.some((frame) => frame.type === 'response.cancelled')))
+  const interruptedCount = await page.evaluate(() => globalThis.playedBuffers.length)
+  await page.waitForTimeout(300)
+  assert.equal(await page.evaluate(() => globalThis.playedBuffers.length), interruptedCount)
+  await page.getByRole('textbox', { name: 'Conversation text' }).fill('again')
+  await page.getByRole('button', { name: '送信', exact: true }).click()
+  await status.filter({ hasText: 'speaking' }).waitFor({ timeout: 10000 })
+  await status.filter({ hasText: 'listening' }).waitFor({ timeout: 10000 })
+  assert.ok(await page.evaluate(() => globalThis.gatewayFrames.some((frame) => frame.type === 'audio.completed')))
+  await page.getByRole('button', { name: '会話を停止', exact: true }).click()
+  await status.filter({ hasText: 'standby' }).waitFor()
+  await page.screenshot({ path: join(tmpdir(), 'stackchan-gateway-stream-interrupt.png') })
   // Chromium supplies synthetic audio; this test never opens a physical microphone.
   await page.getByLabel('ブラウザのマイク').check()
   await page.getByRole('button', { name: '適用して再起動' }).click()
@@ -157,7 +209,7 @@ try {
   assert.ok(await mobilePage.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1))
   await mobilePage.screenshot({ path: join(tmpdir(), 'stackchan-companion-mobile.png') })
   await mobile.close()
-  console.log('Companion WASM: text round trip, named tools, stop, and synthetic microphone passed')
+  console.log('Companion WASM: text round trip, named tools, streamed PCM, interruption, restart, stop, and synthetic microphone passed')
 } finally {
   await browser?.close()
   server?.kill()

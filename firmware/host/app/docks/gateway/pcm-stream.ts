@@ -1,5 +1,5 @@
+import { decodePCM } from 'stackchan-gateway-pcm'
 import type { GatewayAudioFormat } from 'stackchan-gateway-protocol'
-import { decodePCM } from './pcm.js'
 
 export type PCMOutput = {
   write(bytes: Uint8Array): void

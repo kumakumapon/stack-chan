@@ -229,7 +229,12 @@ export function createGatewayDockRuntime(
           return
         }
         if (cancelRequest && message.type !== 'agent.error') return
-        if (message.type === 'audio.started') responseId = message.responseId
+        if (message.type === 'audio.started') {
+          stopPlayback()
+          responseId = message.responseId
+          speakLocally = false
+          activePresentation?.setSpeakLocally(false)
+        }
         if ((message.type === 'audio.chunk' || message.type === 'audio.completed') && message.responseId !== responseId)
           return
         if (message.type === 'agent.error') stopPlayback()

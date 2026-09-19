@@ -1,6 +1,6 @@
 import AudioOut from 'pins/audioout'
+import { createPCMStream } from 'stackchan-gateway-pcm-stream'
 import type { GatewayAudioFormat } from 'stackchan-gateway-protocol'
-import { createPCMStream } from './pcm-stream.js'
 
 export default function createOutput(format: GatewayAudioFormat) {
   return createPCMStream(format, (played) => {
