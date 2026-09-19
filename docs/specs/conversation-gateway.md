@@ -271,7 +271,7 @@ Direct-mode `ChatService` session and a Gateway-mode Agent session
   through `gateway/src/tools/mcp-adapter.ts` (enabled with `tools.mcp: true`
   and a `tools.servers` list in config) plus any built-ins.
 - **Device-hosted** tools run on the robot itself, invoked over the realtime
-  control plane described above. The canonical six are the embodiment tools,
+  control plane described above. The canonical eight are the embodiment tools,
   defined once with rich JSON-Schema parameters in
   `gateway/src/tools/stackchan-tools.ts` and implemented on the device in
   `firmware/host/app/realtime-tools.ts`:
@@ -284,6 +284,8 @@ Direct-mode `ChatService` session and a Gateway-mode Agent session
   | `stackchan.motion.lookAt` | `x`, `y`, `z` (number, all required) |
   | `stackchan.light.set` | `r`, `g`, `b` (number, all required), `durationMs` (number) |
   | `stackchan.camera.capture` | (no parameters) |
+  | `stackchan.react` | `name` (reaction enum, required), `intensity` (0–1) |
+  | `stackchan.perform` | `name` (performance enum, required), `intensity` (0–1) |
 
   The gateway-side schema in the table above is the one an Agent actually
   sees; the device's own `realtime-tools.ts` implementation additionally
@@ -421,16 +423,14 @@ is limited to its URL, device id and Gateway token.
   `audio.completed`, because Piu has no PCM sink that can be fed frame by
   frame.
 
+Companion Mode adds opted-in CoreS3 microphone capture, stereo-to-mono 20 ms
+PCM frames, half-duplex gating, and the same Gateway flow in WASM with text
+and optional browser microphone input. See [Companion setup and verification](../operations/companion-mode.md).
+
 **Not implemented, deliberately deferred:**
 
-- **Continuous on-device microphone capture.** The Gateway's protocol and
-  `audio-session.ts` fully accept `audio.input` / `audio.input.end`, and the
-  device-side `GatewayConfig.microphone` flag exists as an opt-in switch, but
-  the firmware has no code path that actually captures microphone frames and
-  calls `audioInput()`/`audioInputEnd()` (`gateway-protocol.ts`) yet. That
-  needs an audio worker analogous to the one the Android USB Dock already
-  has; today the Gateway Dock only ever reaches the Agent through
-  `text.input`.
+- **Full duplex, barge-in, and AEC.** The microphone pauses during recognition
+  and speech, and resumes only after playback completes.
 - **Frame-by-frame playback.** The device buffers a whole turn's `audio.chunk`
   frames and plays them only once `audio.completed` arrives; there is no
   streaming PCM sink yet, so the audible latency is one full assistant turn,
@@ -453,14 +453,10 @@ The issue laid out four phases. What actually landed:
   `conversation.start`/`stop`, conversation-state sync via the sideband
   mapping, text LLM responses through any of the three Agent Backends, and
   the robot reading the answer with its own TTS.
-- **Phase 1 — Voice.** Partially implemented. The Gateway-side half of the
-  loop is complete — VAD, STT, TTS synthesis and streamed `audio.chunk`
-  output all exist and are unit-tested. The device-side half is not: there is
-  no streaming microphone capture yet (see above), and playback is buffered
-  per turn rather than frame-by-frame. Interrupt/cancel of an in-flight Agent
-  turn is defined in the `AgentSession` interface (`cancel()`) but is not
-  wired up from any device-originated event in this change.
-- **Phase 2 — Embodiment.** Mostly implemented: all six embodiment tools
+- **Phase 1 — Voice.** Half-duplex capture and buffered reply playback are
+  implemented. VAD/STT/TTS remain Gateway-owned. Physical microphone and speaker
+  quality verification is separate; incremental playback and AEC remain future work.
+- **Phase 2 — Embodiment.** Mostly implemented: all eight embodiment tools
   exist, are conditionally advertised based on device capability, and are
   invocable by any Agent Backend. Touch/IMU context being fed to the Agent as
   input (as opposed to the Agent driving output through tools) is not part of

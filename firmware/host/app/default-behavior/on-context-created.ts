@@ -1,4 +1,5 @@
 import type { StackchanAppBehavior } from 'app-behavior'
+import { installCompanion } from 'app-default-behavior/companion'
 import { DogFace, ImageFace, SimpleFace } from 'behaviors/face'
 import type { CameraImageType } from 'camera'
 import { type CameraPreviewFrame, createCameraPreviewDialog, prepareCameraPreviewFrame } from 'camera-preview'
@@ -57,7 +58,13 @@ function errorMessage(error: unknown): string {
   return String(error)
 }
 
-export const onContextCreated: NonNullable<StackchanAppBehavior['onContextCreated']> = (robot) => {
+export const onContextCreated: NonNullable<StackchanAppBehavior['onContextCreated']> = (robot, options) => {
+  installCompanion(robot, options)
+  const addDiagnostic: typeof robot.drawer.addDrawerButton = (button) =>
+    robot.drawer.addDrawerButton({
+      ...button,
+      group: button.key === 'toggleFace' || button.key === 'toggleColor' ? '設定' : '診断',
+    })
   const emotions: Emotion[] = [Emotion.HAPPY, Emotion.ANGRY, Emotion.SAD, Emotion.HOT, Emotion.SLEEPY, Emotion.NEUTRAL]
   const emotionOptions = [
     { value: String(Emotion.NEUTRAL), label: localize('drawer.emotion.neutral') },
@@ -182,7 +189,7 @@ export const onContextCreated: NonNullable<StackchanAppBehavior['onContextCreate
     robot.ui.showFace()
     robot.hideBalloon()
   }
-  robot.drawer.addDrawerButton({
+  addDiagnostic({
     key: 'toggleFace',
     label: localize('drawer.face'),
     kind: 'choice',
@@ -201,7 +208,7 @@ export const onContextCreated: NonNullable<StackchanAppBehavior['onContextCreate
     },
   })
   syncFaceMode()
-  robot.drawer.addDrawerButton({
+  addDiagnostic({
     key: 'cycleEmotion',
     label: localize('drawer.emotion'),
     kind: 'choice',
@@ -230,7 +237,7 @@ export const onContextCreated: NonNullable<StackchanAppBehavior['onContextCreate
       setEmotionWithEffect(target, nextEmotion)
     },
   })
-  robot.drawer.addDrawerButton({
+  addDiagnostic({
     key: 'toggleSpeech',
     label: localize('drawer.balloon'),
     kind: 'toggle',
@@ -245,7 +252,7 @@ export const onContextCreated: NonNullable<StackchanAppBehavior['onContextCreate
       robot.drawer.setDrawerButtonState('toggleSpeech', speechVisible)
     },
   })
-  robot.drawer.addDrawerButton({
+  addDiagnostic({
     key: 'speakStackchan',
     label: 'Speak',
     callback: async (target) => {
@@ -258,7 +265,7 @@ export const onContextCreated: NonNullable<StackchanAppBehavior['onContextCreate
       }
     },
   })
-  robot.drawer.addDrawerButton({
+  addDiagnostic({
     key: 'handAnimation',
     label: '手',
     kind: 'choice',
@@ -360,7 +367,7 @@ export const onContextCreated: NonNullable<StackchanAppBehavior['onContextCreate
     }
   }
   if (robot.camera.available !== false) {
-    robot.drawer.addDrawerButton({
+    addDiagnostic({
       key: 'cameraPreview',
       label: localize('drawer.camera'),
       icon: 'camera',
@@ -399,7 +406,7 @@ export const onContextCreated: NonNullable<StackchanAppBehavior['onContextCreate
     robot.lookAt([x, y, z])
   }
   Timer.repeat(targetLoop, 5000)
-  robot.drawer.addDrawerButton({
+  addDiagnostic({
     key: 'toggleLookAround',
     label: localize('drawer.lookAround'),
     kind: 'toggle',
@@ -451,7 +458,7 @@ export const onContextCreated: NonNullable<StackchanAppBehavior['onContextCreate
       isMoving = false
       trace(`[ServoTest] unexpected error ${errorMessage(error)}\n`)
     })
-  robot.drawer.addDrawerButton({
+  addDiagnostic({
     key: 'servoTest',
     label: localize('drawer.servo'),
     icon: 'play',
@@ -473,7 +480,7 @@ export const onContextCreated: NonNullable<StackchanAppBehavior['onContextCreate
       }
       robot.drawer.setDrawerButtonState('toggleLED', isLighting)
     }
-    robot.drawer.addDrawerButton({
+    addDiagnostic({
       key: 'toggleLED',
       label: 'LED',
       kind: 'toggle',
@@ -534,13 +541,13 @@ export const onContextCreated: NonNullable<StackchanAppBehavior['onContextCreate
       hideBalloonLater(1200)
     }
   }
-  robot.drawer.addDrawerButton({
+  addDiagnostic({
     key: 'playTone',
     label: localize('drawer.playSound'),
     icon: 'play',
     callback: runPlayTone,
   })
-  robot.drawer.addDrawerButton({
+  addDiagnostic({
     key: 'recordPlayback',
     label: localize('drawer.recordAndPlay'),
     icon: 'microphone',
@@ -559,7 +566,7 @@ export const onContextCreated: NonNullable<StackchanAppBehavior['onContextCreate
     if (value === 'dark' || value === 'light') applyColor(value)
   }
   const registerColorDrawerButton = () => {
-    robot.drawer.addDrawerButton({
+    addDiagnostic({
       key: 'toggleColor',
       label: localize('drawer.colorScheme'),
       kind: 'swatch',

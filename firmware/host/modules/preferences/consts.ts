@@ -7,6 +7,9 @@ export const DOMAIN = {
   led: 'led',
   mcp: 'mcp',
   time: 'time',
+  conversation: 'conversation',
+  gateway: 'gateway',
+  companion: 'companion',
 } as const
 
 export const PREF_KEYS: readonly [keyof typeof DOMAIN, string, StringConstructor | NumberConstructor][] = Object.freeze(
@@ -30,6 +33,15 @@ export const PREF_KEYS: readonly [keyof typeof DOMAIN, string, StringConstructor
     [DOMAIN.ai, 'context', String],
     [DOMAIN.mcp, 'token', String],
     [DOMAIN.time, 'timezone', String],
+    [DOMAIN.conversation, 'backend', String],
+    [DOMAIN.conversation, 'autoStart', Number],
+    [DOMAIN.gateway, 'endpoint', String],
+    [DOMAIN.gateway, 'deviceId', String],
+    [DOMAIN.gateway, 'clientId', String],
+    [DOMAIN.gateway, 'token', String],
+    [DOMAIN.gateway, 'microphone', Number],
+    [DOMAIN.companion, 'greetingOnBoot', Number],
+    [DOMAIN.companion, 'idleReactions', Number],
   ],
   true,
 )

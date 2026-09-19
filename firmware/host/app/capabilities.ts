@@ -81,6 +81,8 @@ export type Button = {
 }
 
 export type DrawerButtonSpec = {
+  /** Optional top-level submenu. Ungrouped MOD actions remain at the root. */
+  group?: string
   key: string
   label: string
   callback: (context: StackchanContext, value?: string) => unknown
@@ -124,6 +126,7 @@ export type MotionCapability = {
 }
 
 export type AudioCapability = {
+  readonly isActive?: boolean
   tts: TTS
   microphone?: {
     record(durationMilliSec?: number): Promise<OwnedAudioBuffer>
@@ -242,6 +245,7 @@ export type ConnectivityCapability = {
 }
 
 export type LifecycleCapability = {
+  onClose?(handler: () => void | Promise<void>): void
   /**
    * Releases resources owned by the app runtime context.
    * The method is idempotent and rejects only when an asynchronous owned resource fails to close.

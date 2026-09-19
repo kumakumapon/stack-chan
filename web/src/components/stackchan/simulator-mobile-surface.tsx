@@ -1,19 +1,17 @@
-import { Compass, Gamepad2, Info, Package } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { Compass, Gamepad2, Info, Package, MessageCircle } from 'lucide-react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 
 import { useI18n } from '@/app/i18n-provider'
 import { OperationStatus } from '@/components/stackchan/operation-status'
-import {
-  SimulatorMobileControlDock,
-  type MobileDockTab,
-} from '@/components/stackchan/simulator-mobile-control-dock'
+import { SimulatorMobileControlDock, type MobileDockTab } from '@/components/stackchan/simulator-mobile-control-dock'
 import { SimulatorMobileQuickControls } from '@/components/stackchan/simulator-mobile-quick-controls'
 import { SimulatorViewport, type SimulatorSurfaceController } from '@/components/stackchan/simulator-surface'
 import { Button } from '@/components/ui/button'
 
 // `translate: false` matches the existing convention (see IMU's bare `<CardTitle>IMU</CardTitle>`
 // in simulator-surface.tsx) of leaving technical acronyms/labels like "MOD" untranslated.
-const PANEL_TABS: { value: MobileDockTab; label: string; icon: typeof Gamepad2; translate?: boolean }[] = [
+type CompanionDockTab = MobileDockTab | 'conversation'
+const PANEL_TABS: { value: CompanionDockTab; label: string; icon: typeof Gamepad2; translate?: boolean }[] = [
   { value: 'operate', label: '操作', icon: Gamepad2 },
   { value: 'sensors', label: 'センサー', icon: Compass },
   { value: 'mod', label: 'MOD', icon: Package, translate: false },
@@ -33,9 +31,15 @@ function StatusChip({ children }: { children: string }) {
   )
 }
 
-export function SimulatorMobileSurface({ controller }: { controller: SimulatorSurfaceController }) {
+export function SimulatorMobileSurface({
+  controller,
+  conversationPanel,
+}: {
+  controller: SimulatorSurfaceController
+  conversationPanel?: ReactNode
+}) {
   const { t } = useI18n()
-  const [activeTab, setActiveTab] = useState<MobileDockTab>('operate')
+  const [activeTab, setActiveTab] = useState<CompanionDockTab>('operate')
   const [dockOpen, setDockOpen] = useState(false)
   // What the browser sent into the simulated hardware, not what the firmware concluded from it —
   // the browser cannot know whether a stroke read as petting or a jolt as a shake, only
@@ -54,7 +58,7 @@ export function SimulatorMobileSurface({ controller }: { controller: SimulatorSu
     inputTimeoutRef.current = setTimeout(() => setLastInput(null), INPUT_CHIP_TIMEOUT_MS)
   }
 
-  const selectTab = (tab: MobileDockTab) => {
+  const selectTab = (tab: CompanionDockTab) => {
     // Tapping the already-open tab closes the dock instead of re-opening it, so the tab bar
     // doubles as the dock's own toggle and the 3D view can be given the full height back without
     // a second control.
@@ -116,13 +120,26 @@ export function SimulatorMobileSurface({ controller }: { controller: SimulatorSu
       <div className="flex shrink-0 flex-col landscape:h-full landscape:w-[min(22rem,55vw)]">
         <SimulatorMobileQuickControls controller={controller} onInput={handleInput} />
 
-        {dockOpen && <SimulatorMobileControlDock controller={controller} activeTab={activeTab} />}
+        {dockOpen && activeTab !== 'conversation' && (
+          <SimulatorMobileControlDock controller={controller} activeTab={activeTab} />
+        )}
+        {conversationPanel && (
+          <div
+            hidden={!dockOpen || activeTab !== 'conversation'}
+            className="max-h-[40dvh] overflow-y-auto p-2 landscape:max-h-[60dvh]"
+          >
+            {conversationPanel}
+          </div>
+        )}
 
         <nav
-          className="grid shrink-0 grid-cols-4 gap-1 border-t bg-background p-1.5 pb-[calc(0.375rem+env(safe-area-inset-bottom))] landscape:pb-1.5"
+          className={`grid shrink-0 ${conversationPanel ? 'grid-cols-5' : 'grid-cols-4'} gap-1 border-t bg-background p-1.5 pb-[calc(0.375rem+env(safe-area-inset-bottom))] landscape:pb-1.5`}
           aria-label={t('シミュレーター操作パネル')}
         >
-          {PANEL_TABS.map(({ value, label, icon: Icon, translate = true }) => (
+          {(conversationPanel
+            ? [{ value: 'conversation' as const, label: '会話', icon: MessageCircle }, ...PANEL_TABS]
+            : PANEL_TABS
+          ).map(({ value, label, icon: Icon, translate = true }) => (
             <Button
               key={value}
               variant="ghost"

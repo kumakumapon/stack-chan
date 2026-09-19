@@ -41,7 +41,14 @@ export function resolveGatewayConfig(
   modConfig: unknown,
 ): GatewayConfig | undefined {
   const enabledByMod = (modConfig as { gateway?: { enabled?: unknown } } | null)?.gateway?.enabled === true
-  return enabledByMod ? { ...(hostConfig ?? {}), enabled: true } : hostConfig
+  const override = (modConfig as { gateway?: { autoStart?: boolean } } | null)?.gateway
+  return enabledByMod
+    ? {
+        ...(hostConfig ?? {}),
+        enabled: true,
+        ...(override?.autoStart === undefined ? {} : { autoStart: override.autoStart }),
+      }
+    : hostConfig
 }
 
 /**

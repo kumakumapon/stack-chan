@@ -3,7 +3,7 @@ import { test } from 'node:test'
 import { createStackchanToolSchemas, mergeDeviceTools, STACKCHAN_EMBODIMENT_TOOL_NAMES } from './stackchan-tools.ts'
 import { EMPTY_TOOL_PARAMETERS, type ToolDefinition } from './tool-types.ts'
 
-test('STACKCHAN_EMBODIMENT_TOOL_NAMES lists the six embodiment tools', () => {
+test('STACKCHAN_EMBODIMENT_TOOL_NAMES includes character expression tools', () => {
   assert.deepEqual(
     [...STACKCHAN_EMBODIMENT_TOOL_NAMES].sort(),
     [
@@ -13,6 +13,8 @@ test('STACKCHAN_EMBODIMENT_TOOL_NAMES lists the six embodiment tools', () => {
       'stackchan.motion.lookAt',
       'stackchan.motion.setPose',
       'stackchan.say',
+      'stackchan.react',
+      'stackchan.perform',
     ].sort(),
   )
 })

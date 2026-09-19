@@ -16,6 +16,8 @@ export const STACKCHAN_EMBODIMENT_TOOL_NAMES: readonly string[] = [
   'stackchan.motion.lookAt',
   'stackchan.light.set',
   'stackchan.camera.capture',
+  'stackchan.react',
+  'stackchan.perform',
 ]
 
 // Matches `Emotion`/`EmotionNames` in `firmware/host/modules/ui/state/face-state.ts`.
@@ -27,6 +29,34 @@ function schema(properties: ToolParameterSchema['properties'], required: string[
 
 export function createStackchanToolSchemas(): ToolDefinition[] {
   return [
+    ...(
+      [
+        [
+          'stackchan.react',
+          'Use a short named gesture sparingly to express a reaction.',
+          ['yes', 'no', 'greeting', 'thinking', 'delighted', 'sleepy-yawn', 'success', 'failure'],
+        ],
+        [
+          'stackchan.perform',
+          'Perform a named song, dance or encouragement when requested.',
+          ['greeting', 'happy-dance', 'cheer', 'sing-twinkle'],
+        ],
+      ] as const
+    ).map(
+      ([name, description, names]): ToolDefinition => ({
+        name,
+        description,
+        host: 'device',
+        permission: 'safe',
+        parameters: schema(
+          {
+            name: { type: 'string', enum: [...names] },
+            intensity: { type: 'number', minimum: 0, maximum: 1, description: 'Head motion amplitude, 0–1.' },
+          },
+          ['name'],
+        ),
+      }),
+    ),
     {
       name: 'stackchan.say',
       description: 'Speaks text out loud through Stack-chan.',

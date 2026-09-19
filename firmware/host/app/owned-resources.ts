@@ -13,6 +13,11 @@ export class OwnedResources {
     return this.#closePromise
   }
 
+  add(handler: CloseHandler): void {
+    if (this.#closePromise) throw new Error('resources already closed')
+    this.#handlers.push(handler)
+  }
+
   async #closeAll(): Promise<void> {
     let firstError: unknown
     let hasError = false

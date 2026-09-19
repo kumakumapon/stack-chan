@@ -200,12 +200,12 @@ test('routes stackchan.gateway.v1 frames to the sideband handler and forwards ev
     final: true,
   }
   sockets[0].options.onMessage(JSON.stringify(transcript))
-  assert.deepEqual(sideband, [transcript])
+  assert.deepEqual(sideband, [validSessionReady, transcript])
   assert.deepEqual(realtimeEvents, [])
 
   const realtimeRaw = '{"type":"response.function_call_arguments.done","call_id":"c1"}'
   sockets[0].options.onMessage(realtimeRaw)
-  assert.deepEqual(sideband, [transcript])
+  assert.deepEqual(sideband, [validSessionReady, transcript])
   assert.deepEqual(realtimeEvents, [realtimeRaw])
 })
 
@@ -234,7 +234,7 @@ test('drops malformed JSON and malformed gateway frames instead of forwarding or
   sockets[0].options.onMessage('{not valid json')
   sockets[0].options.onMessage(JSON.stringify({ schema: 'stackchan.gateway.v1', type: 'transcript.output' }))
 
-  assert.deepEqual(sideband, [])
+  assert.deepEqual(sideband, [validSessionReady])
   assert.deepEqual(realtimeEvents, [])
 })
 

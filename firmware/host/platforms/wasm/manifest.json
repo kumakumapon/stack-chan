@@ -17,9 +17,15 @@
     "../../modules/performance/manifest_wasm.json",
     "../../modules/util/manifest.json",
     "../../modules/preferences/manifest_wasm.json",
-    "../../app/manifest_typings.json"
+    "../../app/manifest_typings.json",
+    "../../app/docks/gateway/manifest_common.json"
   ],
   "modules": {
+    "stackchan-dock": "../../app/docks/conversation-router",
+    "stackchan-gateway-browser": "../../app/docks/gateway/wasm/browser",
+    "stackchan-gateway-socket": "../../app/docks/gateway/wasm/socket",
+    "stackchan-gateway-microphone": "../../app/docks/gateway/wasm/microphone",
+    "wasm-conversation-control": "../../app/docks/gateway/wasm/control",
     "*": [
       "../../app/main",
       "../../app/app-behavior",
@@ -51,6 +57,7 @@
     "py32-led": "../../modules/lighting/wasm/py32-led",
     "app-behavior": "../../app/app-behavior",
     "app-default-behavior": "../../app/default-behavior/wasm/behavior",
+    "app-default-behavior/companion": "../../app/default-behavior/companion",
     "app-default-behavior/wasm/behavior": "../../app/default-behavior/wasm/behavior",
     "app-default-behavior/wasm/on-launch": "../../app/default-behavior/wasm/on-launch",
     "app-default-behavior/startup-choice": "../../app/default-behavior/startup-choice",

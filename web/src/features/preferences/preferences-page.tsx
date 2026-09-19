@@ -202,6 +202,7 @@ export function PreferencesPage() {
             '音声合成',
             <>
               {selectField('tts.type', 'サービス', [
+                { value: 'stackchan-voice', label: 'stackchan-voice', translate: false },
                 { value: 'voicevox', label: 'VOICEVOX', translate: false },
                 { value: 'elevenlabs', label: 'ElevenLabs', translate: false },
                 { value: 'google-tts', label: 'Google TTS', translate: false },
@@ -220,6 +221,49 @@ export function PreferencesPage() {
                 min: '0',
                 max: '1',
               })}
+            </>
+          )}
+          {section(
+            '会話',
+            <>
+              {selectField('conversation.backend', '会話モード', [
+                { value: 'none', label: 'オフ' },
+                { value: 'gateway', label: 'Gateway', translate: false },
+                { value: 'usb', label: 'USB', translate: false },
+              ])}
+              {selectField('conversation.autoStart', '起動時に接続', [
+                { value: '0', label: 'オフ' },
+                { value: '1', label: 'オン' },
+              ])}
+              {inputField({
+                name: 'gateway.endpoint',
+                label: 'Gateway URL',
+                placeholder: 'ws://192.168.1.10:8765/',
+                wide: true,
+              })}
+              {inputField({ name: 'gateway.deviceId', label: 'Device ID' })}
+              {inputField({ name: 'gateway.clientId', label: 'Client ID' })}
+              {inputField({ name: 'gateway.token', label: 'Gatewayトークン', type: 'password', autoComplete: 'off' })}
+              {selectField('gateway.microphone', 'マイクを使用', [
+                { value: '0', label: 'オフ' },
+                { value: '1', label: 'オン' },
+              ])}
+              <p className="text-sm text-muted-foreground sm:col-span-2">
+                {t('会話設定は再起動後に反映されます。AIのAPIキーはGateway側で設定します。')}
+              </p>
+            </>
+          )}
+          {section(
+            'Companion',
+            <>
+              {selectField('companion.greetingOnBoot', '起動時の挨拶', [
+                { value: '0', label: 'オフ' },
+                { value: '1', label: 'オン' },
+              ])}
+              {selectField('companion.idleReactions', '待機中のリアクション', [
+                { value: '0', label: 'オフ' },
+                { value: '1', label: 'オン' },
+              ])}
             </>
           )}
           {section(

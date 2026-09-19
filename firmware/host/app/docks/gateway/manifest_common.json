@@ -1,12 +1,7 @@
 {
-  "include": [
-    "$(MODULES)/data/text/manifest.json",
-    "$(MODDABLE)/examples/io/tcp/websocket/manifest_websocket.json"
-  ],
   "modules": {
     "stackchan-gateway-pcm": "./pcm",
-    "stackchan-gateway-microphone": "./microphone-stream",
-    "stackchan-dock": "./dock",
+    "stackchan-gateway-dock": "./dock",
     "stackchan-application-event": "../../remote-session/application-event",
     "stackchan-approval-model": "../../remote-session/approval-model",
     "stackchan-approval-session": "../../remote-session/approval-session",
@@ -20,7 +15,6 @@
     "stackchan-gateway-config": "../../../modules/conversation/gateway/gateway-config",
     "stackchan-gateway-protocol": "../../../modules/conversation/gateway/gateway-protocol",
     "stackchan-gateway-dock-runtime": "./runtime",
-    "stackchan-gateway-dock-presentation": "./presentation",
-    "stackchan-gateway-socket": "./socket"
+    "stackchan-gateway-dock-presentation": "./presentation"
   }
 }

@@ -1,0 +1,12 @@
+{
+  "include": [
+    "./android-usb-audio/manifest.json",
+    "./gateway/manifest_common.json",
+    "$(MODDABLE)/examples/io/tcp/websocket/manifest_websocket.json"
+  ],
+  "modules": {
+    "stackchan-gateway-microphone": "./gateway/microphone-stream",
+    "stackchan-dock": "./conversation-router",
+    "stackchan-gateway-socket": "./gateway/socket"
+  }
+}

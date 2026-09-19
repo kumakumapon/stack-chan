@@ -46,6 +46,10 @@ const touchPanel: {
 }
 
 const robot = {
+  conversation: {},
+  reaction: { status: () => ({ active: null }), play: () => ({ ok: true }) },
+  performance: { status: () => ({ active: null }), play: () => ({ ok: true }) },
+  lifecycle: {},
   audio: {
     say: (text: string) => {
       speechRequests.push(text)
@@ -127,6 +131,7 @@ try {
       tts: {},
       ai: {},
       led: {},
+      companion: { greetingOnBoot: false, idleReactions: false },
     },
   })
 } catch (error) {
@@ -135,10 +140,11 @@ try {
   throw error
 }
 
-equal(buttons[0]?.key, 'toggleFace', 'toggleFace button should be registered')
-equal(buttons[0]?.kind, 'choice', 'face selection should use an option menu')
-equal(buttons[0]?.value, 'simple', 'face selection should expose its current value')
-equal(buttons[0]?.options?.length, 3, 'face selection should expose every mode')
+const faceButton = buttons.find((button) => button.key === 'toggleFace')
+equal(faceButton?.key, 'toggleFace', 'toggleFace button should be registered')
+equal(faceButton?.kind, 'choice', 'face selection should use an option menu')
+equal(faceButton?.value, 'simple', 'face selection should expose its current value')
+equal(faceButton?.options?.length, 3, 'face selection should expose every mode')
 equal(drawerStates.length, 0, 'choice controls should not masquerade as binary toggles')
 equal(events[0]?.[0], 'onFaceMode', 'initial face mode should be distributed')
 equal(events[0]?.[1], 'simple', 'initial face mode should be simple')

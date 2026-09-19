@@ -1,5 +1,5 @@
 import { Camera, Download, FileUp, RotateCw, Trash2 } from 'lucide-react'
-import { useRef, type RefObject } from 'react'
+import { useRef, type RefObject, type ReactNode } from 'react'
 
 import { useI18n } from '@/app/i18n-provider'
 import { LogConsole, type LogEntry } from '@/components/stackchan/log-console'
@@ -461,12 +461,19 @@ export function SimulatorLogPanel({
   )
 }
 
-function SimulatorToolbar({ controller }: { controller: SimulatorSurfaceController }) {
+function SimulatorToolbar({
+  controller,
+  conversationPanel,
+}: {
+  controller: SimulatorSurfaceController
+  conversationPanel?: ReactNode
+}) {
   const { t } = useI18n()
   const { inputs } = controller.deviceProfile
 
   return (
     <aside className="grid content-start gap-4" aria-label={t('シミュレーター操作')}>
+      {conversationPanel}
       <DeviceProfileCard controller={controller} />
 
       <ModRuntimeControl controller={controller} />
@@ -487,9 +494,11 @@ function SimulatorToolbar({ controller }: { controller: SimulatorSurfaceControll
 export function SimulatorSurface({
   controller,
   embedded = false,
+  conversationPanel,
 }: {
   controller: SimulatorSurfaceController
   embedded?: boolean
+  conversationPanel?: ReactNode
 }) {
   const { t } = useI18n()
   return (
@@ -499,7 +508,7 @@ export function SimulatorSurface({
         embedded ? 'h-full min-h-0 overflow-auto pr-1' : 'page-container'
       )}
     >
-      <div className="grid min-w-0 gap-4">
+      <div className="grid min-w-0 content-start gap-4">
         <SimulatorViewport
           viewportRef={controller.viewportRef}
           screenRef={controller.screenRef}
@@ -521,7 +530,7 @@ export function SimulatorSurface({
         />
       </div>
 
-      <SimulatorToolbar controller={controller} />
+      <SimulatorToolbar controller={controller} conversationPanel={conversationPanel} />
     </div>
   )
 }

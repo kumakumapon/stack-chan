@@ -21,10 +21,10 @@ export type GatewayPresentation = {
   /** Toggles local TTS once `session.ready` says whether the Gateway streams audio. */
   setSpeakLocally(enabled: boolean): void
   onInputTranscript(text: string, final: boolean): void
-  onOutputTranscript(text: string, final: boolean): void
+  onOutputTranscript(text: string, final: boolean): void | Promise<void>
   onAudioStarted(format: GatewayAudioFormat): void
   onAudioChunk(payload: string): void
-  onAudioCompleted(): void
+  onAudioCompleted(): void | Promise<void>
   onAgentError(message: string, fatal: boolean): void
   close(): void
 }
@@ -37,7 +37,7 @@ export type GatewayPresentationOptions = {
    */
   speakLocally: boolean
   /** Accumulated base64 PCM frames are played through this when the turn ends. */
-  playAudio?(frames: string[], format: GatewayAudioFormat): void
+  playAudio?(frames: string[], format: GatewayAudioFormat): undefined | Promise<unknown>
 }
 
 export function createGatewayPresentation(
@@ -45,6 +45,7 @@ export function createGatewayPresentation(
   options: GatewayPresentationOptions,
 ): GatewayPresentation {
   let frames: string[] = []
+  let encodedBytes = 0
   let format: GatewayAudioFormat | undefined
   let closed = false
   let speakLocally = options.speakLocally
@@ -65,37 +66,40 @@ export function createGatewayPresentation(
     onInputTranscript(text, final) {
       if (final) showBalloon(text)
     },
-    onOutputTranscript(text, final) {
+    async onOutputTranscript(text, final) {
       if (!final) return
       showBalloon(text)
       if (!speakLocally || closed) return
-      try {
-        void context.audio.say(text)
-      } catch (error) {
-        log(`[gateway-dock] local TTS failed: ${errorMessage(error)}\n`)
+      const result = await context.audio.say(text)
+      if (result && typeof result === 'object' && 'success' in result && result.success === false) {
+        throw new Error('reason' in result ? String(result.reason) : 'Local speech failed')
       }
     },
     onAudioStarted(nextFormat) {
       frames = []
+      encodedBytes = 0
       format = nextFormat
     },
     onAudioChunk(payload) {
       // The turn is buffered rather than streamed: Piu has no PCM sink that can
       // be fed frame by frame, and playAudio() wants one contiguous buffer.
       // Latency is one assistant turn; streaming needs an audio worker.
+      if (closed || !format) return
+      if (encodedBytes + payload.length > 256000) {
+        frames = []
+        format = undefined
+        throw new Error('Gateway audio reply exceeds buffer limit')
+      }
+      encodedBytes += payload.length
       frames.push(payload)
     },
-    onAudioCompleted() {
+    async onAudioCompleted() {
       const pending = frames
       const pendingFormat = format
       frames = []
       format = undefined
       if (closed || pending.length === 0 || !pendingFormat || !options.playAudio) return
-      try {
-        options.playAudio(pending, pendingFormat)
-      } catch (error) {
-        log(`[gateway-dock] audio playback failed: ${errorMessage(error)}\n`)
-      }
+      if ((await options.playAudio(pending, pendingFormat)) === false) throw new Error('Audio playback failed')
     },
     onAgentError(message, fatal) {
       showBalloon(fatal ? `Agent stopped: ${message}` : message)

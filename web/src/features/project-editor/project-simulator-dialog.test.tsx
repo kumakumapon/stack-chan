@@ -14,6 +14,9 @@ vi.mock('@/features/simulator/use-simulator-engine', () => ({
 }))
 
 const simulatorController = {
+  configureConversation: vi.fn(async () => {}),
+  conversationCommand: vi.fn(),
+  getConversationStatus: vi.fn(),
   viewportRef: createRef<HTMLCanvasElement>(),
   screenRef: createRef<HTMLCanvasElement>(),
   operation: { status: 'idle' as const },

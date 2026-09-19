@@ -63,6 +63,7 @@ export function createGatewayBridge(options: GatewayBridgeOptions): GatewayBridg
   let eventHandler: ((event: string) => void) | undefined
   let transportStateHandler: ((state: RemoteConversationTransportState) => void) | undefined
   let sidebandHandler: ((message: GatewayServerMessage) => void) | undefined
+  let sessionReady: GatewayServerMessage | undefined
 
   let transportState: RemoteConversationTransportState = 'disconnected'
   let socket: GatewaySocket | undefined
@@ -75,6 +76,7 @@ export function createGatewayBridge(options: GatewayBridgeOptions): GatewayBridg
   let closed = false
 
   const setTransportState = (next: RemoteConversationTransportState) => {
+    if (next !== 'ready') sessionReady = undefined
     if (next === transportState) return
     transportState = next
     transportStateHandler?.(next)
@@ -169,6 +171,7 @@ export function createGatewayBridge(options: GatewayBridgeOptions): GatewayBridg
       // session.ready message itself, so a handler that inspects
       // `transportState` while reacting to `session.ready` observes 'ready'.
       setTransportState('ready')
+      sessionReady = message
     }
     sidebandHandler?.(message)
   }
@@ -263,6 +266,7 @@ export function createGatewayBridge(options: GatewayBridgeOptions): GatewayBridg
     },
     setSidebandHandler(handler) {
       sidebandHandler = handler
+      if (handler && sessionReady) handler(sessionReady)
     },
     close() {
       if (closed) return
