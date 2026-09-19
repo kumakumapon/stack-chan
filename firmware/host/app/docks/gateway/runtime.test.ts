@@ -62,7 +62,7 @@ function harness(
   let speakLocally: boolean | undefined
   let conversationState: RemoteConversationState = 'listening'
   let stateListener = () => {}
-  let disconnect = () => {}
+  const disconnectListeners = new Set<() => void>()
   let tick = () => {}
   let frame: ((payload: string) => void) | undefined
   let audioActive = false
@@ -104,9 +104,10 @@ function harness(
             }
           },
           subscribeTransport(listener) {
-            disconnect = () => listener('disconnected')
+            const callback = () => listener('disconnected')
+            disconnectListeners.add(callback)
             return () => {
-              disconnect = () => {}
+              disconnectListeners.delete(callback)
             }
           },
         },
@@ -191,7 +192,9 @@ function harness(
     presented,
     sent,
     tick: () => tick(),
-    disconnect: () => disconnect(),
+    disconnect: () => {
+      for (const listener of disconnectListeners) listener()
+    },
     frame: () => frame?.('AAAA'),
     setAudioActive(value: boolean) {
       audioActive = value
