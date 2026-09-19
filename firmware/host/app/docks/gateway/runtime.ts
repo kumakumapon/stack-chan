@@ -116,6 +116,11 @@ export function createGatewayDockRuntime(
     let responseId: string | undefined
     let cancelRequest: string | undefined
     let cancelTimer: unknown
+    const clearCancelTimer = () => {
+      const timer = cancelTimer
+      cancelTimer = undefined
+      if (timer !== undefined) dependencies.scheduler?.clear(timer)
+    }
     let audioInputEnabled = false
     let speakLocally = true
     let sequence = 0
@@ -203,6 +208,7 @@ export function createGatewayDockRuntime(
           return
         }
         cancelTimer = dependencies.scheduler?.set(() => {
+          cancelTimer = undefined
           if (!bindingClosed && cancelRequest)
             activation.updateConversationState('blocked', 'Gateway interruption timed out')
         }, 5000)
@@ -212,7 +218,7 @@ export function createGatewayDockRuntime(
         if (state !== 'ready') {
           audioInputEnabled = false
           cancelRequest = undefined
-          if (cancelTimer !== undefined) dependencies.scheduler?.clear(cancelTimer)
+          clearCancelTimer()
           stopPlayback()
         }
         syncMicrophone()
@@ -225,7 +231,7 @@ export function createGatewayDockRuntime(
         if (message.type === 'response.cancelled') {
           if (cancelRequest !== message.requestId) return
           cancelRequest = undefined
-          if (cancelTimer !== undefined) dependencies.scheduler?.clear(cancelTimer)
+          clearCancelTimer()
           activation.updateConversationState('listening')
           syncMicrophone()
           return
@@ -316,7 +322,7 @@ export function createGatewayDockRuntime(
         if (bindingClosed) return
         bindingClosed = true
         interruptActive = undefined
-        if (cancelTimer !== undefined) dependencies.scheduler?.clear(cancelTimer)
+        clearCancelTimer()
         if (poll !== undefined) dependencies.scheduler?.clear(poll)
         let firstError: unknown
         const attempt = (operation: () => void) => {

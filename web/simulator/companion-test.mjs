@@ -149,6 +149,7 @@ try {
   for (const { result } of results) assert.equal(result.ok, true, JSON.stringify(result))
   await page.getByRole('button', { name: '会話を停止', exact: true }).click()
   await status.filter({ hasText: 'standby' }).waitFor()
+  assert.equal(await page.getByRole('alert').count(), 0, 'stop must not report a firmware cleanup error')
   await page.evaluate(() => window.scrollTo(0, 0))
   await page.waitForTimeout(250)
   await page.screenshot({ path: join(tmpdir(), 'stackchan-companion-conversation.png') })
@@ -177,6 +178,7 @@ try {
   assert.ok(await page.evaluate(() => globalThis.gatewayFrames.some((frame) => frame.type === 'audio.completed')))
   await page.getByRole('button', { name: '会話を停止', exact: true }).click()
   await status.filter({ hasText: 'standby' }).waitFor()
+  assert.equal(await page.getByRole('alert').count(), 0, 'stop must not report a firmware cleanup error')
   await page.screenshot({ path: join(tmpdir(), 'stackchan-gateway-stream-interrupt.png') })
   // Chromium supplies synthetic audio; this test never opens a physical microphone.
   await page.getByLabel('ブラウザのマイク').check()
@@ -189,6 +191,7 @@ try {
   })
   await page.getByRole('button', { name: '会話を停止', exact: true }).click()
   await status.filter({ hasText: 'standby' }).waitFor()
+  assert.equal(await page.getByRole('alert').count(), 0, 'stop must not report a firmware cleanup error')
   const count = await page.evaluate(
     () => globalThis.companionFrames.filter((frame) => frame.type === 'audio.input').length
   )

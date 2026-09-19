@@ -64,6 +64,8 @@ function harness(
   let stateListener = () => {}
   const disconnectListeners = new Set<() => void>()
   let tick = () => {}
+  let timerSequence = 0
+  const timers = new Set<number>()
   let frame: ((payload: string) => void) | undefined
   let audioActive = false
   let microphoneRunning = false
@@ -163,11 +165,16 @@ function harness(
       createPresentation: () => presentation,
       scheduler: {
         set(callback) {
-          tick = callback
-          return 1
+          const id = ++timerSequence
+          timers.add(id)
+          tick = () => {
+            if (!timers.delete(id)) return
+            callback()
+          }
+          return id
         },
-        clear() {
-          tick = () => {}
+        clear(handle) {
+          assert.ok(timers.delete(handle as number), 'cannot clear an expired or already cleared timer')
         },
       },
       isAudioActive: () => audioActive,
