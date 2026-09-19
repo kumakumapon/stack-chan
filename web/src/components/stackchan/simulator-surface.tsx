@@ -508,7 +508,7 @@ export function SimulatorSurface({
         embedded ? 'h-full min-h-0 overflow-auto pr-1' : 'page-container'
       )}
     >
-      <div className="grid min-w-0 gap-4">
+      <div className="grid min-w-0 content-start gap-4">
         <SimulatorViewport
           viewportRef={controller.viewportRef}
           screenRef={controller.screenRef}

@@ -75,6 +75,8 @@ try {
     headless: true,
     args: [
       '--no-sandbox',
+      '--use-angle=swiftshader',
+      '--enable-unsafe-swiftshader',
       '--use-fake-device-for-media-stream',
       '--use-fake-ui-for-media-stream',
       '--autoplay-policy=no-user-gesture-required',
@@ -143,6 +145,18 @@ try {
     count
   )
   assert.deepEqual(errors, [])
+  const mobile = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true })
+  await mobile.addInitScript(() => localStorage.setItem('stackchan.locale', 'ja'))
+  const mobilePage = await mobile.newPage()
+  await mobilePage.goto(`${baseUrl}/simulator/`)
+  await mobilePage.getByRole('button', { name: '会話', exact: true }).click()
+  await mobilePage.locator('#conversation-endpoint').fill('ws://localhost:8765/')
+  await mobilePage.getByRole('button', { name: '操作', exact: true }).click()
+  await mobilePage.getByRole('button', { name: '会話', exact: true }).click()
+  assert.equal(await mobilePage.locator('#conversation-endpoint').inputValue(), 'ws://localhost:8765/')
+  assert.ok(await mobilePage.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1))
+  await mobilePage.screenshot({ path: join(tmpdir(), 'stackchan-companion-mobile.png') })
+  await mobile.close()
   console.log('Companion WASM: text round trip, named tools, stop, and synthetic microphone passed')
 } finally {
   await browser?.close()

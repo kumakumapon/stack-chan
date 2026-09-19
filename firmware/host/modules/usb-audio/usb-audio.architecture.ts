@@ -49,7 +49,7 @@ test('CoreS3 composes the USB Dock without leaking it into shared or WASM graphs
   assert.equal(dockManifest.modules?.['stackchan-usb-dock'], './dock')
   assert.ok(coreS3Manifest.include?.includes('../modules/usb-audio/manifest.json'))
   assert.deepEqual(usbAppManifest.include, ['./manifest_m5stackchan_cores3.json'])
-  assert.equal(dockManifest.modules?.['stackchan-dock'], './dock')
+  assert.equal(dockManifest.modules?.['stackchan-dock'], undefined, 'only the router owns the public Dock entry')
   assert.equal(dockManifest.modules?.['stackchan-remote-session-facade'], '../../remote-session/facade')
   assert.equal(dockManifest.modules?.['stackchan-remote-session-runtime'], '../../remote-session/runtime')
   assert.equal(dockManifest.modules?.['stackchan-task-session'], '../../remote-session/task-session')
