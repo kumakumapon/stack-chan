@@ -251,13 +251,13 @@ export class StackchanRuntimeUI {
       })
       buttons.push({ key, label })
     }
-    if (this.#drawerGroup) navigate('__drawerBack', '‹ Back')
+    if (this.#drawerGroup) navigate('__drawerBack', '< Back')
     for (const spec of this.#drawerButtonSpecs.values()) {
       this.bindDrawerButton(spec)
       if (spec.group !== this.#drawerGroup) {
         if (!this.#drawerGroup && spec.group && !groups.has(spec.group)) {
           groups.add(spec.group)
-          navigate(`__drawerGroup${groups.size}`, `${spec.group} ›`, spec.group)
+          navigate(`__drawerGroup${groups.size}`, `${spec.group} >`, spec.group)
         }
         continue
       }
