@@ -382,6 +382,20 @@ export const Drawer: DrawerTemplateCtor = Container.template((d: DrawerDictionar
       }
       setOpen(container: PiuContainer, open: boolean) {
         trace(`[Drawer] setOpen ${open}\n`)
+        if (open) {
+          const list = this.getButtonList(container)
+          if (list && !list.first) {
+            list.add(
+              new Label(null, {
+                left: 0,
+                right: 0,
+                height: 44,
+                string: `Menu empty: ${this.buttons.length}`,
+                style: skins.drawerButtonStyle,
+              }),
+            )
+          }
+        }
         if (this.isOpen === open && !this.timeline) return
         this.isOpen = open
         const to = this.isOpen ? 0 : drawerHiddenOffset
