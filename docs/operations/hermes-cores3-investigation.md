@@ -1,7 +1,171 @@
-# Hermes Desktop / CoreS3 conversation investigation (paused)
+# Hermes Desktop / CoreS3 conversation investigation
 
 Status: work in progress; not a verified physical-device voice-conversation solution.
-Paused at the user's request on 2026-09-20. No sub-agents were used.
+Paused again at the user's request on 2026-09-21. No sub-agents were used.
+
+## Latest pause state (2026-09-21)
+
+This section supersedes the historical pause state below.
+
+- The user confirmed reboot no longer shows the LED boot error. The underlying
+  intermittent I2C fault is not proven fixed, and a complete voice conversation
+  has not yet succeeded.
+- The user identified the intermittent microphone send failure as `socket-full`.
+  The latest bounded backpressure change was built, flashed with hash verification,
+  and reset successfully, but the user paused before physically retesting it.
+  Recovery on the device is therefore unverified; capture pauses can lose audio.
+- Gateway Dock Node tests: 51 passed sequentially. Native socket and LED behavioral
+  tests passed using Node substitutes, not XS; local xst crashes even on a trivial
+  program. The earlier Gateway server run passed 150 tests.
+- The test Gateway process was stopped for this pause. Hermes Desktop was left
+  running. Device preferences remain `conversation.backend=gateway`, `autoStart=0`,
+  and `gateway.microphone=1`: conversation is manually started, not disabled in
+  preferences. Endpoint, credentials, Wi-Fi, and the existing scoped firewall rule
+  were retained. Temporary on-device diagnostics remain installed.
+- Resume with a short physical microphone/conversation test of this flashed build.
+  Check queue recovery versus send-wait timeout and actual received frame counts;
+  do not assume either performance improvement or successful dialogue yet.
+- Follow-up is tracked in issue #45 and draft PR #46. Keep the PR draft; overall
+  release impact remains minor for the experimental backend, with patch changesets
+  for the subsequent firmware fixes.
+
+## Resumed: boot failure
+
+- User reported `Boot context: write failed` after restarting and authorized
+  disabling the legacy MiniStack MOD if it conflicts.
+- This stage is inside `createStackchanContext`, before mini-app registration
+  and context-created menu behaviors. It does not identify the failing component
+  or establish a MOD conflict. Earlier records say the legacy MOD was removed;
+  current presence still needs confirmation on the device.
+- Added temporary per-component boot-stage reporting and `MOD: present/none`
+  on the error screen. Initialization order and failure handling are unchanged.
+- The local ESP32 SDK can emit this exact message for I2C writes (among other
+  operations); hardware bus failure is a candidate, not a confirmed root cause.
+- Conversation remains disabled while investigating boot. No preferences or MOD
+  partitions have been erased during this resumed investigation.
+
+### LED initialization failure isolated
+
+- After another reboot the user confirmed `Boot led: write failed` and
+  `MOD: none`. This identifies the LED construction stage, not a legacy MOD
+  conflict. The physical cause of the intermittent write failure remains unknown.
+- `PY32Led` guarded expander discovery but not its subsequent configuration and
+  initial clear. Those writes could throw before context/menu registration.
+- Guarded the entire LED configuration/initial clear; on failure only this LED
+  instance becomes inert until reboot. The shared expander is not closed or reset
+  because the servo driver also uses it. Healthy initialization is unchanged.
+- Added an XS-compatible behavioral regression manifest covering every initial
+  write, inert operations/effects after failure, shared-bus preservation, and
+  healthy/recovered construction. Nine injected write failures passed with the
+  real LED/expander implementations and fake SMBus/timer under Node after type
+  stripping. Native Windows `xst.exe` crashed with access violation even for a
+  trivial print, so this is not an XS runtime test pass. Biome checks passed.
+- The same regression test reproduced the uncaught `write failed` against the
+  pre-fix implementation. The patched CoreS3 firmware built and was flashed on
+  COM3 with hash verification and reset; on-screen results await user confirmation.
+- This contains boot failure; it does not fix the underlying bus fault, guarantee
+  physical LEDs are off after a partial write, or handle later runtime LED errors.
+  Repeated physical reboot verification is still required.
+
+### Resumed conversation transport investigation
+
+- User subsequently confirmed reboot without the LED boot error. Physical LED
+  communication recovery itself is not confirmed.
+- Found a separate Gateway socket defect: payload-only subtraction ignored the
+  native WebSocket client's returned remaining payload capacity (which accounts
+  for frame/mask overhead). Queued writes could exceed the native capacity.
+- Changed the adapter to use the write return value and report failures while
+  draining queued frames in `onWritable` through the normal disconnect callback.
+- Added an XS-compatible socket regression manifest. Under Node with only types
+  stripped and TextEncoder mapped, the pre-fix adapter reproduced capacity
+  overflow; the fixed adapter passed backpressure/resume and asynchronous failure
+  notification/close checks. XS runtime execution remains unavailable on this PC.
+- Gateway build and all 150 tests passed again. Live voice improvement is not yet
+  verified; the Hermes backend was not detected during the initial resumption
+  check. User was asked to start Hermes and open the robot's startup BLE Settings.
+
+### Live retry on 2026-09-21
+
+- Hermes Desktop was found on loopback port 53000. Started the LAN Gateway with
+  metadata-only diagnostics (node PID 30092 at start, TCP 8766). Logs are ignored
+  `gateway/dist/hermes-resume-20260921.log` and `.error.log`.
+- Restored conversation preferences over BLE with acknowledgements for every key;
+  autoStart remains 0. BLE dependencies require the installed CPython 3.11, not
+  the default Miniforge Python. Wi-Fi settings were not changed.
+- After manual conversation start the user still reported the listening state.
+  Gateway received only 0-15 audio frames per five seconds, with reconnects and
+  session replacement. Thus the socket fix did not resolve the live starvation.
+- Added temporary on-screen microphone counters: elapsed seconds, C (readable
+  callbacks), F (frames produced), P (maximum read/frame/send processing ms).
+  These contain no audio/transcripts and are removed when capture stops. Compare
+  device counters with Gateway arrivals before altering gain or VAD thresholds.
+- User read the first counter screen as `10 12 123 7518` (display was difficult
+  to read), provisionally corresponding to 10s, 12 callbacks, 123 frames and
+  7518ms maximum processing time. Treat this transcription as provisional.
+- Expanded the diagnostic to six white-background, 24px-font rows. READ measures
+  native read time, FRAME measures remaining framing time excluding nested
+  encoding/send, BASE64 and SEND sum their time within each readable callback,
+  TOTAL measures the whole callback. Each displayed value is its own maximum
+  since capture started, so displayed maxima need not sum to TOTAL. SEND is
+  synchronous submission time, not network delivery latency. No capture format,
+  gain, VAD threshold or framing algorithm was changed for this measurement.
+
+### PCM processing optimization
+
+- User confirmed READ=129ms, FRAME=2841ms, BASE64=1952ms, SEND=3159ms and
+  TOTAL=7800ms on the expanded screen. These are independent per-callback maxima,
+  not a single additive breakdown. They include synchronous processing only.
+- Replaced per-byte grow/shrink arrays in the framer with bulk mono copies and
+  fixed stereo carry storage; completed frame buffers are transferred without
+  copying. Stereo averaging and arbitrary-byte chunk semantics are preserved.
+- Prefer native Uint8Array.toBase64 when present (confirmed in the local XS SDK);
+  fallback joins encoded groups once. Fast-path printable ASCII envelope byte
+  counting through a native regexp, retaining UTF-8 accounting for other data.
+- PCM/bridge regression tests: 25 passed, including independent reference mixing,
+  multiple-frame ownership, arbitrary chunk/view boundaries, native/fallback
+  Base64 equivalence and exact ASCII/Japanese/emoji outbound limits. Firmware
+  test TypeScript compilation and targeted Biome checks passed.
+- Keep expanded on-device timing visible to measure actual effect after flashing.
+  No claim of live voice recovery or measured speedup yet; input format and VAD
+  thresholds are unchanged.
+
+### Intermittent microphone send failures after optimization
+
+- User reports intermittent `Microphone send failed`. Gateway shows batches of
+  35-51 frames followed by zero-frame intervals and reconnects; this does not
+  prove whether queue capacity or a transport exception caused each failure.
+- Added local `lastSendFailure` categories to the bridge and changed the blocked
+  message to `Mic send: bridge-full/socket-full/write-error/disconnected`.
+  Capture the category before stopping the microphone, since shutdown may send
+  another control message. No payload, token or arbitrary remote error text is
+  exposed in this display. Queue limits and recovery behavior are unchanged.
+- Diagnostic category/reset tests added. Gateway Dock tests: 47 passed with
+  `--test-concurrency=1`; an initial parallel run failed in pcm-stream test setup,
+  so do not report that parallel run as passing. Targeted Biome and test TypeScript
+  compilation passed. Physical failure category is still awaiting observation.
+
+### Confirmed socket-full and bounded backpressure handling
+
+- User observed `socket-full`, identifying the local WebSocket adapter's 32 KiB
+  queue limit. This confirms the immediate failure, not why transport drains
+  slower than capture.
+- Socket capacity rejection now returns false without accepting the frame or
+  closing the connection. The bridge releases its provisional byte accounting
+  and reports overflow without scheduling a reconnect.
+- Microphone input pauses with only the first unaccepted frame retained. Polls
+  retry that frame with its original sequence, then resume capture on acceptance.
+  Further callbacks while paused are not buffered; capture during a pause can be
+  lost. This is bounded backpressure, not a lossless recording guarantee.
+- At most 250 scheduled retry polls are attempted (nominally 20ms apart, not a
+  strict five-second deadline when the device is busy). Persistent blockage
+  reports `Mic send: send wait timeout` instead of accumulating audio indefinitely.
+- Input stop/disconnect/deactivation drops retained audio and unsent audio entries
+  in the adapter while preserving control entries. Bytes already handed to TCP
+  cannot be recalled. Queue capacity is unchanged.
+- Gateway Dock regression tests: 51 passed sequentially. Real adapter tests with
+  fake native transport passed under Node after type stripping, including capacity
+  rejection, no disconnect, selective audio clearing and resume. Native XS runner
+  remains unavailable; live recovery still needs user verification.
 
 ## Implemented
 

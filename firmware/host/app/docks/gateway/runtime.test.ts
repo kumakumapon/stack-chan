@@ -69,6 +69,8 @@ function harness(
   let frame: ((payload: string) => void) | undefined
   let audioActive = false
   let microphoneRunning = false
+  let sendResult: 'queued' | 'overflow' | 'disconnected' = 'queued'
+  let audioClears = 0
   const sent: object[] = []
 
   const bridge: GatewayBridge = {
@@ -77,8 +79,12 @@ function harness(
     setTransportStateHandler() {},
     sendEvent: async () => 'queued',
     sendGatewayMessage: (message) => {
+      if (message.type === 'audio.input' && sendResult !== 'queued') return sendResult
       sent.push(message)
       return 'queued'
+    },
+    clearPendingAudio() {
+      audioClears++
     },
     setSidebandHandler(handler) {
       sidebandHandler = handler
@@ -198,6 +204,12 @@ function harness(
     states,
     presented,
     sent,
+    setSendResult(result: typeof sendResult) {
+      sendResult = result
+    },
+    get audioClears() {
+      return audioClears
+    },
     tick: () => tick(),
     disconnect: () => {
       for (const listener of disconnectListeners) listener()
@@ -222,6 +234,69 @@ function harness(
 }
 
 const context = {} as StackchanContext
+
+test('microphone pauses for capacity and retries one frame before resuming', () => {
+  const dock = harness({ microphone: true })
+  dock.runtime.onContextCreated(context)
+  dock.runtime.remoteConversationSession?.activate()
+  enableAudio(dock)
+  dock.setSendResult('overflow')
+  dock.frame()
+  assert.equal(dock.microphoneRunning, false)
+  for (let i = 0; i < 10; i++) dock.frame()
+  dock.tick()
+  assert.equal(
+    dock.states.some(({ state }) => state === 'blocked'),
+    false,
+  )
+  dock.setSendResult('queued')
+  dock.tick()
+  assert.equal(dock.microphoneRunning, true)
+  const audio = dock.sent.filter((message) => (message as { type: string }).type === 'audio.input')
+  assert.equal(audio.length, 1, 'only the first rejected frame is retained')
+  assert.equal((audio[0] as { seq: number }).seq, 0, 'retry preserves sequence')
+  assert.equal(
+    dock.sent.some((message) => (message as { type: string }).type === 'audio.input.end'),
+    false,
+  )
+  dock.runtime.close()
+})
+
+test('stopping or disconnecting while backpressured discards retained audio', () => {
+  for (const action of ['stop', 'disconnect']) {
+    const dock = harness({ microphone: true })
+    dock.runtime.onContextCreated(context)
+    dock.runtime.remoteConversationSession?.activate()
+    enableAudio(dock)
+    dock.setSendResult('overflow')
+    dock.frame()
+    const cleared = dock.audioClears
+    if (action === 'stop') dock.runtime.remoteConversationSession?.deactivate()
+    else dock.disconnect()
+    assert.ok(dock.audioClears > cleared)
+    dock.setSendResult('queued')
+    dock.tick()
+    assert.equal(dock.microphoneRunning, false)
+    assert.equal(
+      dock.sent.some((message) => (message as { type: string }).type === 'audio.input'),
+      false,
+    )
+    dock.runtime.close()
+  }
+})
+
+test('persistent microphone backpressure has a bounded retry budget', () => {
+  const dock = harness({ microphone: true })
+  dock.runtime.onContextCreated(context)
+  dock.runtime.remoteConversationSession?.activate()
+  enableAudio(dock)
+  dock.setSendResult('overflow')
+  dock.frame()
+  for (let i = 0; i < 300; i++) dock.tick()
+  assert.equal(dock.microphoneRunning, false)
+  assert.ok(dock.states.some(({ state, error }) => state === 'blocked' && error?.includes('send wait timeout')))
+  dock.runtime.close()
+})
 
 test('interruption gates input until its acknowledgement and ignores stale audio', async () => {
   let finish!: () => void

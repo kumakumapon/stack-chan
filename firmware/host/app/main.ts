@@ -175,6 +175,9 @@ async function main() {
     const ownedDock = dockRuntime
     bootStage = 'context'
     context = createStackchanContext(preferences, {
+      onStage: (stage) => {
+        bootStage = stage
+      },
       connectivity: bootServices.connectivity,
       remoteConversationSession: ownedDock?.remoteConversationSession,
       closeHandlers: ownedDock ? [() => ownedDock.close()] : undefined,
@@ -210,6 +213,16 @@ async function main() {
           top: 30,
           height: 48,
           string: `Boot ${bootStage}: ${message}`,
+          style: new Style({ font: 'k8x12-12', color: 'red', horizontal: 'left' }),
+        }),
+      )
+      globalEnv.application?.add(
+        new Label(null, {
+          left: 0,
+          right: 0,
+          top: 78,
+          height: 24,
+          string: `MOD: ${Modules.has('mod') ? 'present' : 'none'}`,
           style: new Style({ font: 'k8x12-12', color: 'red', horizontal: 'left' }),
         }),
       )

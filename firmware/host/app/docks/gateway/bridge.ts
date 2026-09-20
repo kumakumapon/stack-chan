@@ -12,7 +12,10 @@ import {
 import type { RealtimeEventBridge, RealtimeEventSendResult, RealtimeRetryScheduler } from 'stackchan-realtime-session'
 
 export type GatewaySocket = {
-  write(data: string): void
+  /** false means not accepted yet; the connection remains usable. */
+  // biome-ignore lint/suspicious/noConfusingVoidType: Existing platform adapters return void on acceptance.
+  write(data: string, audioInput?: boolean): boolean | void
+  clearPendingAudio?(): void
   close(): void
 }
 
@@ -49,6 +52,9 @@ export type GatewayBridgeOptions = {
 
 export type GatewayBridge = RealtimeEventBridge & {
   readonly transportState: RemoteConversationTransportState
+  /** Local send failure category only; never includes payloads or credentials. */
+  readonly lastSendFailure?: 'bridge-full' | 'socket-full' | 'write-error' | 'disconnected'
+  clearPendingAudio?(): void
   sendGatewayMessage(message: Record<string, unknown>): 'queued' | 'overflow' | 'disconnected'
   setSidebandHandler(handler?: (message: GatewayServerMessage) => void): void
   close(): void
@@ -70,6 +76,7 @@ export function createGatewayBridge(options: GatewayBridgeOptions): GatewayBridg
   let socketOpen = false
   let socketGeneration = 0
   let pendingBytes = 0
+  let lastSendFailure: GatewayBridge['lastSendFailure']
   const releaseHandles = new Set<unknown>()
   let reconnectHandle: unknown | undefined
   let reconnectDelayMilliseconds = INITIAL_RECONNECT_MILLISECONDS
@@ -113,10 +120,17 @@ export function createGatewayBridge(options: GatewayBridgeOptions): GatewayBridg
     scheduleReconnect()
   }
 
-  const writeToSocket = (serialized: string): 'queued' | 'overflow' | 'disconnected' => {
-    if (closed || !socket || !socketOpen) return 'disconnected'
+  const writeToSocket = (serialized: string, audioInput = false): 'queued' | 'overflow' | 'disconnected' => {
+    lastSendFailure = undefined
+    if (closed || !socket || !socketOpen) {
+      lastSendFailure = 'disconnected'
+      return 'disconnected'
+    }
     const size = byteLength(serialized)
-    if (pendingBytes + size > MAX_PENDING_OUTBOUND_BYTES) return 'overflow'
+    if (pendingBytes + size > MAX_PENDING_OUTBOUND_BYTES) {
+      lastSendFailure = 'bridge-full'
+      return 'overflow'
+    }
     pendingBytes += size
     const activeSocket = socket
     const activeGeneration = socketGeneration
@@ -129,7 +143,11 @@ export function createGatewayBridge(options: GatewayBridgeOptions): GatewayBridg
       pendingBytes = Math.max(0, pendingBytes - size)
     }
     try {
-      activeSocket.write(serialized)
+      if (activeSocket.write(serialized, audioInput) === false) {
+        release()
+        lastSendFailure = 'socket-full'
+        return 'overflow'
+      }
     } catch (error) {
       release()
       log(`[gateway-bridge] socket write failed: ${errorMessage(error)}\n`)
@@ -139,6 +157,7 @@ export function createGatewayBridge(options: GatewayBridgeOptions): GatewayBridg
         log(`[gateway-bridge] socket close after write failure failed: ${errorMessage(closeError)}\n`)
       }
       retireSocket(activeGeneration)
+      lastSendFailure = errorMessage(error) === 'Gateway output overflow' ? 'socket-full' : 'write-error'
       return 'disconnected'
     }
     // The socket interface has no write-completion signal, so a scheduler
@@ -244,6 +263,12 @@ export function createGatewayBridge(options: GatewayBridgeOptions): GatewayBridg
   connect()
 
   return {
+    clearPendingAudio() {
+      socket?.clearPendingAudio?.()
+    },
+    get lastSendFailure() {
+      return lastSendFailure
+    },
     get transportState() {
       return transportState
     },
@@ -262,7 +287,7 @@ export function createGatewayBridge(options: GatewayBridgeOptions): GatewayBridg
       return Promise.resolve(writeToSocket(event))
     },
     sendGatewayMessage(message) {
-      return writeToSocket(JSON.stringify(message))
+      return writeToSocket(JSON.stringify(message), message.type === 'audio.input')
     },
     setSidebandHandler(handler) {
       sidebandHandler = handler
@@ -301,6 +326,9 @@ export function createGatewayBridge(options: GatewayBridgeOptions): GatewayBridg
 
 /** UTF-8 byte length without relying on Buffer/TextEncoder, neither guaranteed on XS. */
 function byteLength(value: string): number {
+  // Audio envelopes are ASCII. Let the native regexp scan avoid a JS loop
+  // over every base64 character; retain UTF-8 accounting for other messages.
+  if (!/[^\x20-\x7e]/.test(value)) return value.length
   let bytes = 0
   for (let i = 0; i < value.length; i++) {
     const code = value.charCodeAt(i)

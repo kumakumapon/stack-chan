@@ -20,13 +20,20 @@ export default class PY32Led {
       (error) => trace(`[py32-led] init failed: ${error}\n`),
     )
     if (!expander) return
-    this.#expander = expander
-    const ledPin = parameters.ledPin ?? 13
-    expander.setDirection(ledPin, true)
-    expander.setPullMode(ledPin, true)
-    expander.setDriveMode(ledPin, false)
-    expander.setLedCount(this.length)
-    this.off()
+    try {
+      const ledPin = parameters.ledPin ?? 13
+      expander.setDirection(ledPin, true)
+      expander.setPullMode(ledPin, true)
+      expander.setDriveMode(ledPin, false)
+      expander.setLedCount(this.length)
+      this.#expander = expander
+      this.off()
+    } catch (error) {
+      // LEDs are optional: a failed configuration or initial clear must not
+      // prevent menu registration. Do not close the bus shared with the servos.
+      this.#expander = undefined
+      trace(`[py32-led] initialization failed; LEDs disabled until reboot: ${error}\n`)
+    }
   }
 
   #stopEffect() {
@@ -56,6 +63,7 @@ export default class PY32Led {
 
   on(r: number, g: number, b: number, duration?: number, index?: number, count?: number) {
     this.#stopEffect()
+    if (!this.#expander) return
     this.#fill(r, g, b, index, count)
     if (duration) {
       this.#offTimer = Timer.set(() => this.off(index, count), duration)

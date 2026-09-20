@@ -125,6 +125,8 @@ export function createGatewayDockRuntime(
     let speakLocally = true
     let sequence = 0
     let recording = false
+    let pendingAudio: { schema: string; type: string; seq: number; payload: string } | undefined
+    let pendingRetries = 0
     let poll: unknown
     let removeState: (() => void) | undefined
     let removeTransport: (() => void) | undefined
@@ -141,24 +143,40 @@ export function createGatewayDockRuntime(
       config.microphone === true
         ? dependencies.createMicrophone?.(
             (payload) => {
-              if (!canRecord()) return
-              const result = bridge.sendGatewayMessage({
+              if (!canRecord() || pendingAudio) return
+              const message = {
                 schema: 'stackchan.gateway.v1',
                 type: 'audio.input',
                 seq: sequence++,
                 payload,
-              })
+              }
+              const result = bridge.sendGatewayMessage(message)
+              if (result === 'overflow') {
+                // Retain only the unaccepted frame. Stop capture until a poll
+                // can enqueue it; do not close the transport or end the turn.
+                pendingAudio = message
+                pendingRetries = 0
+                recording = false
+                microphone?.stop()
+                return
+              }
               if (result !== 'queued') {
+                const reason = bridge.lastSendFailure ?? result
                 microphone?.stop()
                 recording = false
-                activation.updateConversationState('blocked', 'Microphone send failed')
+                activation.updateConversationState('blocked', `Mic send: ${reason}`)
               }
             },
             (message) => activation.updateConversationState('blocked', message),
           )
         : undefined
     const syncMicrophone = () => {
-      const next = canRecord()
+      const permitted = canRecord()
+      if (!permitted) {
+        pendingAudio = undefined
+        bridge.clearPendingAudio?.()
+      }
+      const next = permitted && !pendingAudio
       if (recording === next) return
       recording = next
       if (next) microphone?.start()
@@ -174,6 +192,15 @@ export function createGatewayDockRuntime(
     }
     const tick = () => {
       if (bindingClosed) return
+      if (pendingAudio && canRecord()) {
+        const result = bridge.sendGatewayMessage(pendingAudio)
+        if (result === 'queued') pendingAudio = undefined
+        else if (result === 'disconnected' || ++pendingRetries >= 250) {
+          const reason = result === 'disconnected' ? (bridge.lastSendFailure ?? result) : 'send wait timeout'
+          pendingAudio = undefined
+          activation.updateConversationState('blocked', `Mic send: ${reason}`)
+        }
+      }
       syncMicrophone()
       poll = dependencies.scheduler?.set(tick, 20)
     }
@@ -305,6 +332,8 @@ export function createGatewayDockRuntime(
       })
     } catch (error) {
       bindingClosed = true
+      pendingAudio = undefined
+      tryClose(() => bridge.clearPendingAudio?.())
       if (poll !== undefined) dependencies.scheduler?.clear(poll)
       tryClose(() => microphone?.stop())
       tryClose(() => removeState?.())
@@ -321,6 +350,7 @@ export function createGatewayDockRuntime(
       close() {
         if (bindingClosed) return
         bindingClosed = true
+        pendingAudio = undefined
         interruptActive = undefined
         clearCancelTimer()
         if (poll !== undefined) dependencies.scheduler?.clear(poll)
@@ -332,6 +362,7 @@ export function createGatewayDockRuntime(
             firstError ??= error
           }
         }
+        attempt(() => bridge.clearPendingAudio?.())
         attempt(() => microphone?.stop())
         attempt(() => removeState?.())
         attempt(() => removeTransport?.())

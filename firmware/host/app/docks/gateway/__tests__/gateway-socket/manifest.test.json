@@ -1,0 +1,11 @@
+{
+  "include": [
+    "$(MODDABLE)/examples/manifest_base.json",
+    "$(MODDABLE)/examples/manifest_typings.json",
+    "$(MODULES)/data/text/manifest.json"
+  ],
+  "modules": {
+    "main": "./socket.test",
+    "stackchan-gateway-socket": "../../socket"
+  }
+}
