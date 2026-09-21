@@ -7,6 +7,7 @@
  * forwarding frames directly.
  */
 
+import { performance } from 'node:perf_hooks'
 import { decodePcm16Base64 } from '../audio/pcm.ts'
 import type { SttAdapter } from '../audio/stt.ts'
 import { createEnergyVad } from '../audio/vad.ts'
@@ -75,6 +76,7 @@ export function createAudioSession(options: AudioSessionOptions): AudioSession {
     if (bufferedSamples === 0) return
     const utterance = take()
     const current = generation
+    const startedAt = performance.now()
     let text: string
     try {
       const result = await options.stt.transcribe(utterance, sampleRate, controller.signal)
@@ -84,6 +86,11 @@ export function createAudioSession(options: AudioSessionOptions): AudioSession {
       options.onError(error instanceof Error ? error.message : String(error))
       return
     }
+    // Timing and size only -- never the transcript itself (see the module
+    // policy against logging voice/transcript/token content).
+    const elapsedMilliseconds = Math.round(performance.now() - startedAt)
+    const audioSeconds = (utterance.length / sampleRate).toFixed(1)
+    logger(`[gateway] stt completed in ${elapsedMilliseconds} ms for ${audioSeconds} s of audio`)
     if (!text || current !== generation) return
     await options.onUtterance(text)
   }
