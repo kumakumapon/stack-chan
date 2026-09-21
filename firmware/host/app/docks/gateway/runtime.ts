@@ -12,7 +12,7 @@ import {
   createRemoteConversationSessionFacade,
   type RemoteConversationSessionBinding,
 } from 'stackchan-remote-session-facade'
-import type { GatewayPresentation } from './presentation.ts'
+import { type GatewayPresentation, isLocalSpeechError } from './presentation.ts'
 
 /**
  * Gateway Dock runtime.
@@ -112,6 +112,8 @@ export function createGatewayDockRuntime(
     let presentation: GatewayPresentation | undefined
     let bindingClosed = false
     let playbackPending = 0
+    /** Why the last reply was not spoken, shown on the way back to listening. */
+    let speechFailure: string | undefined
     let playbackGeneration = 0
     let responseId: string | undefined
     let cancelRequest: string | undefined
@@ -313,8 +315,18 @@ export function createGatewayDockRuntime(
         if (finishesPlayback)
           void Promise.resolve(completion)
             .catch((error) => {
-              if (!bindingClosed && currentPlayback === playbackGeneration)
-                activation.updateConversationState('blocked', errorMessage(error))
+              if (bindingClosed || currentPlayback !== playbackGeneration) return
+              // A reply the local engine cannot pronounce does not break the
+              // session: the link and the microphone are both fine. `blocked`
+              // is terminal here -- canRecord() requires `listening` and
+              // gatewayConversationState() ignores every server message while
+              // blocked -- so one unpronounceable reply would end the
+              // conversation for good. Report it and keep listening instead.
+              if (isLocalSpeechError(error)) {
+                speechFailure = errorMessage(error)
+                return
+              }
+              activation.updateConversationState('blocked', errorMessage(error))
             })
             .finally(() => {
               if (currentPlayback !== playbackGeneration) return
@@ -326,7 +338,9 @@ export function createGatewayDockRuntime(
                 activation.remoteConversationSession.state === 'blocked'
               )
                 return
-              activation.updateConversationState('listening')
+              const failure = speechFailure
+              speechFailure = undefined
+              activation.updateConversationState('listening', failure)
               syncMicrophone()
             })
       })

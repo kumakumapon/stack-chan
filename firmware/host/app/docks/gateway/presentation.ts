@@ -2,6 +2,17 @@ import type { GatewayAudioFormat } from 'stackchan-gateway-protocol'
 import type { PCMStream } from './pcm-stream.js'
 
 /**
+ * Marks a reply the local speech engine could not pronounce. The Gateway link,
+ * the microphone and the session are all unaffected, so the Dock runtime
+ * reports it and keeps listening rather than ending the conversation.
+ */
+export const LOCAL_SPEECH_ERROR_NAME = 'LocalSpeechError'
+
+export function isLocalSpeechError(error: unknown): boolean {
+  return error instanceof Error && error.name === LOCAL_SPEECH_ERROR_NAME
+}
+
+/**
  * The slice of `StackchanContext` the presentation actually touches. Naming it
  * structurally keeps this file testable against a small fake and documents the
  * capabilities a replacement presentation has to provide.
@@ -83,7 +94,9 @@ export function createGatewayPresentation(
       const result = await context.audio.say(text)
       if (current !== generation) return
       if (result && typeof result === 'object' && 'success' in result && result.success === false) {
-        throw new Error('reason' in result ? String(result.reason) : 'Local speech failed')
+        const failure = new Error('reason' in result ? String(result.reason) : 'Local speech failed')
+        failure.name = LOCAL_SPEECH_ERROR_NAME
+        throw failure
       }
     },
     onAudioStarted(nextFormat) {
