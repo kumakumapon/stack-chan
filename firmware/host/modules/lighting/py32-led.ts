@@ -8,9 +8,9 @@ import Timer from 'timer'
 
 export default class PY32Led {
   length: number
-  #offTimer?: Timer
-  #blinkTimer?: Timer
-  #rainbowTimer?: Timer
+  #offTimer?: ReturnType<typeof Timer.set>
+  #blinkTimer?: ReturnType<typeof Timer.repeat>
+  #rainbowTimer?: ReturnType<typeof Timer.repeat>
   #expander?: PY32IOExpander
 
   constructor(parameters: { length?: number; ledPin?: number; address?: number }) {

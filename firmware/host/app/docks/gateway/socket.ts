@@ -1,5 +1,5 @@
-import type { GatewaySocket, GatewaySocketFactory, GatewaySocketOptions } from 'stackchan-gateway-bridge'
 import TextEncoder from 'text/encoder'
+import type { GatewaySocket, GatewaySocketFactory, GatewaySocketOptions } from './socket-types.js'
 
 /**
  * Moddable WebSocket client behind the Dock's socket seam.

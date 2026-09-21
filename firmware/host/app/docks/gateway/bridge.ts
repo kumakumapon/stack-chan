@@ -11,26 +11,9 @@ import {
 } from 'stackchan-gateway-protocol'
 import type { RealtimeEventBridge, RealtimeEventSendResult, RealtimeRetryScheduler } from 'stackchan-realtime-session'
 
-export type GatewaySocket = {
-  /** false means not accepted yet; the connection remains usable. */
-  // biome-ignore lint/suspicious/noConfusingVoidType: Existing platform adapters return void on acceptance.
-  write(data: string, audioInput?: boolean): boolean | void
-  clearPendingAudio?(): void
-  close(): void
-}
+import type { GatewaySocket, GatewaySocketFactory } from './socket-types.js'
 
-export type GatewaySocketOptions = {
-  secure: boolean
-  host: string
-  port: number
-  path: string
-  headers?: [string, string][]
-  onReady(): void
-  onMessage(message: string): void
-  onClosed(reason?: string): void
-}
-
-export type GatewaySocketFactory = (options: GatewaySocketOptions) => GatewaySocket
+export type { GatewaySocket, GatewaySocketFactory, GatewaySocketOptions } from './socket-types.js'
 
 export type GatewayBridgeEndpoint = {
   secure: boolean

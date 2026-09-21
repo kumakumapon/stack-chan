@@ -2,7 +2,7 @@
   "include": [
     "$(MODDABLE)/examples/manifest_base.json",
     "$(MODDABLE)/examples/manifest_typings.json",
-    "$(MODULES)/data/text/manifest.json"
+    "$(MODULES)/data/text/encoder/manifest.json"
   ],
   "modules": {
     "main": "./socket.test",
