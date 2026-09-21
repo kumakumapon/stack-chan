@@ -2,6 +2,7 @@
   "modules": {
     "tts-playback-lifecycle": "../../tts-playback-lifecycle",
     "tts-stackchan-voice": "../../stackchan-voice/tts-stackchan-voice",
+    "stackchan-voice-text": "../../stackchan-voice/text",
     "tts-types": "../../tts-types"
   }
 }

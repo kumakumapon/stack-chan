@@ -140,7 +140,8 @@
         "stackchanOpusDecoder": "./platforms/m5stackchan-cores3/esp32-opus-decoder",
         "stackchanOpusEncoder": "./platforms/m5stackchan-cores3/esp32-opus-encoder",
         "embedded:io/audio/in": "$(MODDABLE)/modules/io/audioin/esp32/audioin",
-        "tts-stackchan-voice": "./stackchan-voice/tts-stackchan-voice"
+        "tts-stackchan-voice": "./stackchan-voice/tts-stackchan-voice",
+        "stackchan-voice-text": "./stackchan-voice/text"
       },
       "dependency": [
         {
