@@ -91,14 +91,31 @@ export function createAudioSession(options: AudioSessionOptions): AudioSession {
         return
       }
       if (frame.length === 0) return
+      // A single oversized frame must not bypass the utterance storage bound.
+      if (frame.length > maxSamples) {
+        logger('[gateway] dropped a microphone frame larger than the utterance limit')
+        return
+      }
       if (!vad) {
-        if (bufferedSamples + frame.length > maxSamples) await transcribe()
+        if (bufferedSamples + frame.length > maxSamples) {
+          const current = generation
+          await transcribe()
+          if (current !== generation) return
+        }
         append(frame)
         return
       }
       const events = vad.push(frame)
       for (const event of events) {
         if (event.type === 'speech.start') capturing = true
+      }
+      // VAD releases short noise without emitting speech.end. Do not keep
+      // capturing silence or carry that noise into the next real utterance.
+      if (capturing && !vad.speaking && !events.some((event) => event.type === 'speech.end')) {
+        capturing = false
+        buffered = []
+        bufferedSamples = 0
+        return
       }
       if (capturing) {
         if (bufferedSamples + frame.length > maxSamples) {

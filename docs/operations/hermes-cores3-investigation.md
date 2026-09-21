@@ -5,6 +5,17 @@ long-running stability remains unverified. No sub-agents were used.
 
 ## Latest conversation milestone (2026-09-21)
 
+Follow-up fixes: the LED test now includes shared testing/implementation manifests
+and uses timer return types compatible with its fake. The socket test selects the
+actual text encoder manifest; socket types no longer require the whole bridge
+dependency graph. Linux CI must confirm XS behavior (local Windows architecture
+tests also contain unrelated path-separator assumptions).
+
+Gateway regression tests now cover discarding short noise after VAD releases,
+rejecting oversized individual audio frames, and discarding stale input when
+reset occurs during manual overflow transcription. All 155 Gateway tests pass.
+These changes do not tune VAD thresholds or remove the temporary three-second cap.
+
 This section supersedes the historical pause records below.
 
 - The user confirmed simple conversation after the latest CoreS3 firmware was

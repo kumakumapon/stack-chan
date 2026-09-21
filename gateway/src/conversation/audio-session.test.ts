@@ -140,3 +140,63 @@ test('reset discards the buffered utterance', async () => {
   await session.flush()
   assert.deepEqual(seen, [])
 })
+
+test('short noise is discarded and does not contaminate the next utterance', async () => {
+  const seen: number[] = []
+  const session = createAudioSession({
+    stt: recordingStt('speech', seen),
+    inputFormat: FORMAT,
+    onUtterance: () => {},
+    onError: () => assert.fail('unexpected STT error'),
+  })
+  await session.pushFrame(tone(800, 12_000))
+  for (let index = 0; index < 40; index++) await session.pushFrame(tone(1_600, 0))
+  assert.deepEqual(seen, [])
+  await session.pushFrame(tone(8_000, 12_000))
+  for (let index = 0; index < 3; index++) await session.pushFrame(tone(1_600, 0))
+  assert.deepEqual(seen, [12_800])
+})
+
+test('a single oversized frame cannot exceed storage limits or discard existing audio', async () => {
+  for (const manualTurns of [true, false]) {
+    const seen: number[] = []
+    const session = createAudioSession({
+      stt: recordingStt('speech', seen),
+      inputFormat: FORMAT,
+      manualTurns,
+      onUtterance: () => {},
+      onError: () => assert.fail('unexpected STT error'),
+    })
+    await session.pushFrame(tone(3_200, 12_000))
+    await session.pushFrame(tone(160_000, 12_000))
+    await session.flush()
+    assert.deepEqual(seen, [3_200])
+  }
+})
+
+test('reset during a manual overflow transcription cannot append stale audio', async () => {
+  let complete!: (value: { text: string; final: boolean }) => void
+  let calls = 0
+  const session = createAudioSession({
+    stt: {
+      name: 'deferred',
+      transcribe: () => {
+        calls++
+        return new Promise((resolve) => {
+          complete = resolve
+        })
+      },
+    },
+    inputFormat: FORMAT,
+    manualTurns: true,
+    onUtterance: () => assert.fail('stale text must be discarded'),
+    onError: () => assert.fail('unexpected STT error'),
+  })
+  await session.pushFrame(tone(48_000, 12_000))
+  const pending = session.pushFrame(tone(320, 12_000))
+  session.reset()
+  complete({ text: 'stale', final: true })
+  await pending
+  await session.flush()
+  assert.equal(calls, 1)
+})

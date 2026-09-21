@@ -38,6 +38,25 @@ only writes when given an explicit `--address` and `--endpoint`.
 
 ## Audio
 
+For the basic conversation confirmed on M5StackChan CoreS3, select device-local
+StackchanVoice instead of streamed PC speech:
+
+```powershell
+./scripts/start-hermes-desktop.ps1 -ListenHost YOUR_LAN_IP -Tts device
+```
+
+The launcher also accepts `-Tts windows` (the default) and `-Tts hermes`.
+Device mode sends reply text for local synthesis; it does not prove PC PCM output
+is working. Current temporary limits are three-second utterances and kana-only
+local speech of at most 32 characters. Longer speech can be cut off and filtering
+can change meaning. Continuous conversation stability still needs hardware tests.
+
+For the local Whisper recognizer used in this investigation, explicitly select
+Japanese in Hermes (`stt.local.language: ja`). Preserve the existing provider/model
+and other settings; this is a user-side Hermes setting, not automatically written
+by this launcher. After applying it in Hermes, verify with a short Japanese phrase.
+Other STT providers may use different language settings.
+
 The Windows launcher uses installed Japanese System.Speech voices (offline) and
 Hermes's configured STT via `/api/audio/transcribe`. Audio is PCM16 mono, 16 kHz.
 The Python/local STT model may need a cold start. Recognition language/translation
