@@ -20,6 +20,7 @@
     "tts-openai": "./wasm/tts-openai",
     "tts-stackchan-voice": "./wasm/tts-stackchan-voice",
     "stackchan-voice-wav": "./wasm/stackchan-voice-wav",
+    "stackchan-voice-text": "./stackchan-voice/text",
     "tts-stub": "./wasm/tts-stub"
   },
   "preload": ["wasm-audio-bridge"]

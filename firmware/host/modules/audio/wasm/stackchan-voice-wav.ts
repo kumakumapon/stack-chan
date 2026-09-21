@@ -1,5 +1,7 @@
 declare const setTimeout: (callback: () => void, delay?: number) => unknown
 
+import { prepareStackchanVoiceText } from 'stackchan-voice-text'
+
 export const STACKCHAN_VOICE_OUTPUT_SAMPLE_RATE = 24000
 export const STACKCHAN_VOICE_MAX_DURATION_SECONDS = 60
 
@@ -166,8 +168,11 @@ function renderStackchanVoiceInputWav(
       try {
         if (options.isCancelled?.()) throw new Error('Speech cancelled')
         if (!started) {
+          // Apply the same StackchanVoice text normalization as the CoreS3 device path so the
+          // WASM/simulator path can reproduce and verify real-device read-aloud issues. Raw koe
+          // notation is never touched.
           if (isKoe) voice.koe(source, speed)
-          else voice.say(source, speed)
+          else voice.say(prepareStackchanVoiceText(source), speed)
           started = true
         }
 

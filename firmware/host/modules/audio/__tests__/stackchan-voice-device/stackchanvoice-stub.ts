@@ -11,13 +11,19 @@ export default class StackchanVoice {
   }
 
   say(text: string, speed: number): void {
-    this.#finished = false
+    // Record every attempt, including ones about to fail, so tests can see exactly
+    // what text each retry was called with.
+    const index = state.says.length
     state.says.push({ speed, text })
+    if (state.sayFailQueue.shift()) throw new Error(`stub say failure #${index}`)
+    this.#finished = false
   }
 
   koe(koe: string, speed: number): void {
-    this.#finished = false
+    const index = state.koes.length
     state.koes.push({ koe, speed })
+    if (state.koeFailQueue.shift()) throw new Error(`stub koe failure #${index}`)
+    this.#finished = false
   }
 
   read24(buffer: ArrayBuffer): number {

@@ -32,6 +32,9 @@
       "tts-types": [
         "./host/modules/audio/tts-types.ts"
       ],
+      "stackchan-voice-text": [
+        "./host/modules/audio/stackchan-voice/text.ts"
+      ],
       "audio-in": [
         "./host/modules/testing/fakes/audio-in.ts"
       ],
