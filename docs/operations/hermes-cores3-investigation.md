@@ -1,7 +1,34 @@
 # Hermes Desktop / CoreS3 conversation investigation
 
-Status: work in progress; not a verified physical-device voice-conversation solution.
-Paused again at the user's request on 2026-09-21. No sub-agents were used.
+Status: basic physical-device conversation confirmed by the user on 2026-09-21;
+long-running stability remains unverified. No sub-agents were used.
+
+## Latest conversation milestone (2026-09-21)
+
+This section supersedes the historical pause records below.
+
+- The user confirmed simple conversation after the latest CoreS3 firmware was
+  built, flashed, hash-verified and reset. The working path uses Hermes recognition
+  and replies with device-local StackchanVoice, not the still-problematic PC PCM
+  playback path. Use `-Tts device` with the Hermes Desktop launcher.
+- Microphone reads now reuse bounded mono PCM storage. Only `invalid size`
+  rejections retry smaller sample-aligned reads; other errors still surface.
+  The permanent on-screen microphone timing overlay was removed.
+- The CoreS3 initial chunk allocation is 512 KiB. This and buffer reuse are
+  mitigations, not proof that the reported memory exhaustion is permanently fixed.
+- A stuck VAD submits bounded audio after three seconds. This temporary global
+  limit can truncate longer utterances. Local speech filtering removes kanji,
+  Latin letters and digits and truncates to 32 characters; it can change meaning.
+  Kana-only reply instructions are also temporary and apply to the Gateway dock.
+- Japanese STT was configured in this PC's Hermes settings, outside the repository.
+  Credentials, recordings, runtime logs and machine-specific settings are excluded.
+- Gateway tests: 152 passed. Gateway Dock tests: 56 passed, including four pure
+  microphone-read tests. Test TypeScript compilation and changed-code checks passed.
+  Native read behavior and extended conversation still need hardware soak testing.
+- Remaining checks: repeated start/stop and reboot, long conversations, recognition
+  accuracy, response latency, and recurrence of memory, Mic read, socket-full or
+  text-to-koe conversion (105) errors. Other hardware has not been validated.
+- This milestone is included in draft PR #46; it is not a production-ready release.
 
 ## Latest pause state (2026-09-21)
 

@@ -4,6 +4,12 @@
     "./docks/manifest_conversation.json",
     "../modules/usb-audio/manifest.json"
   ],
+  "creation": {
+    "chunk": {
+      "initial": 524288,
+      "incremental": 0
+    }
+  },
   "modules": {
     "mod-installer": "./mod-installer",
     "mod-manager": "./mod-manager"

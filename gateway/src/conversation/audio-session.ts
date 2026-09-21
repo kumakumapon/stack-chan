@@ -12,8 +12,12 @@ import type { SttAdapter } from '../audio/stt.ts'
 import { createEnergyVad } from '../audio/vad.ts'
 import type { GatewayAudioFormat } from '../protocol/stackchan-gateway-v1.ts'
 
-/** Refuses to buffer more than this, so a stuck VAD cannot exhaust memory. */
-const MAX_UTTERANCE_SECONDS = 30
+/**
+ * Bounds an utterance when the microphone noise floor prevents VAD from
+ * observing a release. Rather than silently dropping every subsequent frame,
+ * submit the bounded recording to STT and begin a fresh turn.
+ */
+const MAX_UTTERANCE_SECONDS = 3
 
 export type AudioSessionOptions = {
   stt: SttAdapter
@@ -44,10 +48,6 @@ export function createAudioSession(options: AudioSessionOptions): AudioSession {
   let capturing = options.manualTurns === true
 
   const append = (frame: Int16Array) => {
-    if (bufferedSamples + frame.length > maxSamples) {
-      logger('[gateway] dropped a microphone frame: the utterance buffer is full')
-      return
-    }
     buffered.push(frame)
     bufferedSamples += frame.length
   }
@@ -92,6 +92,7 @@ export function createAudioSession(options: AudioSessionOptions): AudioSession {
       }
       if (frame.length === 0) return
       if (!vad) {
+        if (bufferedSamples + frame.length > maxSamples) await transcribe()
         append(frame)
         return
       }
@@ -99,7 +100,16 @@ export function createAudioSession(options: AudioSessionOptions): AudioSession {
       for (const event of events) {
         if (event.type === 'speech.start') capturing = true
       }
-      if (capturing) append(frame)
+      if (capturing) {
+        if (bufferedSamples + frame.length > maxSamples) {
+          logger('[gateway] VAD did not release; transcribing the bounded microphone utterance')
+          vad.reset()
+          capturing = false
+          await transcribe()
+          return
+        }
+        append(frame)
+      }
       for (const event of events) {
         if (event.type !== 'speech.end') continue
         capturing = false

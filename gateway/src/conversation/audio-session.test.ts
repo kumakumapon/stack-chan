@@ -53,6 +53,25 @@ test('flush transcribes whatever is buffered without waiting for silence', async
   assert.deepEqual(utterances, ['partial'])
 })
 
+test('a microphone signal that never releases is transcribed at the safety bound', async () => {
+  const utterances: string[] = []
+  const seen: number[] = []
+  const session = createAudioSession({
+    stt: recordingStt('bounded', seen),
+    inputFormat: FORMAT,
+    onUtterance: (text) => {
+      utterances.push(text)
+    },
+    onError: () => assert.fail('the STT must not have failed'),
+  })
+  // The default safety bound is three seconds. The following frame triggers
+  // transcription instead of being dropped forever when VAD sees no silence.
+  for (let index = 0; index < 3; index += 1) await session.pushFrame(tone(16_000, 12_000))
+  await session.pushFrame(tone(1_600, 12_000))
+  assert.deepEqual(utterances, ['bounded'])
+  assert.deepEqual(seen, [48_000])
+})
+
 test('an empty buffer produces no utterance and no STT call', async () => {
   const seen: number[] = []
   const utterances: string[] = []

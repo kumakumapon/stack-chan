@@ -7,6 +7,7 @@ import {
   createHermesDesktopStt,
   createHermesDesktopTts,
 } from './agent/hermes-desktop.ts'
+import { createNullTts } from './audio/tts.ts'
 import { createWindowsTts } from './audio/windows-tts.ts'
 import { parseGatewayConfig } from './config.ts'
 import { createGatewayServer } from './server/gateway-server.ts'
@@ -36,14 +37,17 @@ const config = parseGatewayConfig({
 })
 if (!process.env.HERMES_DESKTOP_URL) throw new Error('Set HERMES_DESKTOP_URL to the running local Hermes backend')
 const client = createHermesDesktopClient(process.env.HERMES_DESKTOP_URL)
+const tts =
+  process.env.STACKCHAN_TTS === 'windows'
+    ? createWindowsTts()
+    : process.env.STACKCHAN_TTS === 'device'
+      ? createNullTts()
+      : createHermesDesktopTts(client, process.env.FFMPEG_PATH ?? 'ffmpeg')
 const server = createGatewayServer({
   config,
   backend: createHermesDesktopBackend(client),
   stt: createHermesDesktopStt(client),
-  tts:
-    process.env.STACKCHAN_TTS === 'windows'
-      ? createWindowsTts()
-      : createHermesDesktopTts(client, process.env.FFMPEG_PATH ?? 'ffmpeg'),
+  tts,
   logger: console.log,
   diagnostics: process.env.STACKCHAN_DIAGNOSTICS === '1',
 })

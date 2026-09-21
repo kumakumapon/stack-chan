@@ -10,6 +10,7 @@ export default function createOutput(format: GatewayAudioFormat) {
       retained.shift()
       played()
     }
+    audio.enqueue(0, AudioOut.Flush)
     audio.enqueue(0, AudioOut.Volume, 128)
     audio.start()
     return {

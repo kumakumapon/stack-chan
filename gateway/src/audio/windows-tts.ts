@@ -2,6 +2,13 @@ import { spawn } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import type { TtsAdapter } from './tts.ts'
 
+/**
+ * The complete Windows synthesis is already available before it is yielded.
+ * Larger packets keep the CoreS3 from spending most of its time parsing and
+ * base64-decoding fifty tiny WebSocket messages per second.
+ */
+const OUTPUT_PACKET_BYTES = 4096
+
 /** Offline Japanese TTS. Text travels via stdin, never shell interpolation. */
 export function createWindowsTts(): TtsAdapter {
   return {
@@ -32,9 +39,9 @@ export function createWindowsTts(): TtsAdapter {
         )
         child.stdin.end(text)
       })
-      for (let offset = 0; offset + 1 < pcm.length; offset += 640) {
+      for (let offset = 0; offset + 1 < pcm.length; offset += OUTPUT_PACKET_BYTES) {
         bounded.throwIfAborted()
-        const audio = new Int16Array(Math.min(640, pcm.length - (pcm.length % 2) - offset) / 2)
+        const audio = new Int16Array(Math.min(OUTPUT_PACKET_BYTES, pcm.length - (pcm.length % 2) - offset) / 2)
         for (let i = 0; i < audio.length; i++) audio[i] = pcm.readInt16LE(offset + i * 2)
         yield { audio, sampleRate: 16000 }
       }

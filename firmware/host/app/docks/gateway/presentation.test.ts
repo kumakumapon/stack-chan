@@ -1,6 +1,11 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { createGatewayPresentation } from './presentation.js'
+import { createGatewayPresentation, normalizeStackchanVoiceText } from './presentation.js'
+
+test('local StackchanVoice speech keeps only compact Japanese text while the balloon retains the full reply', () => {
+  assert.equal(normalizeStackchanVoiceText(' こんにちは！🙂 **次の話**\n123 '), 'こんにちは！の')
+  assert.equal(normalizeStackchanVoiceText('あ'.repeat(40)), 'あ'.repeat(32))
+})
 
 test('local transcript completion waits for speech and stopped presentations ignore late speech', async () => {
   let finish!: () => void,
@@ -19,7 +24,7 @@ test('local transcript completion waits for speech and stopped presentations ign
     { speakLocally: true },
   )
   let complete = false
-  const pending = Promise.resolve(p.onOutputTranscript('hello', true)).then(() => {
+  const pending = Promise.resolve(p.onOutputTranscript('こんにちは', true)).then(() => {
     complete = true
   })
   await Promise.resolve()

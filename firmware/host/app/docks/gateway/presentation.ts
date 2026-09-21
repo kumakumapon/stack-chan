@@ -41,6 +41,18 @@ export type GatewayPresentationOptions = {
   createAudio?(format: GatewayAudioFormat): PCMStream
 }
 
+/**
+ * Temporary mitigation while investigating text-to-koe error 105. Keep the
+ * balloon untouched; kana filtering and truncation can alter spoken meaning.
+ * This is not a general text normalization or pronunciation conversion.
+ */
+export function normalizeStackchanVoiceText(text: string): string {
+  return text
+    .replace(/[^\u3040-\u30ff\u3000-\u303f\uff01\uff1f\uff0c\uff0e\s]/g, '')
+    .replace(/\s+/g, '')
+    .slice(0, 32)
+}
+
 export function createGatewayPresentation(
   context: GatewayPresentationContext,
   options: GatewayPresentationOptions,
@@ -76,8 +88,10 @@ export function createGatewayPresentation(
       if (!final) return
       showBalloon(text)
       if (!speakLocally || closed) return
+      const speech = normalizeStackchanVoiceText(text)
+      if (!speech) return
       const current = generation
-      const result = await context.audio.say(text)
+      const result = await context.audio.say(speech)
       if (current !== generation) return
       if (result && typeof result === 'object' && 'success' in result && result.success === false) {
         throw new Error('reason' in result ? String(result.reason) : 'Local speech failed')

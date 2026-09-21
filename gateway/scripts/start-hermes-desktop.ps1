@@ -1,4 +1,10 @@
-param([string]$ListenHost = '127.0.0.1', [int]$Port = 8766, [string]$HermesUrl = '')
+param(
+    [string]$ListenHost = '127.0.0.1',
+    [int]$Port = 8766,
+    [string]$HermesUrl = '',
+    [ValidateSet('windows', 'device', 'hermes')]
+    [string]$Tts = 'windows'
+)
 $ErrorActionPreference = 'Stop'
 $stackchanRoot = Split-Path $PSScriptRoot -Parent
 if (-not $HermesUrl) {
@@ -10,6 +16,6 @@ if (-not $HermesUrl) {
 $env:HERMES_DESKTOP_URL = $HermesUrl
 $env:STACKCHAN_LISTEN_HOST = $ListenHost
 $env:STACKCHAN_PORT = [string]$Port
-$env:STACKCHAN_TTS = 'windows'
+$env:STACKCHAN_TTS = $Tts
 & node (Join-Path $stackchanRoot 'dist/hermes-desktop-main.js')
 exit $LASTEXITCODE
