@@ -52,6 +52,8 @@ type UIOptions = {
 }
 
 export type StackchanContextOptions = {
+  /** Temporary physical-device boot diagnostics; does not change initialization. */
+  onStage?: (stage: string) => void
   connectivity?: ConnectivityCapability
   remoteConversationSession?: RemoteConversationSession
   closeHandlers?: ReadonlyArray<() => void | Promise<void>>
@@ -187,10 +189,14 @@ export function createStackchanContext(
 
   trace(`[main] TTS engine: ${ttsKey}\n`)
 
+  options.onStage?.('driver')
   const driver = Driver(driverPrefs)
+  options.onStage?.('ui')
   const ui = UI(uiPrefs)
+  options.onStage?.('tts')
   const tts = TTS(ttsPrefs)
 
+  options.onStage?.('touch')
   const touch = config.Touch ? new Touch(config.Touch, createTouchOptions()) : undefined
   const touchPanelConstructor = (config.TouchPanel ?? globalEnv.device?.sensor?.TouchPanel) as
     | ConstructorParameters<typeof TouchPanel>[0]
@@ -198,17 +204,24 @@ export function createStackchanContext(
   if (touchPanelConstructor && !config.TouchPanel) {
     trace('[main] using device.sensor.TouchPanel fallback\n')
   }
+  options.onStage?.('touch panel')
   const touchPanel = touchPanelConstructor ? new TouchPanel(touchPanelConstructor) : undefined
+  options.onStage?.('imu')
   const imu = globalEnv.device?.sensor?.IMU
     ? new IMU(globalEnv.device.sensor.IMU as ConstructorParameters<typeof IMU>[0])
     : undefined
+  options.onStage?.('microphone')
   const microphone = Modules.has('audio-in') ? new Microphone() : undefined
+  options.onStage?.('camera')
   const camera = new Camera()
+  options.onStage?.('speaker')
   const speaker = new Speaker({ volume: ttsPrefs.volume })
+  options.onStage?.('radio')
   const webRadio = Modules.has('web-radio-player')
     ? new (Modules.importNow('web-radio-player') as WebRadioPlayerConstructor)()
     : undefined
 
+  options.onStage?.('led')
   const configLed = preferences.led
   const ledEntries: [string, RobotLed][] = Object.entries(configLed).flatMap(
     ([key, ledConfig]): [string, RobotLed][] => {
@@ -268,6 +281,7 @@ export function createStackchanContext(
     camera,
     led,
   } satisfies ConstructorParameters<typeof StackchanRuntimeContext>[0]
+  options.onStage?.('runtime')
   const context: StackchanContext = new StackchanRuntimeContext(contextParams)
   return context
 }

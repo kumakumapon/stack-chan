@@ -47,6 +47,12 @@ import { type AudioSession, createAudioSession } from './audio-session.ts'
 
 /** How long the Gateway waits for a device-hosted tool to answer. */
 const DEVICE_TOOL_TIMEOUT_MILLISECONDS = 15_000
+/**
+ * The CoreS3 output holds only a few PCM packets. Send this much audio before
+ * real-time pacing begins so ordinary Wi-Fi and JS scheduling jitter cannot
+ * empty the hardware queue between 20 ms packets.
+ */
+const OUTPUT_AUDIO_PREBUFFER_MILLISECONDS = 256
 
 export type ConversationSessionOptions = {
   deviceId: string
@@ -152,6 +158,7 @@ export function createConversationSession(options: ConversationSessionOptions): 
     const responseId = createId('response')
     let seq = 0
     let started = false
+    let prebufferedMilliseconds = 0
     try {
       for await (const chunk of options.tts.synthesize(text, signal)) {
         if (closed || currentGeneration !== generation) return
@@ -169,7 +176,12 @@ export function createConversationSession(options: ConversationSessionOptions): 
           if (closed || currentGeneration !== generation) return
           const frame = pcm.subarray(offset, offset + frameBytes)
           options.sendGateway(audioChunk(responseId, seq++, frame.toString('base64')))
-          await delay((frame.length * 500) / options.outputFormat.sampleRate, undefined, { signal })
+          const frameMilliseconds = (frame.length * 500) / options.outputFormat.sampleRate
+          if (prebufferedMilliseconds < OUTPUT_AUDIO_PREBUFFER_MILLISECONDS) {
+            prebufferedMilliseconds += frameMilliseconds
+            continue
+          }
+          await delay(frameMilliseconds, undefined, { signal })
         }
       }
     } catch (error) {

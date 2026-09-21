@@ -7,6 +7,7 @@
   "modules": {
     "stackchan-gateway-pcm-output": "./gateway/pcm-output",
     "stackchan-gateway-microphone": "./gateway/microphone-stream",
+    "stackchan-gateway-microphone-read": "./gateway/microphone-read",
     "stackchan-dock": "./conversation-router",
     "stackchan-gateway-socket": "./gateway/socket"
   }

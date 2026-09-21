@@ -145,6 +145,27 @@ test('assistant text is synthesized when a TTS adapter is configured', async () 
   await session.close()
 })
 
+test('assistant audio prebuffers 200 ms before real-time packet pacing', async () => {
+  const scripted = scriptedBackend(false)
+  const tts: TtsAdapter = {
+    name: 'prebuffered',
+    sampleRate: 16_000,
+    async *synthesize() {
+      for (let index = 0; index < 11; index++) yield { audio: new Int16Array(320), sampleRate: 16_000 }
+    },
+  }
+  const { session, of } = harness(scripted.backend, tts)
+  await session.handleDeviceEvent(START)
+  scripted.emit({ type: 'text', text: 'hello', final: true })
+  for (let index = 0; index < 100 && of('audio.chunk').length < 11; index++) await Promise.resolve()
+  assert.equal(of('audio.chunk').length, 11, 'the first 220 ms is available to the device before pacing waits')
+  assert.equal(of('audio.completed').length, 0, 'the eleventh packet is paced after the prebuffer')
+  for (let index = 0; index < 100 && !of('audio.completed').length; index++)
+    await new Promise((resolve) => setTimeout(resolve, 5))
+  assert.equal(of('audio.completed').length, 1)
+  await session.close()
+})
+
 test('a TTS failure is reported and the conversation keeps going', async () => {
   const scripted = scriptedBackend(false)
   const tts: TtsAdapter = {

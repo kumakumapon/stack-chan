@@ -11,6 +11,7 @@ import { type StackchanDockRuntime, startStackchanDock } from 'dock'
 import { prepareExperimentalMiniApps, registerExperimentalMiniApps } from 'experimental-mini-app-loader'
 import { initializeLocalization } from 'localization'
 import Modules from 'modules'
+import { Label, Style } from 'piu/MC'
 import { showStartupSplash, showWiFiConnectionStatus, showWiFiRecoveryChoice } from 'startup-splash'
 import { applyTimezone } from 'timezone-settings'
 
@@ -139,6 +140,7 @@ async function main() {
   trace('[main] start\n')
   let dockRuntime: StackchanDockRuntime | undefined
   let context: StackchanContext | undefined
+  let bootStage = 'dock'
   try {
     dockRuntime = startStackchanDock(Modules, loadModConfig())
     if (dockRuntime) trace('[main] Stackchan Dock started\n')
@@ -171,15 +173,22 @@ async function main() {
     trace(`[main] network ready: ${networkReady.status}\n`)
     const preferences = loadPreferenceConfig()
     const ownedDock = dockRuntime
+    bootStage = 'context'
     context = createStackchanContext(preferences, {
+      onStage: (stage) => {
+        bootStage = stage
+      },
       connectivity: bootServices.connectivity,
       remoteConversationSession: ownedDock?.remoteConversationSession,
       closeHandlers: ownedDock ? [() => ownedDock.close()] : undefined,
     })
+    bootStage = 'dock context'
     ownedDock?.onContextCreated(context)
     installPlatformPerformanceBridge(context)
+    bootStage = 'mini apps'
     registerExperimentalMiniApps(experimentalMiniApps, context.ui.miniApps)
     trace('[main] app context created\n')
+    bootStage = 'menu behaviors'
     await runContextCreatedBehaviors(appBehaviors, context, {
       device: getHostDeviceEnvironment(),
       config: preferences,
@@ -194,6 +203,32 @@ async function main() {
       trace(`[main] cleanup error ${closeError instanceof Error ? closeError.message : String(closeError)}\n`)
     }
     installModManagerShortcut()
+    // Temporary physical-device diagnosis: release builds have no serial trace.
+    try {
+      const message = error instanceof Error ? error.message : String(error)
+      globalEnv.application?.add(
+        new Label(null, {
+          left: 0,
+          right: 0,
+          top: 30,
+          height: 48,
+          string: `Boot ${bootStage}: ${message}`,
+          style: new Style({ font: 'k8x12-12', color: 'red', horizontal: 'left' }),
+        }),
+      )
+      globalEnv.application?.add(
+        new Label(null, {
+          left: 0,
+          right: 0,
+          top: 78,
+          height: 24,
+          string: `MOD: ${Modules.has('mod') ? 'present' : 'none'}`,
+          style: new Style({ font: 'k8x12-12', color: 'red', horizontal: 'left' }),
+        }),
+      )
+    } catch {
+      /* Preserve the original boot error. */
+    }
     throw error
   }
 }

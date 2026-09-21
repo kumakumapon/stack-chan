@@ -1,6 +1,6 @@
 {
   "include": [
-    "$(MODULES)/data/text/manifest.json",
+    "$(MODULES)/data/text/encoder/manifest.json",
     "$(MODDABLE)/examples/io/tcp/websocket/manifest_websocket.json"
   ],
   "modules": {
@@ -8,6 +8,7 @@
     "stackchan-gateway-pcm-stream": "./pcm-stream",
     "stackchan-gateway-pcm": "./pcm",
     "stackchan-gateway-microphone": "./microphone-stream",
+    "stackchan-gateway-microphone-read": "./microphone-read",
     "stackchan-dock": "./dock",
     "stackchan-application-event": "../../remote-session/application-event",
     "stackchan-approval-model": "../../remote-session/approval-model",

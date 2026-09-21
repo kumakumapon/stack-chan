@@ -1,6 +1,7 @@
 import Resource from 'Resource'
 import AudioOut from 'embedded:io/audio/out'
 import calculatePower from 'calculate-power'
+import { prepareStackchanVoiceText } from 'stackchan-voice-text'
 import StackchanVoice from 'stackchanvoice'
 import { beginTTSPlayback, type TTSPlaybackLifecycle } from 'tts-playback-lifecycle'
 import type { TTSCompletion, TTSDoneListener, TTSPlaybackListener } from 'tts-types'
@@ -76,7 +77,7 @@ export class TTS {
     try {
       this.#resetPlayback(lifecycle)
       if (isKoe) this.voice.koe(source, this.speed)
-      else this.voice.say(source, this.speed)
+      else this.voice.say(prepareStackchanVoiceText(source), this.speed)
       this.#generating = true
 
       const output = new AudioOut({

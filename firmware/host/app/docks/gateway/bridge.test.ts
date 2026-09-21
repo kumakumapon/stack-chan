@@ -16,6 +16,8 @@ type FakeGatewaySocket = {
   written: string[]
   closed: boolean
   writeThrows: boolean
+  writeError?: string
+  backpressured?: boolean
 }
 
 function createFakeSocketFactory(): {
@@ -34,7 +36,8 @@ function createFakeSocketFactory(): {
     sockets.push(record)
     return {
       write(data) {
-        if (record.writeThrows) throw new Error('write failed')
+        if (record.backpressured) return false
+        if (record.writeThrows) throw new Error(record.writeError ?? 'write failed')
         record.written.push(data)
       },
       close() {
@@ -125,6 +128,21 @@ function bringToReady(sockets: FakeGatewaySocket[], socketIndex = 0) {
   sockets[socketIndex].options.onReady()
   sockets[socketIndex].options.onMessage(JSON.stringify(validSessionReady))
 }
+
+test('outbound accounting preserves exact UTF-8 limits for ASCII and multilingual envelopes', async () => {
+  const { bridge, sockets, fakeScheduler } = createBridgeForTest()
+  bringToReady(sockets)
+  fakeScheduler.fireAll()
+  for (const text of ['audio/base64+==', '日本語', '😀', '\n\t']) {
+    const envelope = JSON.stringify({ type: 'text.input', text })
+    const bytes = Buffer.byteLength(envelope, 'utf8')
+    assert.equal(await bridge.sendEvent(envelope), 'queued')
+    assert.equal(await bridge.sendEvent(' '.repeat(32768 - bytes)), 'queued')
+    assert.equal(await bridge.sendEvent(' '), 'overflow')
+    fakeScheduler.fireAll()
+  }
+  bridge.close()
+})
 
 test('opens a socket on creation using the configured endpoint', () => {
   const { sockets } = createBridgeForTest()
@@ -261,9 +279,11 @@ test('sendGatewayMessage rejects once the pending outbound byte total would exce
 
   assert.equal(bridge.sendGatewayMessage(big('a')), 'queued')
   assert.equal(bridge.sendGatewayMessage(big('b')), 'overflow')
+  assert.equal(bridge.lastSendFailure, 'bridge-full')
 
   fakeScheduler.fireAll()
   assert.equal(bridge.sendGatewayMessage(big('c')), 'queued')
+  assert.equal(bridge.lastSendFailure, undefined)
 })
 
 test('a throwing write resolves disconnected, never rejects, and tears the socket down for reconnect', async () => {
@@ -273,12 +293,43 @@ test('a throwing write resolves disconnected, never rejects, and tears the socke
 
   const result = await bridge.sendEvent('{"type":"response.create"}')
   assert.equal(result, 'disconnected')
+  assert.equal(bridge.lastSendFailure, 'write-error')
   assert.equal(bridge.transportState, 'disconnected')
   assert.equal(sockets[0].closed, true)
   assert.deepEqual(fakeScheduler.delays(), [1_000])
 
   fakeScheduler.fireOne()
   assert.equal(sockets.length, 2)
+})
+
+test('send diagnostics distinguish socket capacity from disconnected transport without exposing the payload', () => {
+  const { bridge, sockets } = createBridgeForTest()
+  assert.equal(bridge.sendGatewayMessage({ type: 'audio.input', payload: 'private' }), 'disconnected')
+  assert.equal(bridge.lastSendFailure, 'disconnected')
+  bringToReady(sockets)
+  sockets[0].writeThrows = true
+  sockets[0].writeError = 'Gateway output overflow'
+  assert.equal(bridge.sendGatewayMessage({ type: 'audio.input', payload: 'private' }), 'disconnected')
+  assert.equal(bridge.lastSendFailure, 'socket-full')
+})
+
+test('socket backpressure rejects only the frame and recovers without reconnect or leaked accounting', () => {
+  const { bridge, sockets, fakeScheduler } = createBridgeForTest()
+  bringToReady(sockets)
+  fakeScheduler.fireAll()
+  sockets[0].backpressured = true
+  const message = { type: 'audio.input', payload: 'a'.repeat(1000) }
+  for (let i = 0; i < 100; i++) {
+    assert.equal(bridge.sendGatewayMessage(message), 'overflow')
+    assert.equal(bridge.lastSendFailure, 'socket-full')
+  }
+  assert.equal(bridge.transportState, 'ready')
+  assert.equal(sockets[0].closed, false)
+  assert.deepEqual(fakeScheduler.delays(), [])
+  sockets[0].backpressured = false
+  assert.equal(bridge.sendGatewayMessage(message), 'queued')
+  assert.equal(bridge.lastSendFailure, undefined)
+  bridge.close()
 })
 
 test('onClosed drops to disconnected, fails pending sends, and schedules a reconnect', async () => {

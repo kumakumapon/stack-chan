@@ -1,5 +1,5 @@
-import type { GatewaySocket, GatewaySocketFactory, GatewaySocketOptions } from 'stackchan-gateway-bridge'
 import TextEncoder from 'text/encoder'
+import type { GatewaySocket, GatewaySocketFactory, GatewaySocketOptions } from './socket-types.js'
 
 /**
  * Moddable WebSocket client behind the Dock's socket seam.
@@ -19,7 +19,7 @@ type WebSocketClientOptions = Record<string, unknown>
 
 type WebSocketClient = {
   read(count: number): ArrayBuffer
-  write(buffer: ArrayBufferLike | Uint8Array, options?: Record<string, unknown>): void
+  write(buffer: ArrayBufferLike | Uint8Array, options?: Record<string, unknown>): number
   close(): void
 }
 
@@ -39,7 +39,7 @@ export const createGatewaySocket: GatewaySocketFactory = (options: GatewaySocket
   if (!network || !WebSocketClient) throw new Error('this target has no WebSocket client for the Gateway Dock')
 
   const encoder = new TextEncoder()
-  let pending: Uint8Array[] = []
+  let pending: { frame: Uint8Array; audioInput: boolean }[] = []
   let pendingBytes = 0
   let writable = 0
   let opened = false
@@ -62,16 +62,18 @@ export const createGatewaySocket: GatewaySocketFactory = (options: GatewaySocket
   const flush = () => {
     if (!socket || closed) return
     while (pending.length > 0) {
-      const frame = pending[0]
-      if (!frame) {
+      const entry = pending[0]
+      if (!entry) {
         pending.shift()
         continue
       }
+      const { frame } = entry
       if (writable < frame.byteLength) return
       pending.shift()
       pendingBytes -= frame.byteLength
-      writable -= frame.byteLength
-      socket.write(frame, TEXT_FRAME)
+      // The native client accounts for framing/masking overhead and returns
+      // the remaining payload capacity. Subtracting only data overestimates it.
+      writable = socket.write(frame, TEXT_FRAME)
     }
   }
 
@@ -96,11 +98,16 @@ export const createGatewaySocket: GatewaySocketFactory = (options: GatewaySocket
     },
     onWritable: (count: number) => {
       writable = count
-      if (!opened) {
-        opened = true
-        options.onReady()
+      try {
+        if (!opened) {
+          opened = true
+          options.onReady()
+        }
+        flush()
+      } catch (error) {
+        // Queued writes run outside the bridge's synchronous write catch.
+        finish(error instanceof Error ? error.message : String(error))
       }
-      flush()
     },
   })
 
@@ -121,13 +128,21 @@ export const createGatewaySocket: GatewaySocketFactory = (options: GatewaySocket
   }
 
   return {
-    write(data: string): void {
+    write(data: string, audioInput = false): boolean {
       if (closed) throw new Error('the Gateway socket is closed')
       const frame = encoder.encode(data)
-      if (pendingBytes + frame.byteLength > 32768) throw new Error('Gateway output overflow')
+      if (pendingBytes + frame.byteLength > 32768) return false
       pendingBytes += frame.byteLength
-      pending.push(frame)
+      pending.push({ frame, audioInput })
       flush()
+      return true
+    },
+    clearPendingAudio(): void {
+      pending = pending.filter((entry) => {
+        if (!entry.audioInput) return true
+        pendingBytes -= entry.frame.byteLength
+        return false
+      })
     },
     close(): void {
       finish()

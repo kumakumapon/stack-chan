@@ -76,7 +76,10 @@ export function createGatewayPresentation(
       if (!final) return
       showBalloon(text)
       if (!speakLocally || closed) return
+      if (!text.trim()) return
       const current = generation
+      // Pronunciation belongs to the selected TTS engine. Never silently remove
+      // words or numbers to hide a conversion error.
       const result = await context.audio.say(text)
       if (current !== generation) return
       if (result && typeof result === 'object' && 'success' in result && result.success === false) {

@@ -1,17 +1,22 @@
 const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
 export function encodePCM(bytes: Uint8Array): string {
-  let out = ''
+  const native = (bytes as Uint8Array & { toBase64?: () => string }).toBase64
+  if (typeof native === 'function') return native.call(bytes)
+  // Compatibility path for engines without the native encoder. Join once
+  // instead of repeatedly copying an ever-growing string.
+  const out: string[] = []
   for (let i = 0; i < bytes.length; i += 3) {
     const a = bytes[i],
       b = bytes[i + 1] ?? 0,
       c = bytes[i + 2] ?? 0
-    out +=
+    out.push(
       alphabet[a >> 2] +
-      alphabet[((a & 3) << 4) | (b >> 4)] +
-      (i + 1 < bytes.length ? alphabet[((b & 15) << 2) | (c >> 6)] : '=') +
-      (i + 2 < bytes.length ? alphabet[c & 63] : '=')
+        alphabet[((a & 3) << 4) | (b >> 4)] +
+        (i + 1 < bytes.length ? alphabet[((b & 15) << 2) | (c >> 6)] : '=') +
+        (i + 2 < bytes.length ? alphabet[c & 63] : '='),
+    )
   }
-  return out
+  return out.join('')
 }
 export function decodePCM(value: string): Uint8Array {
   if (!/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(value))
@@ -33,7 +38,8 @@ export function decodePCM(value: string): Uint8Array {
 }
 /** Keeps only one 20ms mono frame and an incomplete native sample. */
 export class PCMFramer {
-  #pending: number[] = []
+  #pending = new Uint8Array(4)
+  #pendingLength = 0
   #frame = new Uint8Array(640)
   #offset = 0
   constructor(
@@ -43,23 +49,41 @@ export class PCMFramer {
     if (channels !== 1 && channels !== 2) throw new Error('Expected mono or stereo PCM16')
   }
   push(bytes: Uint8Array): void {
-    for (const byte of bytes) {
-      this.#pending.push(byte)
-      if (this.#pending.length < this.channels * 2) continue
-      let sum = 0
-      for (let channel = 0; channel < this.channels; channel++) {
-        const bits = this.#pending[channel * 2] | (this.#pending[channel * 2 + 1] << 8)
-        sum += bits >= 32768 ? bits - 65536 : bits
+    let at = 0
+    if (this.channels === 1) {
+      // Mono needs no per-sample conversion; preserve even odd-byte splits.
+      while (at < bytes.length) {
+        const count = Math.min(this.#frame.length - this.#offset, bytes.length - at)
+        this.#frame.set(bytes.subarray(at, at + count), this.#offset)
+        this.#offset += count
+        at += count
+        if (this.#offset === this.#frame.length) this.#emit()
       }
-      const sample = Math.round(sum / this.channels)
-      this.#pending.length = 0
-      this.#frame[this.#offset++] = sample & 255
-      this.#frame[this.#offset++] = (sample >> 8) & 255
-      if (this.#offset === this.#frame.length) {
-        this.send(this.#frame.slice())
-        this.#offset = 0
-      }
+      return
     }
+    if (this.#pendingLength) {
+      while (at < bytes.length && this.#pendingLength < 4) this.#pending[this.#pendingLength++] = bytes[at++]
+      if (this.#pendingLength < 4) return
+      this.#stereoSample(this.#pending, 0)
+      this.#pendingLength = 0
+    }
+    for (; at + 4 <= bytes.length; at += 4) this.#stereoSample(bytes, at)
+    while (at < bytes.length) this.#pending[this.#pendingLength++] = bytes[at++]
+  }
+  #stereoSample(bytes: Uint8Array, at: number): void {
+    const left = ((bytes[at] | (bytes[at + 1] << 8)) << 16) >> 16
+    const right = ((bytes[at + 2] | (bytes[at + 3] << 8)) << 16) >> 16
+    const sample = Math.round((left + right) / 2)
+    this.#frame[this.#offset++] = sample & 255
+    this.#frame[this.#offset++] = (sample >> 8) & 255
+    if (this.#offset === this.#frame.length) this.#emit()
+  }
+  #emit(): void {
+    const frame = this.#frame
+    // Transfer the filled frame instead of allocating and copying it.
+    this.#frame = new Uint8Array(640)
+    this.#offset = 0
+    this.send(frame)
   }
 }
 export function pcmWave(frames: string[], sampleRate: number, channels: number): ArrayBuffer {

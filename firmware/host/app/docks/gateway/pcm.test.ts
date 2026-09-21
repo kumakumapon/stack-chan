@@ -27,13 +27,48 @@ test('PCM frames are independent and preserve signed extremes', () => {
   assert.throws(() => new PCMFramer(3, () => {}))
 })
 test('base64 codec agrees with an independent byte encoder for every tail length', () => {
-  for (let n = 0; n < 260; n++) {
-    const bytes = Uint8Array.from({ length: n }, (_, i) => i)
+  for (const n of [...Array.from({ length: 260 }, (_, i) => i), 640, 1280, 16384]) {
+    const storage = Uint8Array.from({ length: n + 9 }, (_, i) => i * 31)
+    const bytes = storage.subarray(3, n + 3)
     const encoded = encodePCM(bytes)
     assert.equal(encoded, Buffer.from(bytes).toString('base64'))
     assert.deepEqual(decodePCM(encoded), bytes)
+    Object.defineProperty(bytes, 'toBase64', { value: undefined })
+    assert.equal(encodePCM(bytes), encoded, 'fallback matches native output, padding and view boundaries')
   }
   assert.throws(() => decodePCM('invalid!'))
+})
+
+test('framing preserves independently mixed samples across mono/stereo chunks and frame boundaries', () => {
+  const values = [-32768, 32767, -1, 0, 1, -30001, 10000]
+  for (const channels of [1, 2]) {
+    const samples = 320 * 3 + 17
+    const storage = new Uint8Array(samples * channels * 2 + 5)
+    const input = storage.subarray(3, storage.length - 2)
+    const view = new DataView(input.buffer, input.byteOffset, input.byteLength)
+    const expected = new Uint8Array(samples * 2)
+    const output = new DataView(expected.buffer)
+    for (let sample = 0; sample < samples; sample++) {
+      let sum = 0
+      for (let channel = 0; channel < channels; channel++) {
+        const value = values[(sample * channels + channel) % values.length]
+        view.setInt16((sample * channels + channel) * 2, value, true)
+        sum += value
+      }
+      output.setInt16(sample * 2, Math.round(sum / channels), true)
+    }
+    for (const chunk of [1, 2, 3, 4, 7, 639, 640, 641, 1280, 4096]) {
+      const frames: Uint8Array[] = []
+      const framer = new PCMFramer(channels, (frame) => frames.push(frame))
+      for (let at = 0; at < input.length; at += chunk) {
+        framer.push(input.subarray(at, at + chunk))
+        framer.push(new Uint8Array(0))
+      }
+      assert.equal(frames.length, 3)
+      for (let i = 0; i < frames.length; i++) assert.deepEqual(frames[i], expected.slice(i * 640, (i + 1) * 640))
+      assert.notEqual(frames[0].buffer, frames[1].buffer)
+    }
+  }
 })
 test('PCM wave has a valid mono 16kHz header and unchanged samples', () => {
   const samples = new Uint8Array([255, 127, 0, 128])

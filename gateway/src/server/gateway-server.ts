@@ -22,6 +22,8 @@ export type GatewayServerOptions = {
   tts: TtsAdapter
   gatewayTools?: ToolDefinition[]
   logger?(message: string): void
+  /** Log only frame counts and audio levels, never credentials or transcripts. */
+  diagnostics?: boolean
 }
 
 export type GatewayServer = {
@@ -68,6 +70,15 @@ export function createGatewayServer(options: GatewayServerOptions): GatewayServe
 
       socketServer.on('connection', (socket, request) => {
         const peer = request.socket.remoteAddress ?? 'unknown'
+        let frames = 0
+        let maxRms = 0
+        const diagnosticTimer = options.diagnostics
+          ? setInterval(() => {
+              logger(`[audio-diagnostic] peer=${peer} frames=${frames} maxRms=${maxRms.toFixed(5)}`)
+              frames = 0
+              maxRms = 0
+            }, 5000)
+          : undefined
         const managed = sessions.accept({
           send: (payload) => socket.send(payload),
           close: (code, reason) => socket.close(code ?? 1000, reason ?? ''),
@@ -78,11 +89,30 @@ export function createGatewayServer(options: GatewayServerOptions): GatewayServe
             logger('[gateway] dropped a binary frame; the v1 media plane is base64 inside JSON')
             return
           }
+          if (options.diagnostics) {
+            try {
+              const frame = JSON.parse(data.toString())
+              if (frame.type === 'audio.input' && typeof frame.payload === 'string') {
+                const bytes = Buffer.from(frame.payload, 'base64')
+                let sum = 0
+                for (let i = 0; i + 1 < bytes.length; i += 2) sum += (bytes.readInt16LE(i) / 32768) ** 2
+                maxRms = Math.max(maxRms, Math.sqrt(sum / Math.max(1, Math.floor(bytes.length / 2))))
+                frames++
+              } else if (
+                ['conversation.start', 'conversation.stop', 'audio.input.end', 'session.update'].includes(frame.type)
+              ) {
+                logger(`[audio-diagnostic] received ${frame.type}`)
+              }
+            } catch {
+              /* Normal frame validation below handles malformed input. */
+            }
+          }
           void managed.handleFrame(data.toString()).catch((error) => {
             logger(`[gateway] frame handling failed: ${error instanceof Error ? error.message : String(error)}`)
           })
         })
         socket.on('close', () => {
+          clearInterval(diagnosticTimer)
           logger(`[gateway] connection from ${peer} closed`)
           void managed.release()
         })

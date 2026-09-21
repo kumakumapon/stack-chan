@@ -77,4 +77,13 @@ equal(singingCallbackCalls, 1, 'completed device singing should invoke its callb
 equal(singingCallbackError, undefined, 'completed device singing should not report an error')
 equal(tts.streaming, false, 'completed device singing should clear streaming state')
 
+tts.stream('「明日は１４日に行ってください」')
+equal(state.says.length, 2, 'text preparation should still synthesize the complete reply')
+equal(
+  state.says[1].text,
+  ' 明日はじゅうよっかに行ってください ',
+  'prepare quotes and calendar digits only for text synthesis',
+)
+equal(tts.streaming, false, 'prepared text should finish playback')
+
 trace('ok\n')
