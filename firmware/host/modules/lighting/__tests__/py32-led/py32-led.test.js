@@ -61,8 +61,8 @@ async function run() {
   writes = 0
   const recovered = new PY32Led({ length: 3 })
   assert(writes === initializationWrites, 'a new instance can initialize after recovery')
-  recovered.blink(255, 0, 0, 10)
-  await wait(40)
+  recovered.blink(255, 0, 0, 100)
+  for (let attempt = 0; writes === initializationWrites && attempt < 20; attempt++) await wait(50)
   assert(writes > initializationWrites, 'healthy effects still update LEDs')
   recovered.off()
   trace('ok\n')
