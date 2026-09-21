@@ -65,3 +65,34 @@ test('stripStackchanVoiceSymbols removes only symbols, keeping words and digits'
   assert.equal(clean.text, '明日は晴れです、100%だよ')
   assert.equal(clean.removed, '')
 })
+test('neutralizes the four dictionary-escape characters that silently drop kanji instead of erroring', () => {
+  // Measured against the vendored C converter: a raw apostrophe disables dictionary lookup for the rest
+  // of the sentence and silently discards the kanji that precede it, rather than raising error 105.
+  const result = prepareStackchanVoiceText("今日は晴れです'そうですね")
+  assert.equal(result, '今日は晴れです そうですね')
+  assert.ok(result.includes('今日は'), '漢字が保持されたまま')
+  for (const dangerous of ["'", '/', ';', '<']) {
+    assert.ok(!prepareStackchanVoiceText(`明日は晴れ${dangerous}明後日は雨`).includes(dangerous))
+  }
+  assert.equal(prepareStackchanVoiceText('明日は晴れ/曇りです'), '明日は晴れ 曇りです')
+  assert.equal(prepareStackchanVoiceText('待って;すぐ行く'), '待って、すぐ行く')
+  assert.equal(prepareStackchanVoiceText('明日は晴れ<明後日は雨'), '明日は晴れ 明後日は雨')
+})
+test('whitelist sweep clears unlisted symbols while keeping surrounding words and digits', () => {
+  assert.equal(prepareStackchanVoiceText('今日❤天気'), '今日 天気')
+  assert.equal(prepareStackchanVoiceText('明日▲晴れ'), '明日 晴れ')
+  assert.equal(prepareStackchanVoiceText('午後⇒夜10時'), '午後 夜じゅうじ')
+  assert.equal(prepareStackchanVoiceText('晴れ　明日は10時'), '晴れ 明日はじゅうじ')
+  // a bare half-width dakuten mark, unattached to any half-width kana, has no full-width form and must
+  // not silently delete the surrounding word
+  assert.equal(prepareStackchanVoiceText('晴れﾞ明日'), '晴れ 明日')
+})
+test('converts half-width katakana to full-width, composing dakuten and handakuten', () => {
+  assert.equal(prepareStackchanVoiceText('ｺﾝﾋﾟｭｰﾀ'), 'コンピュータ')
+  assert.equal(prepareStackchanVoiceText('ｶﾞｯｺｳ'), 'ガッコウ')
+  assert.equal(prepareStackchanVoiceText('ﾊﾟﾝ'), 'パン')
+  assert.equal(prepareStackchanVoiceText('ｺｰﾋｰが好き'), 'コーヒーが好き')
+  // ｱ has no voiced form, so the composition fails: keep the base character and turn the
+  // uncomposable ﾞ into a trailing space rather than losing the mora.
+  assert.equal(prepareStackchanVoiceText('ｱﾞ'), 'ア ')
+})
