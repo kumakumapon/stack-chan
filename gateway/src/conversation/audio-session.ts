@@ -10,7 +10,7 @@
 import { performance } from 'node:perf_hooks'
 import { decodePcm16Base64 } from '../audio/pcm.ts'
 import type { SttAdapter } from '../audio/stt.ts'
-import { createEnergyVad } from '../audio/vad.ts'
+import { createEnergyVad, type VadOptions } from '../audio/vad.ts'
 import type { GatewayAudioFormat } from '../protocol/stackchan-gateway-v1.ts'
 
 /**
@@ -29,6 +29,8 @@ export type AudioSessionOptions = {
   manualTurns?: boolean
   /** Audio-duration safety cap; silence detection remains the normal boundary. */
   maxUtteranceSeconds?: number
+  /** Forwarded verbatim to `createEnergyVad`; omitted fields keep its defaults. */
+  vad?: Omit<VadOptions, 'sampleRate'>
   logger?(message: string): void
 }
 
@@ -48,7 +50,7 @@ export function createAudioSession(options: AudioSessionOptions): AudioSession {
   }
   const maxSamples = Math.floor(maxSeconds * sampleRate)
   if (maxSamples < 1) throw new RangeError('utterance limit must hold at least one sample')
-  const vad = options.manualTurns ? undefined : createEnergyVad({ sampleRate })
+  const vad = options.manualTurns ? undefined : createEnergyVad({ sampleRate, ...options.vad })
   let generation = 0
   let controller = new AbortController()
   let buffered: Int16Array[] = []

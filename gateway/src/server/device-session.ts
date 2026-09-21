@@ -10,6 +10,7 @@ import type { AgentBackend } from '../agent/agent-backend.ts'
 import { createApprovalController } from '../approval/approval-controller.ts'
 import type { SttAdapter } from '../audio/stt.ts'
 import type { TtsAdapter } from '../audio/tts.ts'
+import type { VadOptions } from '../audio/vad.ts'
 import { type ConversationSession, createConversationSession } from '../conversation/conversation-session.ts'
 import { parseRealtimeDeviceControlEvent, sessionCreated } from '../protocol/realtime-control.ts'
 import {
@@ -53,6 +54,11 @@ export type DeviceSessionOptions = {
   supportedInputFormats?: GatewayAudioFormat[]
   supportedOutputFormats?: GatewayAudioFormat[]
   approvalTimeoutMs?: number
+  /** Forwarded to each conversation's `createAudioSession`. See `config.ts`'s `audio` section. */
+  maxUtteranceSeconds?: number
+  vad?: Omit<VadOptions, 'sampleRate'>
+  /** Forwarded to each conversation session. See `config.ts`'s `diagnostics.logTranscripts`. */
+  logTranscripts?: boolean
   logger?(message: string): void
   createSessionId?(): string
   scheduler?: { set(callback: () => void, milliseconds: number): unknown; clear(handle: unknown): void }
@@ -143,6 +149,9 @@ export function createDeviceSession(options: DeviceSessionOptions): DeviceSessio
       ...(options.instructions === undefined ? {} : { instructions: options.instructions }),
       ...(options.policy ? { policy: options.policy } : {}),
       ...(options.scheduler ? { scheduler: options.scheduler } : {}),
+      ...(options.maxUtteranceSeconds === undefined ? {} : { maxUtteranceSeconds: options.maxUtteranceSeconds }),
+      ...(options.vad ? { vad: options.vad } : {}),
+      ...(options.logTranscripts === undefined ? {} : { logTranscripts: options.logTranscripts }),
       logger,
     })
 

@@ -18,6 +18,7 @@ import type { AgentBackend, AgentEvent, AgentSession } from '../agent/agent-back
 import type { ApprovalController } from '../approval/approval-controller.ts'
 import type { SttAdapter } from '../audio/stt.ts'
 import type { TtsAdapter } from '../audio/tts.ts'
+import type { VadOptions } from '../audio/vad.ts'
 import {
   functionCallArgumentsDone,
   type RealtimeDeviceControlEvent,
@@ -74,6 +75,17 @@ export type ConversationSessionOptions = {
   policy?: ToolPolicy
   /** Embodiment schemas that enrich whatever the device advertises. */
   embodimentSchemas?: ToolDefinition[]
+  /** Forwarded to `createAudioSession`; omitted keeps its 30 s default. */
+  maxUtteranceSeconds?: number
+  /** Forwarded to `createAudioSession`'s VAD; omitted fields keep `createEnergyVad`'s defaults. */
+  vad?: Omit<VadOptions, 'sampleRate'>
+  /**
+   * Logs the recognized utterance (`onUtterance`) and the final agent reply
+   * (`handleAgentEvent`'s `text` case) separately, when true. Off by default:
+   * this is the one switch that puts conversation content in the log, so it
+   * is opt-in (see `diagnostics.logTranscripts` in `config.ts`).
+   */
+  logTranscripts?: boolean
   sendEvent(event: StackchanGatewayEvent): void
   sendGateway(message: GatewayServerMessage): void
   sendControl(event: Record<string, unknown>): void
@@ -259,6 +271,7 @@ export function createConversationSession(options: ConversationSessionOptions): 
       case 'text':
         options.sendGateway(transcript('output', event.text, event.final))
         if (event.final) {
+          if (options.logTranscripts) logger(`[gateway] reply transcript: ${event.text}`)
           // The final output transcript is the "agent ready" point for reply
           // latency; it is captured here, immediately before `speakText`
           // starts, and consumed at most once per pending utterance.
@@ -359,11 +372,14 @@ export function createConversationSession(options: ConversationSessionOptions): 
       onUtterance: async (text) => {
         if (!agent || closed || cancelling || currentSession !== sessionGeneration) return
         pendingLatency = { utteranceAt: performance.now(), generation }
+        if (options.logTranscripts) logger(`[gateway] stt transcript: ${text}`)
         options.sendGateway(transcript('input', text, true))
         setState('recognizing')
         await agent.inputText(text)
       },
       onError: (message) => options.sendGateway(agentError('sttFailure', message, false)),
+      ...(options.maxUtteranceSeconds === undefined ? {} : { maxUtteranceSeconds: options.maxUtteranceSeconds }),
+      ...(options.vad ? { vad: options.vad } : {}),
       logger,
     })
     setState('listening')

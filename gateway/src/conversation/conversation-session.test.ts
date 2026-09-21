@@ -57,6 +57,7 @@ function harness(
   tts: TtsAdapter = createNullTts(),
   stt: SttAdapter = createNullStt(),
   logs: string[] = [],
+  logTranscripts = false,
 ) {
   const sent: Array<Record<string, unknown>> = []
   const session = createConversationSession({
@@ -68,6 +69,7 @@ function harness(
     tts,
     inputFormat: PCM16,
     outputFormat: PCM16,
+    logTranscripts,
     sendEvent: (event) => sent.push(event as unknown as Record<string, unknown>),
     sendGateway: (message) => sent.push(message as unknown as Record<string, unknown>),
     sendControl: (event) => sent.push(event),
@@ -392,6 +394,94 @@ test('an interrupted turn logs no reply latency for the cancelled utterance', as
   assert.deepEqual(
     logs.filter((line) => line.startsWith('[gateway] reply latency')),
     [],
+  )
+  await session.close()
+})
+
+test('logTranscripts false (the default) logs neither the recognized utterance nor the reply', async () => {
+  const scripted = scriptedBackend(false)
+  const REPLY_TEXT = 'a reply that must stay out of the log by default'
+  const UTTERANCE_TEXT = 'an utterance that must stay out of the log by default'
+  const stt: SttAdapter = {
+    name: 'fixed',
+    async transcribe() {
+      return { text: UTTERANCE_TEXT, final: true }
+    },
+  }
+  const logs: string[] = []
+  const { session, of } = harness(scripted.backend, createNullTts(), stt, logs, false)
+  await session.handleDeviceEvent(START)
+
+  for (let index = 0; index < 10; index++)
+    await session.handleGatewayMessage({
+      schema: STACKCHAN_GATEWAY_SCHEMA,
+      type: 'audio.input',
+      seq: index,
+      payload: tone(1_600, 12_000),
+    })
+  for (let index = 10; index < 30; index++)
+    await session.handleGatewayMessage({
+      schema: STACKCHAN_GATEWAY_SCHEMA,
+      type: 'audio.input',
+      seq: index,
+      payload: tone(1_600, 0),
+    })
+  assert.equal(of('transcript.input')[0]?.text, UTTERANCE_TEXT)
+
+  scripted.emit({ type: 'text', text: REPLY_TEXT, final: true })
+  await new Promise((resolve) => setTimeout(resolve, 20))
+
+  assert.deepEqual(
+    logs.filter((line) => line.startsWith('[gateway] stt transcript') || line.startsWith('[gateway] reply transcript')),
+    [],
+  )
+  assert.ok(
+    logs.every((line) => !line.includes(REPLY_TEXT) && !line.includes(UTTERANCE_TEXT)),
+    'transcript content must never reach the logger when logTranscripts is false',
+  )
+  await session.close()
+})
+
+test('logTranscripts true logs the recognized utterance and the final reply as separate lines', async () => {
+  const scripted = scriptedBackend(false)
+  const REPLY_TEXT = 'the reply that logTranscripts should surface'
+  const UTTERANCE_TEXT = 'the utterance that logTranscripts should surface'
+  const stt: SttAdapter = {
+    name: 'fixed',
+    async transcribe() {
+      return { text: UTTERANCE_TEXT, final: true }
+    },
+  }
+  const logs: string[] = []
+  const { session, of } = harness(scripted.backend, createNullTts(), stt, logs, true)
+  await session.handleDeviceEvent(START)
+
+  for (let index = 0; index < 10; index++)
+    await session.handleGatewayMessage({
+      schema: STACKCHAN_GATEWAY_SCHEMA,
+      type: 'audio.input',
+      seq: index,
+      payload: tone(1_600, 12_000),
+    })
+  for (let index = 10; index < 30; index++)
+    await session.handleGatewayMessage({
+      schema: STACKCHAN_GATEWAY_SCHEMA,
+      type: 'audio.input',
+      seq: index,
+      payload: tone(1_600, 0),
+    })
+  assert.equal(of('transcript.input')[0]?.text, UTTERANCE_TEXT)
+
+  scripted.emit({ type: 'text', text: REPLY_TEXT, final: true })
+  await new Promise((resolve) => setTimeout(resolve, 20))
+
+  assert.equal(
+    logs.some((line) => line === `[gateway] stt transcript: ${UTTERANCE_TEXT}`),
+    true,
+  )
+  assert.equal(
+    logs.some((line) => line === `[gateway] reply transcript: ${REPLY_TEXT}`),
+    true,
   )
   await session.close()
 })
