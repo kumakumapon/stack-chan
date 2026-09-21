@@ -5,6 +5,17 @@ long-running stability remains unverified. No sub-agents were used.
 
 ## Latest conversation milestone (2026-09-21)
 
+Latest review fixes (supersede the temporary limits described below): local TTS
+now receives the complete reply, preserving kanji, numbers and text beyond 32
+characters. Natural Japanese replaces the kana-only instruction. Unsupported
+text still surfaces the selected engine's conversion error rather than silently
+changing meaning. Gateway endpointing uses silence plus a 30-second received-audio
+safety limit, splitting frames at the boundary without losing samples. Persistent
+noise can therefore delay replies longer than before and needs physical testing.
+Gateway tests: 157 passed; Gateway Dock: 57 passed. Earlier 10-turn, 15-minute,
+restart and reboot user confirmations predate these two changes and do not validate
+the new long-utterance/mixed-text behavior.
+
 Follow-up fixes: the LED test now includes shared testing/implementation manifests
 and uses timer return types compatible with its fake. The socket test selects the
 actual text encoder manifest; socket types no longer require the whole bridge

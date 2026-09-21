@@ -58,13 +58,14 @@ test('a microphone signal that never releases is transcribed at the safety bound
   const seen: number[] = []
   const session = createAudioSession({
     stt: recordingStt('bounded', seen),
+    maxUtteranceSeconds: 3,
     inputFormat: FORMAT,
     onUtterance: (text) => {
       utterances.push(text)
     },
     onError: () => assert.fail('the STT must not have failed'),
   })
-  // The default safety bound is three seconds. The following frame triggers
+  // This test selects a three-second safety bound. The following frame triggers
   // transcription instead of being dropped forever when VAD sees no silence.
   for (let index = 0; index < 3; index += 1) await session.pushFrame(tone(16_000, 12_000))
   await session.pushFrame(tone(1_600, 12_000))
@@ -162,6 +163,7 @@ test('a single oversized frame cannot exceed storage limits or discard existing 
     const seen: number[] = []
     const session = createAudioSession({
       stt: recordingStt('speech', seen),
+      maxUtteranceSeconds: 3,
       inputFormat: FORMAT,
       manualTurns,
       onUtterance: () => {},
@@ -190,6 +192,7 @@ test('reset during a manual overflow transcription cannot append stale audio', a
     inputFormat: FORMAT,
     manualTurns: true,
     onUtterance: () => assert.fail('stale text must be discarded'),
+    maxUtteranceSeconds: 3,
     onError: () => assert.fail('unexpected STT error'),
   })
   await session.pushFrame(tone(48_000, 12_000))
@@ -199,4 +202,45 @@ test('reset during a manual overflow transcription cannot append stale audio', a
   await pending
   await session.flush()
   assert.equal(calls, 1)
+})
+
+test('speech longer than three seconds remains one utterance until silence', async () => {
+  const seen: number[] = []
+  const session = createAudioSession({
+    stt: recordingStt('long speech', seen),
+    inputFormat: FORMAT,
+    onUtterance: () => {},
+    onError: () => assert.fail('unexpected error'),
+  })
+  for (let index = 0; index < 40; index++) await session.pushFrame(tone(1_600, 12_000))
+  assert.deepEqual(seen, [])
+  for (let index = 0; index < 3; index++) await session.pushFrame(tone(1_600, 0))
+  assert.deepEqual(seen, [68_800])
+})
+
+test('safety segmentation preserves every sample in order across frame boundaries', async () => {
+  for (const manualTurns of [true, false]) {
+    const segments: number[][] = []
+    const session = createAudioSession({
+      stt: {
+        name: 'samples',
+        async transcribe(audio) {
+          segments.push(Array.from(audio))
+          return { text: 'segment', final: true }
+        },
+      },
+      inputFormat: FORMAT,
+      maxUtteranceSeconds: 0.35,
+      manualTurns,
+      onUtterance: () => {},
+      onError: () => assert.fail('unexpected error'),
+    })
+    const source = Int16Array.from({ length: 12_800 }, (_, index) => 10_000 + (index % 10_000))
+    for (let offset = 0; offset < source.length; offset += 3_200)
+      await session.pushFrame(encodePcm16Base64(source.subarray(offset, offset + 3_200)))
+    await session.flush()
+    assert.deepEqual(segments.flat(), Array.from(source))
+    assert.ok(segments.length > 1)
+    assert.ok(segments.every((segment) => segment.length <= 5_600))
+  }
 })

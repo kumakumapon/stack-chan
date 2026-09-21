@@ -17,7 +17,7 @@ import type { GatewayAudioFormat } from '../protocol/stackchan-gateway-v1.ts'
  * observing a release. Rather than silently dropping every subsequent frame,
  * submit the bounded recording to STT and begin a fresh turn.
  */
-const MAX_UTTERANCE_SECONDS = 3
+const MAX_UTTERANCE_SECONDS = 30
 
 export type AudioSessionOptions = {
   stt: SttAdapter
@@ -26,6 +26,8 @@ export type AudioSessionOptions = {
   onError(message: string): void
   /** Disables energy-based endpointing; `flush()` then delimits utterances. */
   manualTurns?: boolean
+  /** Audio-duration safety cap; silence detection remains the normal boundary. */
+  maxUtteranceSeconds?: number
   logger?(message: string): void
 }
 
@@ -39,7 +41,12 @@ export type AudioSession = {
 export function createAudioSession(options: AudioSessionOptions): AudioSession {
   const logger = options.logger ?? (() => {})
   const sampleRate = options.inputFormat.sampleRate
-  const maxSamples = MAX_UTTERANCE_SECONDS * sampleRate
+  const maxSeconds = options.maxUtteranceSeconds ?? MAX_UTTERANCE_SECONDS
+  if (!Number.isFinite(maxSeconds) || maxSeconds <= 0 || maxSeconds > MAX_UTTERANCE_SECONDS) {
+    throw new RangeError('maxUtteranceSeconds must be positive and at most 30')
+  }
+  const maxSamples = Math.floor(maxSeconds * sampleRate)
+  if (maxSamples < 1) throw new RangeError('utterance limit must hold at least one sample')
   const vad = options.manualTurns ? undefined : createEnergyVad({ sampleRate })
   let generation = 0
   let controller = new AbortController()
@@ -81,6 +88,22 @@ export function createAudioSession(options: AudioSessionOptions): AudioSession {
     await options.onUtterance(text)
   }
 
+  const appendBounded = async (frame: Int16Array): Promise<boolean> => {
+    const current = generation
+    let offset = 0
+    while (offset < frame.length) {
+      if (bufferedSamples === maxSamples) {
+        logger('[gateway] transcribing an audio-duration safety segment')
+        await transcribe()
+        if (current !== generation) return false
+      }
+      const count = Math.min(frame.length - offset, maxSamples - bufferedSamples)
+      append(frame.slice(offset, offset + count))
+      offset += count
+    }
+    return true
+  }
+
   return {
     async pushFrame(payload) {
       let frame: Int16Array
@@ -97,12 +120,7 @@ export function createAudioSession(options: AudioSessionOptions): AudioSession {
         return
       }
       if (!vad) {
-        if (bufferedSamples + frame.length > maxSamples) {
-          const current = generation
-          await transcribe()
-          if (current !== generation) return
-        }
-        append(frame)
+        await appendBounded(frame)
         return
       }
       const events = vad.push(frame)
@@ -118,14 +136,7 @@ export function createAudioSession(options: AudioSessionOptions): AudioSession {
         return
       }
       if (capturing) {
-        if (bufferedSamples + frame.length > maxSamples) {
-          logger('[gateway] VAD did not release; transcribing the bounded microphone utterance')
-          vad.reset()
-          capturing = false
-          await transcribe()
-          return
-        }
-        append(frame)
+        if (!(await appendBounded(frame))) return
       }
       for (const event of events) {
         if (event.type !== 'speech.end') continue

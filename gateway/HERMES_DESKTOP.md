@@ -47,9 +47,14 @@ StackchanVoice instead of streamed PC speech:
 
 The launcher also accepts `-Tts windows` (the default) and `-Tts hermes`.
 Device mode sends reply text for local synthesis; it does not prove PC PCM output
-is working. Current temporary limits are three-second utterances and kana-only
-local speech of at most 32 characters. Longer speech can be cut off and filtering
-can change meaning. Continuous conversation stability still needs hardware tests.
+is working. Silence detection normally ends an utterance, with a 30-second
+received-audio safety cap. At that cap, audio is segmented without dropping the
+boundary frame. This is audio duration, not wall-clock time. Persistent microphone
+noise can delay endpointing up to this cap and still needs hardware verification.
+Reply text is passed unchanged to the selected local TTS engine: dictionary-based
+pronunciation and unsupported-text errors belong to that engine. No kana-only
+filter or 32-character truncation is applied. New long-utterance and mixed-text
+behavior needs physical-device verification beyond the earlier stability tests.
 
 For the local Whisper recognizer used in this investigation, explicitly select
 Japanese in Hermes (`stt.local.language: ja`). Preserve the existing provider/model

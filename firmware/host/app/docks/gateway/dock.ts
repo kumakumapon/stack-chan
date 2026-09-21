@@ -91,7 +91,7 @@ function createRealtimeToolProvider(context: StackchanContext): RealtimeToolProv
   return {
     ...provider,
     instructions:
-      'Your reply text is spoken automatically by a compact Japanese synthesizer. Reply in short hiragana or katakana only, using Japanese punctuation; do not use kanji, Latin letters, digits, emoji, or Markdown. Use stackchan.react or stackchan.perform sparingly for named expressions; do not repeat the reply with stackchan.say or generate raw servo sequences.',
+      'Your reply text is spoken automatically. Reply briefly in natural Japanese using plain text, without emoji or Markdown. Preserve names, numbers, and the meaning of your answer. Use stackchan.react or stackchan.perform sparingly for named expressions; do not repeat the reply with stackchan.say or generate raw servo sequences.',
   }
 }
 
