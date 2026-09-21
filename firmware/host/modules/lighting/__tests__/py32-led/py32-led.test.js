@@ -35,31 +35,40 @@ healthy.on(255, 0, 0)
 assert(writes > initializationWrites, 'healthy LED still writes colors')
 healthy.off()
 
-// Fail every individual setup/initial-clear write, not just device discovery.
-for (let failure = 1; failure <= initializationWrites; failure++) {
-  Timer.reset()
+const wait = (milliseconds) => new Promise((resolve) => Timer.set(resolve, milliseconds))
+
+async function run() {
+  // Use the native XS Timer so this test also exercises real timer cleanup.
+  // Fail every individual setup/initial-clear write, not just device discovery.
+  for (let failure = 1; failure <= initializationWrites; failure++) {
+    writes = 0
+    failAt = failure
+    const disabled = new PY32Led({ length: 3 })
+    assert(writes === failure, 'initialization stops at the failed write')
+    failAt = 0
+    disabled.on(255, 0, 0, 1)
+    disabled.off()
+    disabled.blink(255, 0, 0, 1)
+    disabled.rainbow()
+    await wait(120)
+    assert(writes === failure, 'failed LED must remain inert, including timers')
+    assert(closes === 0, 'LED failure must not close the shared servo bus')
+    assert(getSharedPY32IOExpander() === shared, 'shared expander must be retained')
+    shared.digitalWrite(0, true)
+    assert(writes === failure + 1, 'other shared-bus consumers remain usable')
+  }
+
   writes = 0
-  failAt = failure
-  const disabled = new PY32Led({ length: 3 })
-  assert(writes === failure, 'initialization stops at the failed write')
-  failAt = 0
-  disabled.on(255, 0, 0, 100)
-  disabled.off()
-  disabled.blink(255, 0, 0, 100)
-  disabled.rainbow()
-  Timer.advance(1000)
-  assert(writes === failure, 'failed LED must remain inert, including timers')
-  assert(closes === 0, 'LED failure must not close the shared servo bus')
-  assert(getSharedPY32IOExpander() === shared, 'shared expander must be retained')
-  shared.digitalWrite(0, true)
-  assert(writes === failure + 1, 'other shared-bus consumers remain usable')
+  const recovered = new PY32Led({ length: 3 })
+  assert(writes === initializationWrites, 'a new instance can initialize after recovery')
+  recovered.blink(255, 0, 0, 10)
+  await wait(40)
+  assert(writes > initializationWrites, 'healthy effects still update LEDs')
+  recovered.off()
+  trace('ok\n')
 }
 
-writes = 0
-const recovered = new PY32Led({ length: 3 })
-assert(writes === initializationWrites, 'a new instance can initialize after recovery')
-recovered.blink(255, 0, 0, 100)
-Timer.advance(100)
-assert(writes > initializationWrites, 'healthy effects still update LEDs')
-recovered.off()
-trace('ok\n')
+run().catch((error) => {
+  trace(`LED test failed: ${String(error)}\n`)
+  throw error
+})
