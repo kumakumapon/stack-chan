@@ -25,8 +25,9 @@ class FakeSMBus {
   }
 }
 
-globalThis.device = { io: { SMBus: FakeSMBus } }
-const shared = getSharedPY32IOExpander()
+// Inject through the supported sensor seam. Preloaded modules may retain their
+// own global environment, so replacing globalThis.device is not portable in XS.
+const shared = getSharedPY32IOExpander({ sensor: { io: FakeSMBus } })
 const healthy = new PY32Led({ length: 3 })
 const initializationWrites = writes
 assert(initializationWrites > 0, 'initialization must exercise the bus')
