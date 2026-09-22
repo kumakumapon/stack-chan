@@ -13,6 +13,11 @@ export type StackchanVoiceTestState = {
   constructors: Array<{ preset: number; resourceName: string }>
   koes: Array<{ koe: string; speed: number }>
   says: Array<{ speed: number; text: string }>
+  // Queues consumed one entry per say()/koe() call: `true` makes that call throw
+  // (simulating native error 105), `false`/exhausted lets it succeed normally.
+  // Every attempt (failing or not) is still recorded into `says`/`koes` above.
+  sayFailQueue: boolean[]
+  koeFailQueue: boolean[]
 }
 
 export const state: StackchanVoiceTestState = {
@@ -26,6 +31,8 @@ export const state: StackchanVoiceTestState = {
   constructors: [],
   koes: [],
   says: [],
+  sayFailQueue: [],
+  koeFailQueue: [],
 }
 
 export function resetState(): void {
@@ -39,4 +46,6 @@ export function resetState(): void {
   state.constructors.length = 0
   state.koes.length = 0
   state.says.length = 0
+  state.sayFailQueue.length = 0
+  state.koeFailQueue.length = 0
 }

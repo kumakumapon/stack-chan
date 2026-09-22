@@ -5,7 +5,7 @@ import type { GatewayBridge } from 'stackchan-gateway-bridge'
 import type { GatewayServerMessage } from 'stackchan-gateway-protocol'
 import type { RealtimeEventBridge } from 'stackchan-realtime-session'
 import { installGatewayDockTestAliases } from './__tests__/node-aliases.js'
-import type { GatewayPresentation } from './presentation.js'
+import { type GatewayPresentation, LOCAL_SPEECH_ERROR_NAME } from './presentation.js'
 import type { GatewayRemoteRuntime } from './runtime.js'
 
 installGatewayDockTestAliases()
@@ -527,5 +527,39 @@ test('disconnect clears a pending interrupt barrier so a reconnected stream is a
   dock.emit(sideband({ type: 'audio.started', responseId: 'new-connection', format: PCM16 }))
   dock.emit(sideband({ type: 'audio.chunk', responseId: 'new-connection', seq: 0, payload: 'AAAA' }))
   assert.ok(dock.presented.includes('audio:chunk'))
+  dock.runtime.close()
+})
+
+test('a reply the local engine cannot pronounce keeps the conversation listening', async () => {
+  // Error 105 means this one reply had no reading. The Gateway link and the
+  // microphone are untouched, and `blocked` is terminal for capture, so the
+  // conversation has to survive it.
+  const failure = new Error('text->koe conversion failed (105)')
+  failure.name = LOCAL_SPEECH_ERROR_NAME
+  const playback = Promise.reject(failure)
+  playback.catch(() => {})
+  const dock = harness({ microphone: true, playback })
+  dock.runtime.onContextCreated(context)
+  dock.runtime.remoteConversationSession?.activate()
+  enableAudio(dock)
+  dock.emit(sideband({ type: 'transcript.output', text: 'こんにちは', final: true }))
+  await new Promise<void>((resolve) => setImmediate(resolve))
+  assert.equal(dock.runtime.remoteConversationSession?.state, 'listening')
+  assert.deepEqual(dock.states.at(-1), { state: 'listening', error: 'text->koe conversion failed (105)' })
+  assert.equal(dock.microphoneRunning, true, 'the next turn can still be recorded')
+  dock.runtime.close()
+})
+
+test('a playback failure that is not local speech still blocks the conversation', async () => {
+  const playback = Promise.reject(new Error('Gateway audio queue overflow'))
+  playback.catch(() => {})
+  const dock = harness({ microphone: true, playback })
+  dock.runtime.onContextCreated(context)
+  dock.runtime.remoteConversationSession?.activate()
+  enableAudio(dock)
+  dock.emit(sideband({ type: 'transcript.output', text: 'こんにちは', final: true }))
+  await new Promise<void>((resolve) => setImmediate(resolve))
+  assert.equal(dock.runtime.remoteConversationSession?.state, 'blocked')
+  assert.equal(dock.microphoneRunning, false)
   dock.runtime.close()
 })

@@ -7,9 +7,10 @@
  * forwarding frames directly.
  */
 
+import { performance } from 'node:perf_hooks'
 import { decodePcm16Base64 } from '../audio/pcm.ts'
 import type { SttAdapter } from '../audio/stt.ts'
-import { createEnergyVad } from '../audio/vad.ts'
+import { createEnergyVad, type VadOptions } from '../audio/vad.ts'
 import type { GatewayAudioFormat } from '../protocol/stackchan-gateway-v1.ts'
 
 /**
@@ -28,6 +29,8 @@ export type AudioSessionOptions = {
   manualTurns?: boolean
   /** Audio-duration safety cap; silence detection remains the normal boundary. */
   maxUtteranceSeconds?: number
+  /** Forwarded verbatim to `createEnergyVad`; omitted fields keep its defaults. */
+  vad?: Omit<VadOptions, 'sampleRate'>
   logger?(message: string): void
 }
 
@@ -47,7 +50,7 @@ export function createAudioSession(options: AudioSessionOptions): AudioSession {
   }
   const maxSamples = Math.floor(maxSeconds * sampleRate)
   if (maxSamples < 1) throw new RangeError('utterance limit must hold at least one sample')
-  const vad = options.manualTurns ? undefined : createEnergyVad({ sampleRate })
+  const vad = options.manualTurns ? undefined : createEnergyVad({ sampleRate, ...options.vad })
   let generation = 0
   let controller = new AbortController()
   let buffered: Int16Array[] = []
@@ -75,6 +78,7 @@ export function createAudioSession(options: AudioSessionOptions): AudioSession {
     if (bufferedSamples === 0) return
     const utterance = take()
     const current = generation
+    const startedAt = performance.now()
     let text: string
     try {
       const result = await options.stt.transcribe(utterance, sampleRate, controller.signal)
@@ -84,6 +88,11 @@ export function createAudioSession(options: AudioSessionOptions): AudioSession {
       options.onError(error instanceof Error ? error.message : String(error))
       return
     }
+    // Timing and size only -- never the transcript itself (see the module
+    // policy against logging voice/transcript/token content).
+    const elapsedMilliseconds = Math.round(performance.now() - startedAt)
+    const audioSeconds = (utterance.length / sampleRate).toFixed(1)
+    logger(`[gateway] stt completed in ${elapsedMilliseconds} ms for ${audioSeconds} s of audio`)
     if (!text || current !== generation) return
     await options.onUtterance(text)
   }

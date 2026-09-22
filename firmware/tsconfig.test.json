@@ -32,6 +32,9 @@
       "tts-types": [
         "./host/modules/audio/tts-types.ts"
       ],
+      "stackchan-voice-text": [
+        "./host/modules/audio/stackchan-voice/text.ts"
+      ],
       "audio-in": [
         "./host/modules/testing/fakes/audio-in.ts"
       ],
@@ -329,6 +332,9 @@
       ],
       "stackchan-gateway-bridge": [
         "./host/app/docks/gateway/bridge.ts"
+      ],
+      "stackchan-gateway-dock-presentation": [
+        "./host/app/docks/gateway/presentation.ts"
       ],
       "stackchan-realtime-tools": [
         "./host/app/realtime-tools.ts"

@@ -12,11 +12,13 @@
  * owns the transport and hands parsed messages in.
  */
 
+import { performance } from 'node:perf_hooks'
 import { setTimeout as delay } from 'node:timers/promises'
 import type { AgentBackend, AgentEvent, AgentSession } from '../agent/agent-backend.ts'
 import type { ApprovalController } from '../approval/approval-controller.ts'
 import type { SttAdapter } from '../audio/stt.ts'
 import type { TtsAdapter } from '../audio/tts.ts'
+import type { VadOptions } from '../audio/vad.ts'
 import {
   functionCallArgumentsDone,
   type RealtimeDeviceControlEvent,
@@ -51,8 +53,14 @@ const DEVICE_TOOL_TIMEOUT_MILLISECONDS = 15_000
  * The CoreS3 output holds only a few PCM packets. Send this much audio before
  * real-time pacing begins so ordinary Wi-Fi and JS scheduling jitter cannot
  * empty the hardware queue between 20 ms packets.
+ *
+ * The device's receive queue caps out at 65536 bytes of 16 kHz mono PCM16,
+ * i.e. about 2.05 s of audio. 512 ms of prebuffer leaves ample headroom under
+ * that cap (roughly a quarter of it) while giving the device several times
+ * more cushion than the previous 256 ms against the accumulated drift that
+ * `setTimeout`-based pacing produces on a long utterance (see `speakText`).
  */
-const OUTPUT_AUDIO_PREBUFFER_MILLISECONDS = 256
+const OUTPUT_AUDIO_PREBUFFER_MILLISECONDS = 512
 
 export type ConversationSessionOptions = {
   deviceId: string
@@ -67,6 +75,17 @@ export type ConversationSessionOptions = {
   policy?: ToolPolicy
   /** Embodiment schemas that enrich whatever the device advertises. */
   embodimentSchemas?: ToolDefinition[]
+  /** Forwarded to `createAudioSession`; omitted keeps its 30 s default. */
+  maxUtteranceSeconds?: number
+  /** Forwarded to `createAudioSession`'s VAD; omitted fields keep `createEnergyVad`'s defaults. */
+  vad?: Omit<VadOptions, 'sampleRate'>
+  /**
+   * Logs the recognized utterance (`onUtterance`) and the final agent reply
+   * (`handleAgentEvent`'s `text` case) separately, when true. Off by default:
+   * this is the one switch that puts conversation content in the log, so it
+   * is opt-in (see `diagnostics.logTranscripts` in `config.ts`).
+   */
+  logTranscripts?: boolean
   sendEvent(event: StackchanGatewayEvent): void
   sendGateway(message: GatewayServerMessage): void
   sendControl(event: Record<string, unknown>): void
@@ -111,6 +130,12 @@ export function createConversationSession(options: ConversationSessionOptions): 
   /** Set while a backend that produces its own audio is streaming a turn. */
   let agentResponseId: string | undefined
   let audioSequence = 0
+  /**
+   * When the current turn started from `onUtterance`, the time it fired and
+   * the `generation` it belonged to. Diagnostic timing only (see `speakText`
+   * and the `text` case in `handleAgentEvent`); never carries transcript text.
+   */
+  let pendingLatency: { utteranceAt: number; generation: number } | undefined
 
   const setState = (next: RemoteConversationState) => {
     state = next
@@ -151,14 +176,27 @@ export function createConversationSession(options: ConversationSessionOptions): 
     }
   }
 
-  const speakText = async (text: string) => {
+  /**
+   * `latency`, when present, times the turn from `onUtterance` through this
+   * reply (see `pendingLatency`). It carries only timestamps and a frame
+   * count -- never the utterance or reply text -- so it is safe to log.
+   */
+  const speakText = async (text: string, latency?: { utteranceAt: number; agentReadyAt: number }) => {
     if (!text || closed || cancelling) return
     const currentGeneration = generation
     const signal = speechController.signal
     const responseId = createId('response')
     let seq = 0
     let started = false
+    let framesSent = 0
+    let firstAudioAt: number | undefined
     let prebufferedMilliseconds = 0
+    // Absolute deadline pacing: `nextDeadline` is an absolute point in time
+    // (not a per-frame relative sleep), so a `setTimeout` that over-sleeps by
+    // a millisecond never pushes every later frame back by that millisecond
+    // too -- each wait is `max(0, nextDeadline - now)`, which self-corrects.
+    // It stays undefined until the prebuffer has been sent.
+    let nextDeadline: number | undefined
     try {
       for await (const chunk of options.tts.synthesize(text, signal)) {
         if (closed || currentGeneration !== generation) return
@@ -176,12 +214,28 @@ export function createConversationSession(options: ConversationSessionOptions): 
           if (closed || currentGeneration !== generation) return
           const frame = pcm.subarray(offset, offset + frameBytes)
           options.sendGateway(audioChunk(responseId, seq++, frame.toString('base64')))
+          framesSent += 1
+          if (firstAudioAt === undefined) firstAudioAt = performance.now()
           const frameMilliseconds = (frame.length * 500) / options.outputFormat.sampleRate
           if (prebufferedMilliseconds < OUTPUT_AUDIO_PREBUFFER_MILLISECONDS) {
             prebufferedMilliseconds += frameMilliseconds
             continue
           }
-          await delay(frameMilliseconds, undefined, { signal })
+          // The pacing clock starts once the prebuffer has been sent, so the
+          // device keeps that head start for the rest of the reply. Advancing
+          // the deadline during the prebuffer instead would spend the whole
+          // lead on one long wait here and leave the device with no cushion.
+          if (nextDeadline === undefined) nextDeadline = performance.now()
+          nextDeadline += frameMilliseconds
+          const waitMilliseconds = Math.max(0, nextDeadline - performance.now())
+          if (waitMilliseconds > 0) {
+            await delay(waitMilliseconds, undefined, { signal })
+          } else {
+            // Yield to the event loop even with nothing to wait for, so a
+            // synthesizer that keeps pace or runs behind cannot block
+            // cancellation (`signal`) or starve other work.
+            await Promise.resolve()
+          }
         }
       }
     } catch (error) {
@@ -192,6 +246,17 @@ export function createConversationSession(options: ConversationSessionOptions): 
     if (started) {
       options.sendGateway(audioCompleted(responseId))
       speaking = false
+      if (latency) {
+        const now = performance.now()
+        const agentMilliseconds = Math.round(latency.agentReadyAt - latency.utteranceAt)
+        const firstAudioMilliseconds =
+          firstAudioAt !== undefined ? `${Math.round(firstAudioAt - latency.utteranceAt)}` : 'n/a'
+        const totalMilliseconds = Math.round(now - latency.utteranceAt)
+        logger(
+          `[gateway] reply latency agent=${agentMilliseconds} ms first-audio=${firstAudioMilliseconds} ms ` +
+            `total=${totalMilliseconds} ms frames=${framesSent}`,
+        )
+      }
     }
     if (state !== 'blocked' && state !== 'standby') setState('listening')
   }
@@ -205,8 +270,19 @@ export function createConversationSession(options: ConversationSessionOptions): 
         break
       case 'text':
         options.sendGateway(transcript('output', event.text, event.final))
-        if (event.final) void speakText(event.text)
-        else if (state !== 'blocked' && state !== 'standby') setState('speaking')
+        if (event.final) {
+          if (options.logTranscripts) logger(`[gateway] reply transcript: ${event.text}`)
+          // The final output transcript is the "agent ready" point for reply
+          // latency; it is captured here, immediately before `speakText`
+          // starts, and consumed at most once per pending utterance.
+          const pending = pendingLatency
+          pendingLatency = undefined
+          const latency =
+            pending && pending.generation === generation
+              ? { utteranceAt: pending.utteranceAt, agentReadyAt: performance.now() }
+              : undefined
+          void speakText(event.text, latency)
+        } else if (state !== 'blocked' && state !== 'standby') setState('speaking')
         break
       case 'audio': {
         if (!agentResponseId) {
@@ -295,11 +371,15 @@ export function createConversationSession(options: ConversationSessionOptions): 
       inputFormat: options.inputFormat,
       onUtterance: async (text) => {
         if (!agent || closed || cancelling || currentSession !== sessionGeneration) return
+        pendingLatency = { utteranceAt: performance.now(), generation }
+        if (options.logTranscripts) logger(`[gateway] stt transcript: ${text}`)
         options.sendGateway(transcript('input', text, true))
         setState('recognizing')
         await agent.inputText(text)
       },
       onError: (message) => options.sendGateway(agentError('sttFailure', message, false)),
+      ...(options.maxUtteranceSeconds === undefined ? {} : { maxUtteranceSeconds: options.maxUtteranceSeconds }),
+      ...(options.vad ? { vad: options.vad } : {}),
       logger,
     })
     setState('listening')
@@ -315,6 +395,7 @@ export function createConversationSession(options: ConversationSessionOptions): 
     audio?.reset()
     speaking = false
     agentResponseId = undefined
+    pendingLatency = undefined
     for (const [callId, pending] of pendingDeviceCalls) {
       scheduler.clear(pending.timer)
       pending.resolve({ ok: false, error: 'response cancelled' })
@@ -344,6 +425,7 @@ export function createConversationSession(options: ConversationSessionOptions): 
     audio = undefined
     speaking = false
     agentResponseId = undefined
+    pendingLatency = undefined
     for (const [callId, pending] of pendingDeviceCalls) {
       scheduler.clear(pending.timer)
       pending.resolve({ ok: false, error: 'the conversation ended before the tool answered' })

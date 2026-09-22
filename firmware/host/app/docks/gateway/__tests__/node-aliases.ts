@@ -20,4 +20,5 @@ export function installGatewayDockTestAliases(): void {
   // such as StackchanContext and the realtime session types), unlike the
   // pure, module-layer protocol and config above.
   writeAliasPackage(hostRoot, 'stackchan-gateway-bridge', resolve(gatewayDockRoot, 'bridge.js'))
+  writeAliasPackage(hostRoot, 'stackchan-gateway-dock-presentation', resolve(gatewayDockRoot, 'presentation.js'))
 }

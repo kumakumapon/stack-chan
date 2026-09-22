@@ -66,6 +66,27 @@ test('createOpenAiStt posts multipart form data and returns the transcript', asy
   assert.equal(headers?.Authorization, 'Bearer sk-test')
 })
 
+test('createOpenAiStt includes language in the form only when it is configured', async () => {
+  const capture = () => {
+    let form: FormData | undefined
+    const fetchImpl = async (_url: string | URL | Request, init?: RequestInit): Promise<Response> => {
+      form = init?.body as FormData
+      return new Response(JSON.stringify({ text: 'hi' }), { status: 200 })
+    }
+    return { fetchImpl: fetchImpl as unknown as typeof fetch, forms: () => form }
+  }
+
+  const withLanguage = capture()
+  const sttWithLanguage = createOpenAiStt({ apiKey: 'sk-test', language: 'ja', fetchImpl: withLanguage.fetchImpl })
+  await sttWithLanguage.transcribe(new Int16Array([1, 2]), 16_000)
+  assert.equal(withLanguage.forms()?.get('language'), 'ja')
+
+  const withoutLanguage = capture()
+  const sttWithoutLanguage = createOpenAiStt({ apiKey: 'sk-test', fetchImpl: withoutLanguage.fetchImpl })
+  await sttWithoutLanguage.transcribe(new Int16Array([1, 2]), 16_000)
+  assert.equal(withoutLanguage.forms()?.get('language'), null)
+})
+
 test('createOpenAiStt throws a readable Error (never a raw Response) on non-2xx', async () => {
   const fetchImpl = async (): Promise<Response> => new Response('bad key', { status: 401, statusText: 'Unauthorized' })
   const stt = createOpenAiStt({ apiKey: 'sk-bad', fetchImpl: fetchImpl as unknown as typeof fetch })

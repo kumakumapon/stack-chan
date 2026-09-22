@@ -10,6 +10,7 @@ import { WebSocketServer } from 'ws'
 import type { AgentBackend } from '../agent/agent-backend.ts'
 import type { SttAdapter } from '../audio/stt.ts'
 import type { TtsAdapter } from '../audio/tts.ts'
+import type { VadOptions } from '../audio/vad.ts'
 import type { GatewayConfig } from '../config.ts'
 import type { ToolDefinition } from '../tools/tool-types.ts'
 import { createAuthenticator } from './authenticator.ts'
@@ -32,9 +33,24 @@ export type GatewayServer = {
   close(): Promise<void>
 }
 
+/**
+ * `config.ts`'s `VadConfig` spells out "Milliseconds" to match the rest of
+ * the YAML surface; `audio/vad.ts`'s `VadOptions` abbreviates it to `Ms`.
+ * This is the one place that renames between the two.
+ */
+function vadOptionsFromConfig(vad: GatewayConfig['audio']['vad']): Omit<VadOptions, 'sampleRate'> {
+  const options: Omit<VadOptions, 'sampleRate'> = {}
+  if (vad.activationLevel !== undefined) options.activationLevel = vad.activationLevel
+  if (vad.releaseLevel !== undefined) options.releaseLevel = vad.releaseLevel
+  if (vad.hangoverMilliseconds !== undefined) options.hangoverMs = vad.hangoverMilliseconds
+  if (vad.minUtteranceMilliseconds !== undefined) options.minUtteranceMs = vad.minUtteranceMilliseconds
+  return options
+}
+
 export function createGatewayServer(options: GatewayServerOptions): GatewayServer {
   const logger = options.logger ?? ((message: string) => console.log(message))
   const { config } = options
+  const vad = vadOptionsFromConfig(config.audio.vad)
   const sessions = createSessionManager({
     backend: options.backend,
     stt: options.stt,
@@ -50,6 +66,11 @@ export function createGatewayServer(options: GatewayServerOptions): GatewayServe
       'あなたは卓上ロボット「ｽﾀｯｸﾁｬﾝ」。返答は短く自然な会話にしてください。必要なときだけstackchan.reactやstackchan.performで気持ちを表現してください。生のサーボ値を生成せず名前付きの表現を優先してください。',
     policy: config.tools.policy,
     approvalTimeoutMs: config.approvalTimeoutMs,
+    ...(Object.keys(vad).length > 0 ? { vad } : {}),
+    ...(config.audio.maxUtteranceSeconds === undefined
+      ? {}
+      : { maxUtteranceSeconds: config.audio.maxUtteranceSeconds }),
+    logTranscripts: config.diagnostics.logTranscripts,
     logger,
   })
 

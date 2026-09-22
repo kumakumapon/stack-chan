@@ -1,7 +1,30 @@
 import assert from 'node:assert/strict'
+import { dirname, resolve } from 'node:path'
 import { test } from 'node:test'
+import { fileURLToPath } from 'node:url'
+
+import { writeAliasPackage } from '../../testing/node-alias-package.js'
+import type { StackchanVoiceRenderer } from '../wasm/stackchan-voice-wav.js'
+
+// stackchan-voice-wav.ts imports the shared text-normalization module ('stackchan-voice-text')
+// as a bare specifier, resolved by the real module system at build time. Under plain Node
+// module resolution that bare specifier has no target, so it is aliased into a throwaway
+// node_modules package before the module under test is (dynamically) loaded, mirroring the
+// pattern used by microphone.test.ts / tts-playback-lifecycle.test.ts.
+type StackchanVoiceWavModule = typeof import('../wasm/stackchan-voice-wav.js')
+
+function installBareSpecifierPackages(): void {
+  const modulesRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
+  writeAliasPackage(modulesRoot, 'stackchan-voice-text', resolve(modulesRoot, 'audio/stackchan-voice/text.js'))
+}
+
+async function loadStackchanVoiceWav(): Promise<StackchanVoiceWavModule> {
+  installBareSpecifierPackages()
+  return import('../wasm/stackchan-voice-wav.js')
+}
 
 test('cancelled scheduled synthesis cannot read or reset the next voice', async () => {
+  const { renderStackchanVoiceWav } = await loadStackchanVoiceWav()
   const tasks: Array<() => void> = []
   let cancelled = false,
     reads = 0,
@@ -28,13 +51,6 @@ test('cancelled scheduled synthesis cannot read or reset the next voice', async 
   assert.equal(starts, 1)
   assert.equal(reads, 1)
 })
-
-import {
-  renderStackchanVoiceKoeWav,
-  renderStackchanVoiceWav,
-  STACKCHAN_VOICE_OUTPUT_SAMPLE_RATE,
-  type StackchanVoiceRenderer,
-} from '../wasm/stackchan-voice-wav.js'
 
 class FakeStackchanVoice implements StackchanVoiceRenderer {
   readonly koeCalls: Array<{ koe: string; speed?: number }> = []
@@ -68,6 +84,7 @@ function ascii(buffer: ArrayBuffer, offset: number, length: number): string {
 }
 
 test('renderStackchanVoiceWav renders 24 kHz mono PCM with volume and a valid WAV header', async () => {
+  const { renderStackchanVoiceWav, STACKCHAN_VOICE_OUTPUT_SAMPLE_RATE } = await loadStackchanVoiceWav()
   const voice = new FakeStackchanVoice(new Int16Array([1000, -1000, 2000]))
 
   const rendered = await renderStackchanVoiceWav(voice, 'こんにちは', {
@@ -94,7 +111,20 @@ test('renderStackchanVoiceWav renders 24 kHz mono PCM with volume and a valid WA
   assert.equal(rendered.power, Math.sqrt((500 ** 2 + 500 ** 2 + 1000 ** 2) / 3))
 })
 
+test('renderStackchanVoiceWav applies the shared text normalization before synthesis', async () => {
+  const { renderStackchanVoiceWav } = await loadStackchanVoiceWav()
+  const voice = new FakeStackchanVoice(new Int16Array([1]))
+
+  await renderStackchanVoiceWav(voice, '「１４日」', {
+    chunkSamples: 2,
+    schedule: queueMicrotask,
+  })
+
+  assert.deepEqual(voice.sayCalls, [{ text: ' じゅうよっか ', speed: 100 }])
+})
+
 test('renderStackchanVoiceWav grows its PCM buffer and clamps volume', async () => {
+  const { renderStackchanVoiceWav } = await loadStackchanVoiceWav()
   const samples = Int16Array.from({ length: 6000 }, (_, index) => (index % 2 === 0 ? 20000 : -20000))
   const voice = new FakeStackchanVoice(samples)
 
@@ -109,7 +139,8 @@ test('renderStackchanVoiceWav grows its PCM buffer and clamps volume', async () 
   assert.deepEqual([...new Int16Array(rendered.buffer, 44, 4)], [20000, -20000, 20000, -20000])
 })
 
-test('renderStackchanVoiceKoeWav starts the renderer with singing koe notation', async () => {
+test('renderStackchanVoiceKoeWav starts the renderer with singing koe notation, bypassing text normalization', async () => {
+  const { renderStackchanVoiceKoeWav } = await loadStackchanVoiceWav()
   const voice = new FakeStackchanVoice(new Int16Array([500, -500]))
 
   const rendered = await renderStackchanVoiceKoeWav(voice, '#C4,500ki#D4,500ra', {
@@ -124,6 +155,7 @@ test('renderStackchanVoiceKoeWav starts the renderer with singing koe notation',
 })
 
 test('renderStackchanVoiceWav emits an empty but valid WAV for an empty utterance', async () => {
+  const { renderStackchanVoiceWav } = await loadStackchanVoiceWav()
   const rendered = await renderStackchanVoiceWav(new FakeStackchanVoice(new Int16Array()), '', {
     schedule: queueMicrotask,
     volume: -1,
@@ -136,6 +168,7 @@ test('renderStackchanVoiceWav emits an empty but valid WAV for an empty utteranc
 })
 
 test('renderStackchanVoiceWav yields before and between native chunks', async () => {
+  const { renderStackchanVoiceWav } = await loadStackchanVoiceWav()
   const voice = new FakeStackchanVoice(new Int16Array([1, 2, 3]))
   const tasks: Array<() => void> = []
   const renderedPromise = renderStackchanVoiceWav(voice, 'scheduled', {
@@ -153,6 +186,7 @@ test('renderStackchanVoiceWav yields before and between native chunks', async ()
 })
 
 test('renderStackchanVoiceWav rejects a renderer that exceeds the sample bound', async () => {
+  const { renderStackchanVoiceWav } = await loadStackchanVoiceWav()
   const endlessVoice: StackchanVoiceRenderer = {
     koe: () => {},
     say: () => {},

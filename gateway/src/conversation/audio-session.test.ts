@@ -218,6 +218,53 @@ test('speech longer than three seconds remains one utterance until silence', asy
   assert.deepEqual(seen, [68_800])
 })
 
+test('a completed transcription logs stt timing and audio duration without the transcript text', async () => {
+  const logs: string[] = []
+  const session = createAudioSession({
+    stt: recordingStt('the quick brown fox jumps over the lazy dog'),
+    inputFormat: FORMAT,
+    manualTurns: true,
+    onUtterance: () => {},
+    onError: () => assert.fail('the STT must not have failed'),
+    logger: (message) => logs.push(message),
+  })
+  await session.pushFrame(tone(3_200, 9_000)) // 3,200 samples at 16 kHz = 0.2 s
+  await session.flush()
+  const sttLogs = logs.filter((line) => line.includes('stt completed'))
+  assert.equal(sttLogs.length, 1)
+  const match = sttLogs[0]?.match(/^\[gateway\] stt completed in (\d+) ms for ([\d.]+) s of audio$/)
+  assert.ok(match, `unexpected log format: ${sttLogs[0]}`)
+  assert.ok(Number(match?.[1]) >= 0)
+  assert.equal(match?.[2], '0.2')
+  assert.ok(
+    logs.every((line) => !line.includes('the quick brown fox')),
+    'the transcript text must never reach the logger',
+  )
+})
+
+test('an STT failure does not log a completion line', async () => {
+  const logs: string[] = []
+  const session = createAudioSession({
+    stt: {
+      name: 'failing',
+      async transcribe() {
+        throw new Error('transcription refused')
+      },
+    },
+    inputFormat: FORMAT,
+    manualTurns: true,
+    onUtterance: () => assert.fail('no utterance is expected'),
+    onError: () => {},
+    logger: (message) => logs.push(message),
+  })
+  await session.pushFrame(tone(1_600, 9_000))
+  await session.flush()
+  assert.deepEqual(
+    logs.filter((line) => line.includes('stt completed')),
+    [],
+  )
+})
+
 test('safety segmentation preserves every sample in order across frame boundaries', async () => {
   for (const manualTurns of [true, false]) {
     const segments: number[][] = []

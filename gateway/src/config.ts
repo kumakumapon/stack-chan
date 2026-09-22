@@ -54,6 +54,30 @@ export type McpServerConfig = {
   token?: string
 }
 
+/**
+ * Tuning for the energy-based VAD (see `audio/vad.ts`). Field names spell out
+ * "Milliseconds" to match the rest of this config file's YAML surface; the
+ * wiring layer (`server/gateway-server.ts`) renames them to `VadOptions`'
+ * `...Ms` fields when it builds the session options.
+ */
+export type VadConfig = {
+  activationLevel?: number
+  releaseLevel?: number
+  hangoverMilliseconds?: number
+  minUtteranceMilliseconds?: number
+}
+
+export type AudioConfig = {
+  vad: VadConfig
+  /** Safety cap in seconds; `audio-session.ts` itself refuses more than 30. */
+  maxUtteranceSeconds?: number
+}
+
+export type DiagnosticsConfig = {
+  /** Off by default: recognized and reply text are conversation content. */
+  logTranscripts: boolean
+}
+
 export type GatewayConfig = {
   listen: ListenConfig
   /** Shared token accepted from any device when no per-device token matches. */
@@ -62,6 +86,8 @@ export type GatewayConfig = {
   agent: AgentConfig
   stt: SttConfig
   tts: TtsConfig
+  audio: AudioConfig
+  diagnostics: DiagnosticsConfig
   tools: {
     mcp: boolean
     servers: McpServerConfig[]
@@ -72,6 +98,8 @@ export type GatewayConfig = {
 
 export const DEFAULT_LISTEN: ListenConfig = { host: '0.0.0.0', port: 8765, path: '/' }
 export const DEFAULT_APPROVAL_TIMEOUT_MILLISECONDS = 60_000
+/** Mirrors `audio-session.ts`'s own ceiling; kept here too for an early, readable error. */
+export const MAX_UTTERANCE_SECONDS_LIMIT = 30
 
 export function parseGatewayConfig(raw: unknown, env: Record<string, string | undefined> = {}): GatewayConfig {
   const root = expand(raw, env)
@@ -81,6 +109,8 @@ export function parseGatewayConfig(raw: unknown, env: Record<string, string | un
   const agent = record(source.agent, 'agent')
   const stt = record(source.stt, 'stt')
   const tts = record(source.tts, 'tts')
+  const audio = record(source.audio, 'audio')
+  const diagnostics = record(source.diagnostics, 'diagnostics')
   const tools = record(source.tools, 'tools')
 
   return {
@@ -92,6 +122,8 @@ export function parseGatewayConfig(raw: unknown, env: Record<string, string | un
     agent: readAgent(agent),
     stt: readStt(stt),
     tts: readTts(tts),
+    audio: readAudio(audio),
+    diagnostics: readDiagnostics(diagnostics),
     tools: {
       mcp: tools.mcp === true,
       servers: readMcpServers(tools.servers),
@@ -177,6 +209,78 @@ function readTts(value: Record<string, unknown>): TtsConfig {
   const config: TtsConfig = { type }
   assignOptional(config, value, ['apiKey', 'model', 'voice', 'baseUrl'], 'tts')
   return config
+}
+
+function readAudio(value: Record<string, unknown>): AudioConfig {
+  const vad = record(value.vad, 'audio.vad')
+  const config: AudioConfig = { vad: readVad(vad) }
+  if (value.maxUtteranceSeconds !== undefined) {
+    config.maxUtteranceSeconds = utteranceSecondsLimit(value.maxUtteranceSeconds, 'audio.maxUtteranceSeconds')
+  }
+  return config
+}
+
+function readVad(value: Record<string, unknown>): VadConfig {
+  const config: VadConfig = {}
+  const activationLevel = normalizedLevel(value.activationLevel, 'audio.vad.activationLevel')
+  if (activationLevel !== undefined) config.activationLevel = activationLevel
+  const releaseLevel = normalizedLevel(value.releaseLevel, 'audio.vad.releaseLevel')
+  if (releaseLevel !== undefined) config.releaseLevel = releaseLevel
+  // Only checked when both are given: a partial override is compared against
+  // vad.ts's own default for the field the caller left out, which this
+  // module has no business knowing.
+  if (activationLevel !== undefined && releaseLevel !== undefined && releaseLevel > activationLevel) {
+    throw new Error(
+      `audio.vad.releaseLevel (${releaseLevel}) must be no greater than audio.vad.activationLevel (${activationLevel}), ` +
+        'or speech would never register as released',
+    )
+  }
+  const hangoverMilliseconds = nonNegativeInteger(value.hangoverMilliseconds, 'audio.vad.hangoverMilliseconds')
+  if (hangoverMilliseconds !== undefined) config.hangoverMilliseconds = hangoverMilliseconds
+  const minUtteranceMilliseconds = nonNegativeInteger(
+    value.minUtteranceMilliseconds,
+    'audio.vad.minUtteranceMilliseconds',
+  )
+  if (minUtteranceMilliseconds !== undefined) config.minUtteranceMilliseconds = minUtteranceMilliseconds
+  return config
+}
+
+function readDiagnostics(value: Record<string, unknown>): DiagnosticsConfig {
+  const logTranscripts = value.logTranscripts
+  if (logTranscripts !== undefined && typeof logTranscripts !== 'boolean') {
+    throw new Error(`diagnostics.logTranscripts must be a boolean, received ${String(logTranscripts)}`)
+  }
+  return { logTranscripts: logTranscripts === true }
+}
+
+/** A normalized RMS level, as `audio/pcm.ts#rmsLevel` produces: strictly between 0 and 1. */
+function normalizedLevel(value: unknown, scope: string): number | undefined {
+  if (value === undefined) return undefined
+  if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0 || value > 1) {
+    throw new Error(
+      `${scope} must be a number greater than 0 and at most 1 (a normalized RMS level), received ${String(value)}`,
+    )
+  }
+  return value
+}
+
+function nonNegativeInteger(value: unknown, scope: string): number | undefined {
+  if (value === undefined) return undefined
+  if (!Number.isInteger(value) || (value as number) < 0) {
+    throw new Error(`${scope} must be a non-negative integer, received ${String(value)}`)
+  }
+  return value as number
+}
+
+function utteranceSecondsLimit(value: unknown, scope: string): number {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0 || value > MAX_UTTERANCE_SECONDS_LIMIT) {
+    throw new Error(
+      `${scope} must be a number greater than 0 and at most ${MAX_UTTERANCE_SECONDS_LIMIT} ` +
+        '(the safety cap audio-session.ts enforces), received ' +
+        String(value),
+    )
+  }
+  return value
 }
 
 function readMcpServers(value: unknown): McpServerConfig[] {

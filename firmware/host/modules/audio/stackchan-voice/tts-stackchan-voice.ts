@@ -77,6 +77,13 @@ export class TTS {
     try {
       this.#resetPlayback(lifecycle)
       if (isKoe) this.voice.koe(source, this.speed)
+      // No retry on failure here: `prepareStackchanVoiceText`'s own final step already sweeps
+      // every character StackchanVoice cannot read (see `stackchan-voice-text`'s
+      // `stripStackchanVoiceSymbols`, which shares that same sweep). A `say()` failure on its
+      // output can only mean a dictionary lookup failed for an otherwise-valid word, not a
+      // removable symbol, so stripping the already-prepared text again would find nothing to
+      // remove and fail identically. A residual failure is reported and recovered from one layer
+      // up (see the Gateway Dock runtime), not retried here.
       else this.voice.say(prepareStackchanVoiceText(source), this.speed)
       this.#generating = true
 

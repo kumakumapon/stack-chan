@@ -112,6 +112,35 @@ Anything with a side effect can be put behind the robot's own approval UI with
 `approval.request → presented → response → resolved` and brackets the run in
 `task.status`.
 
+## Configuration reference
+
+See `gateway.example.yaml` for the full shape. A few settings deserve
+extra context:
+
+- `stt.language` — a BCP-47 language hint (e.g. `ja`) passed to the STT
+  adapter. Leaving it unset falls back to automatic language detection,
+  which is measurably less accurate for Japanese; set it explicitly for any
+  Japanese-language deployment.
+- `audio.vad` — tuning for the energy-based voice activity detector
+  (`activationLevel`, `releaseLevel`, `hangoverMilliseconds`,
+  `minUtteranceMilliseconds`). All fields are optional and default to the
+  built-in values documented in `src/audio/vad.ts`. **Do not change these
+  from guesswork.** Capture your actual microphone noise floor (the
+  `--diagnostics` audio logger in `gateway-server.ts` prints RMS levels) and
+  set `activationLevel`/`releaseLevel` just above what you measure; a value
+  picked without measurement is as likely to make speech detection worse as
+  better.
+- `audio.maxUtteranceSeconds` — the safety cap (in seconds, maximum and
+  default 30) that ends an utterance when the noise floor never lets the VAD
+  observe a release. This is a backstop, not a substitute for correct VAD
+  tuning: normal turns should end on silence, not on this timer.
+- `diagnostics.logTranscripts` — when `true`, logs the recognized utterance
+  and the final agent reply as separate lines (`[gateway] stt transcript: ...`
+  and `[gateway] reply transcript: ...`). This is the one setting that puts
+  conversation content in the Gateway's logs, so it defaults to `false`; the
+  latency logs (`[gateway] reply latency ...`, `[gateway] stt completed ...`)
+  carry only timings and are always on, since they never include text.
+
 ## Security
 
 - LLM credentials never reach the robot.

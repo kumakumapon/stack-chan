@@ -25,15 +25,22 @@ agent:
   type: openai
   apiKey: ${OPENAI_API_KEY}
   model: gpt-4o-mini
+  # The robot's own TTS errors out on many symbols, so keep replies plain text
+  # it can actually speak: no markdown, emoji or bracket punctuation.
   instructions: >-
     You are the voice of a small desktop robot. Keep answers short. Use the
     stackchan.* tools to move, look and light up rather than describing what
-    you would do.
+    you would do. Reply in plain sentences only: no symbols, no emoji, no
+    Markdown formatting (no *, #, `, _, lists or links), and no brackets or
+    parentheses of any kind. The only punctuation you may use is 、 and 。.
 
 stt:
   # auto resolves to openai when apiKey is set, otherwise none.
   type: auto
   apiKey: ${OPENAI_API_KEY}
+  # Required for reliable Japanese recognition: without it, STT falls back to
+  # automatic language detection, which is noticeably less accurate.
+  language: ja
 
 tts:
   # With type none the Gateway sends only the output transcript and the robot
@@ -41,6 +48,28 @@ tts:
   type: auto
   apiKey: ${OPENAI_API_KEY}
   voice: alloy
+
+audio:
+  # Energy-based voice activity detection (see src/audio/vad.ts). All fields
+  # are optional; the values below are the built-in defaults, shown so you
+  # know what you are changing. Do not tune these from guesswork -- capture a
+  # few seconds of your actual microphone noise floor (see the audio
+  # diagnostics logger in src/server/gateway-server.ts) and set activationLevel
+  # / releaseLevel just above the measured RMS.
+  vad:
+    activationLevel: 0.02
+    releaseLevel: 0.012
+    hangoverMilliseconds: 300
+    minUtteranceMilliseconds: 200
+  # Safety cap in seconds for one utterance when the microphone noise floor
+  # never lets the VAD observe a release. Maximum (and default) is 30.
+  maxUtteranceSeconds: 30
+
+diagnostics:
+  # When true, logs the recognized utterance and the final agent reply as
+  # separate log lines. This is conversation content, so it is off by
+  # default; turn it on only for debugging, never in normal operation.
+  logTranscripts: false
 
 tools:
   mcp: true
