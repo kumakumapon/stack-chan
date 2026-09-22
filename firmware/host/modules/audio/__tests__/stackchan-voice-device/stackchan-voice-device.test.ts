@@ -86,48 +86,28 @@ equal(
 )
 equal(tts.streaming, false, 'prepared text should finish playback')
 
-// '♫' (U+266B) is deliberately left untouched by prepareStackchanVoiceText (it is not part of
-// its curated symbol-normalization list), so it survives into the first say() attempt and is
-// only removed by the post-failure stripStackchanVoiceSymbols() fallback.
-const SYMBOL_TEXT = '明日は晴れ♫です'
-const SYMBOL_TEXT_STRIPPED = '明日は晴れ です'
-
-// 1. A first say() failure on text that contains a strippable symbol retries once with the
-// stripped text, and succeeds.
+// prepareStackchanVoiceText's own final step sweeps every character StackchanVoice cannot read
+// (see stackchan-voice-text's shared sweep, also exposed as stripStackchanVoiceSymbols): applying
+// that same sweep again to its own output can never remove anything further, so a say() failure
+// is never retried here, whether or not the source text contained a symbol the sweep normalized.
+// 1. A say() failure on text that contained a symbol before preparation still fails once, with
+// no retry: the symbol never reached say() in the first place, so there is nothing left to strip.
 resetState()
-state.sayFailQueue = [true, false]
-let retrySucceededError: unknown
-let retrySucceededCalls = 0
-tts.stream(SYMBOL_TEXT, undefined, (error) => {
-  retrySucceededCalls += 1
-  retrySucceededError = error
+state.sayFailQueue = [true]
+let symbolFailedError: unknown
+let symbolFailedCalls = 0
+tts.stream('明日は晴れ♫です', undefined, (error) => {
+  symbolFailedCalls += 1
+  symbolFailedError = error
 })
-equal(state.says.length, 2, 'a strippable symbol failure should retry say() exactly once')
-equal(state.says[0].text, SYMBOL_TEXT, 'the first attempt should use the normally-prepared text')
-equal(state.says[1].text, SYMBOL_TEXT_STRIPPED, 'the retry should use the symbol-stripped text')
-equal(retrySucceededCalls, 1, 'a successful retry should still invoke the completion callback once')
-equal(retrySucceededError, undefined, 'a successful retry should not report an error')
-equal(tts.streaming, false, 'a successful retry should finish playback')
+equal(state.says.length, 1, 'a symbol-normalized reply should still only be attempted once')
+equal(state.says[0].text, '明日は晴れ です', 'the symbol should already be gone before the first attempt')
+equal(symbolFailedCalls, 1, 'the failure should still invoke the completion callback once')
+equal((symbolFailedError as Error)?.message, 'stub say failure #0', 'the failure should report its own error')
+equal(tts.streaming, false, 'a failure should still clear streaming state')
 
-// 2. If the retry also fails, the ORIGINAL (first) error is what surfaces, not the retry's.
-resetState()
-state.sayFailQueue = [true, true]
-let bothFailedError: unknown
-let bothFailedCalls = 0
-tts.stream(SYMBOL_TEXT, undefined, (error) => {
-  bothFailedCalls += 1
-  bothFailedError = error
-})
-equal(state.says.length, 2, 'a failed retry should still only attempt say() twice')
-equal(bothFailedCalls, 1, 'a failed retry should still invoke the completion callback once')
-equal(
-  (bothFailedError as Error)?.message,
-  'stub say failure #0',
-  'the callback should receive the FIRST say() error, not the retry error (#1)',
-)
-equal(tts.streaming, false, 'a failed retry should still clear streaming state')
-
-// 3. When there is nothing to strip, say() is not retried: the same input would fail identically.
+// 2. The same holds for a failure on text with no symbols at all (e.g. an unknown dictionary
+// word): still one attempt, same error.
 resetState()
 state.sayFailQueue = [true]
 let noSymbolCalls = 0
@@ -136,16 +116,12 @@ tts.stream('こんにちは', undefined, (error) => {
   noSymbolCalls += 1
   noSymbolError = error
 })
-equal(state.says.length, 1, 'a failure with no removable symbols should not be retried')
-equal(noSymbolCalls, 1, 'a non-retried failure should still invoke the completion callback once')
-equal(
-  (noSymbolError as Error)?.message,
-  'stub say failure #0',
-  'a non-retried failure should report the original error',
-)
-equal(tts.streaming, false, 'a non-retried failure should still clear streaming state')
+equal(state.says.length, 1, 'a failure with no symbols in the source should still only be attempted once')
+equal(noSymbolCalls, 1, 'the failure should still invoke the completion callback once')
+equal((noSymbolError as Error)?.message, 'stub say failure #0', 'the failure should report its own error')
+equal(tts.streaming, false, 'a failure should still clear streaming state')
 
-// 4. The koe() path never retries, even on failure: it is raw singing notation, not text.
+// 3. The koe() path never retries, even on failure: it is raw singing notation, not text.
 resetState()
 state.koeFailQueue = [true]
 let koeFailedCalls = 0

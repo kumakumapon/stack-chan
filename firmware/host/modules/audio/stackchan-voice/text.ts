@@ -332,9 +332,12 @@ export function prepareStackchanVoiceText(text: string): string {
   return sweepUnsafeStackchanVoiceChars(withoutDictionaryEscapes).text
 }
 
-/** One-shot fallback for after StackchanVoice fails with error 105: strips every character that is not
- * known to be safe (see isSafeStackchanVoiceChar), replacing each with a half-width space. Never drops
- * words or digits, only symbols. */
+/** Strips every character that is not known to be safe (see isSafeStackchanVoiceChar), replacing
+ * each with a half-width space. Never drops words or digits, only symbols. This is the exact sweep
+ * `prepareStackchanVoiceText` already applies as its final step, exposed on its own so callers (and
+ * this module's own tests) can reason about or reuse that invariant directly. Because of that, it
+ * is not useful as a retry step after `prepareStackchanVoiceText`'s output fails synthesis: applying
+ * the same sweep to already-swept text can never remove anything further. */
 export function stripStackchanVoiceSymbols(text: string): { text: string; removed: string } {
   return sweepUnsafeStackchanVoiceChars(text)
 }

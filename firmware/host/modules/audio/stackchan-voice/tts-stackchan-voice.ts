@@ -1,7 +1,7 @@
 import Resource from 'Resource'
 import AudioOut from 'embedded:io/audio/out'
 import calculatePower from 'calculate-power'
-import { prepareStackchanVoiceText, stripStackchanVoiceSymbols } from 'stackchan-voice-text'
+import { prepareStackchanVoiceText } from 'stackchan-voice-text'
 import StackchanVoice from 'stackchanvoice'
 import { beginTTSPlayback, type TTSPlaybackLifecycle } from 'tts-playback-lifecycle'
 import type { TTSCompletion, TTSDoneListener, TTSPlaybackListener } from 'tts-types'
@@ -77,7 +77,14 @@ export class TTS {
     try {
       this.#resetPlayback(lifecycle)
       if (isKoe) this.voice.koe(source, this.speed)
-      else this.#say(source)
+      // No retry on failure here: `prepareStackchanVoiceText`'s own final step already sweeps
+      // every character StackchanVoice cannot read (see `stackchan-voice-text`'s
+      // `stripStackchanVoiceSymbols`, which shares that same sweep). A `say()` failure on its
+      // output can only mean a dictionary lookup failed for an otherwise-valid word, not a
+      // removable symbol, so stripping the already-prepared text again would find nothing to
+      // remove and fail identically. A residual failure is reported and recovered from one layer
+      // up (see the Gateway Dock runtime), not retried here.
+      else this.voice.say(prepareStackchanVoiceText(source), this.speed)
       this.#generating = true
 
       const output = new AudioOut({
@@ -100,32 +107,6 @@ export class TTS {
       output.start()
     } catch (error) {
       lifecycle.fail(error)
-    }
-  }
-
-  // Attempts synthesis once with the normally-prepared text. `say()` throws (native error 105,
-  // "text->koe conversion failed") for dictionary words or characters the converter cannot
-  // pronounce. Words and digits are never silently dropped here: `stripStackchanVoiceSymbols`
-  // only removes symbols, and only as a one-shot retry after synthesis has already failed once.
-  // If nothing was removed, retrying with identical input would fail identically, so the
-  // original error is rethrown without a second attempt.
-  #say(source: string): void {
-    const prepared = prepareStackchanVoiceText(source)
-    try {
-      this.voice.say(prepared, this.speed)
-    } catch (error) {
-      const { text: stripped, removed } = stripStackchanVoiceSymbols(prepared)
-      if (!removed) throw error
-      try {
-        this.voice.say(stripped, this.speed)
-      } catch {
-        throw error
-      }
-      // Never log reply content: only the removed symbol characters are reported.
-      // Guarded like the other diagnostics in this firmware, so a host without
-      // `trace` cannot turn a retry that just succeeded back into a failure.
-      if (typeof trace === 'function')
-        trace(`stackchan-voice: retried synthesis after stripping symbols [${removed}]\n`)
     }
   }
 
