@@ -333,6 +333,9 @@
       "stackchan-gateway-bridge": [
         "./host/app/docks/gateway/bridge.ts"
       ],
+      "stackchan-gateway-dock-presentation": [
+        "./host/app/docks/gateway/presentation.ts"
+      ],
       "stackchan-realtime-tools": [
         "./host/app/realtime-tools.ts"
       ]

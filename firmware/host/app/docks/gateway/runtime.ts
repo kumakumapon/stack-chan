@@ -6,13 +6,13 @@ import type {
 } from 'capabilities'
 import type { GatewayBridge } from 'stackchan-gateway-bridge'
 import type { GatewayConfig } from 'stackchan-gateway-config'
+import { type GatewayPresentation, isLocalSpeechError } from 'stackchan-gateway-dock-presentation'
 import type { GatewayServerMessage } from 'stackchan-gateway-protocol'
 import type { RealtimeEventBridge, RealtimeToolProvider } from 'stackchan-realtime-session'
 import {
   createRemoteConversationSessionFacade,
   type RemoteConversationSessionBinding,
 } from 'stackchan-remote-session-facade'
-import { type GatewayPresentation, isLocalSpeechError } from './presentation.ts'
 
 /**
  * Gateway Dock runtime.

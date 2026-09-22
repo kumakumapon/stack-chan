@@ -26,3 +26,14 @@ The number helper handles common calendar days, months, hours and plain numeric
 values. It is not a morphological analyzer: ambiguous dates/durations and other
 counters can require context-specific readings. Unsupported symbols are retained
 and may still fail explicitly. Do not silently discard them or the reply's words.
+
+## Automated regression coverage
+
+`text-conversion-probe-stdin.c` is a stdin-driven variant of the same idea,
+built and run automatically by
+`host/modules/audio/stackchan-voice/text-conversion-regression.test.ts` as
+part of `npm run test:unit`. It compiles the real converter against the real
+dictionary and feeds it `prepareStackchanVoiceText`'s actual output, so a
+change that reopens error 105 (or the silent-kanji-drop behavior of `'`, `/`,
+`;` and `<`) for common reply shapes fails CI instead of shipping again. It
+skips, rather than fails, on a machine with no C compiler.
