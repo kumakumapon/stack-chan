@@ -40,13 +40,17 @@ export function decodePCM(value: string): Uint8Array {
 export class PCMFramer {
   #pending = new Uint8Array(4)
   #pendingLength = 0
-  #frame = new Uint8Array(640)
+  #frame: Uint8Array
   #offset = 0
   constructor(
     readonly channels: number,
     readonly send: (frame: Uint8Array) => void,
+    readonly frameBytes = 640,
   ) {
     if (channels !== 1 && channels !== 2) throw new Error('Expected mono or stereo PCM16')
+    if (!Number.isInteger(frameBytes) || frameBytes <= 0 || frameBytes % 2 !== 0)
+      throw new RangeError('PCM frame size must be a positive, even byte count')
+    this.#frame = new Uint8Array(frameBytes)
   }
   push(bytes: Uint8Array): void {
     let at = 0
@@ -81,7 +85,7 @@ export class PCMFramer {
   #emit(): void {
     const frame = this.#frame
     // Transfer the filled frame instead of allocating and copying it.
-    this.#frame = new Uint8Array(640)
+    this.#frame = new Uint8Array(this.frameBytes)
     this.#offset = 0
     this.send(frame)
   }

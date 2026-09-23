@@ -26,6 +26,17 @@ test('PCM frames are independent and preserve signed extremes', () => {
   assert.equal(frames[1][0], 0)
   assert.throws(() => new PCMFramer(3, () => {}))
 })
+test('40ms mono frames preserve the same byte stream with fewer messages', () => {
+  const source = Uint8Array.from({ length: 1280 * 3 + 320 }, (_, index) => index & 255)
+  const frames: Uint8Array[] = []
+  const framer = new PCMFramer(1, (frame) => frames.push(frame), 1280)
+  for (let at = 0; at < source.length; at += 137) framer.push(source.subarray(at, at + 137))
+  assert.equal(frames.length, 3)
+  for (let index = 0; index < frames.length; index++)
+    assert.deepEqual(frames[index], source.slice(index * 1280, (index + 1) * 1280))
+  assert.throws(() => new PCMFramer(1, () => {}, 0), RangeError)
+  assert.throws(() => new PCMFramer(1, () => {}, 1279), RangeError)
+})
 test('base64 codec agrees with an independent byte encoder for every tail length', () => {
   for (const n of [...Array.from({ length: 260 }, (_, i) => i), 640, 1280, 16384]) {
     const storage = Uint8Array.from({ length: n + 9 }, (_, i) => i * 31)
