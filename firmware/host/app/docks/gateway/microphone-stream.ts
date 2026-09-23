@@ -47,9 +47,14 @@ export default function createMicrophone(onFrame: (payload: string) => void, onE
           throw new Error('Expected 16kHz mono PCM16 microphone')
         }
         input = next
-        framer = new PCMFramer(next.channels, (bytes) => {
-          onFrame(encodePCM(bytes))
-        })
+        // 40 ms frames halve WebSocket message churn without changing PCM16 audio.
+        framer = new PCMFramer(
+          next.channels,
+          (bytes) => {
+            onFrame(encodePCM(bytes))
+          },
+          1280,
+        )
         next.start()
       } catch (error) {
         input?.close()

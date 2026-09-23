@@ -34,6 +34,7 @@ const config = parseGatewayConfig({
     },
     token,
   },
+  audio: { vad: { hangoverMilliseconds: 700 } },
 })
 if (!process.env.HERMES_DESKTOP_URL) throw new Error('Set HERMES_DESKTOP_URL to the running local Hermes backend')
 const client = createHermesDesktopClient(process.env.HERMES_DESKTOP_URL)
