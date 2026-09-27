@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { existsSync, readdirSync } from 'node:fs'
+import { existsSync, readdirSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { chromium } from 'playwright-core'
@@ -39,6 +39,8 @@ try {
   await page.getByRole('button', { name: '後方スワイプ', exact: true }).first().click()
   await page.waitForTimeout(2000)
   await page.screenshot({ path: join(tmpdir(), 'stackchan-pet-wasm.png') })
+  const lcdImage = await page.locator('canvas[aria-hidden="true"]').evaluate((canvas) => canvas.toDataURL('image/png'))
+  writeFileSync(join(tmpdir(), 'stackchan-pet-lcd.png'), Buffer.from(lcdImage.split(',')[1], 'base64'))
   assert.equal(errors.length, 0, `browser errors: ${errors.join('; ')}`)
   assert.equal(await page.getByText(/MODエラー/).count(), 0, 'MOD should not report a runtime error')
   assert.doesNotMatch(await page.getByRole('log').innerText(), /# Exception|\[main\] error/)

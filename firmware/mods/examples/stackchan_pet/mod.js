@@ -86,11 +86,17 @@ export function onContextCreated(context, options) {
   })
   let lastForwardSwipe
   let lastBackwardSwipe
+  let swipedDuringTouch = false
   const unsubscribeTouch = context.input.touchPanel?.subscribe((event) => {
+    if (event.gesture === 'press') {
+      swipedDuringTouch = false
+      return
+    }
     if (event.gesture === 'release') {
       // A simple touch is a fallback when the panel cannot resolve a swipe.
-      // Swipe releases have no tap payload and must not create an extra pet.
-      if (!event.tap) return
+      // A swipe release must not create an extra pet, even on targets that
+      // report no tap metadata or have a different tap-duration threshold.
+      if (swipedDuringTouch) return
       // Defer it so a paired swipe keeps its existing host-owned animation.
       if (releaseTimer !== undefined) Timer.clear(releaseTimer)
       releaseTimer = Timer.set(() => {
@@ -102,6 +108,7 @@ export function onContextCreated(context, options) {
     if (event.gesture === 'forwardSwipe') lastForwardSwipe = event.ticks
     else if (event.gesture === 'backwardSwipe') lastBackwardSwipe = event.ticks
     else return
+    swipedDuringTouch = true
     if (
       lastForwardSwipe !== undefined &&
       lastBackwardSwipe !== undefined &&
