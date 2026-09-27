@@ -129,3 +129,15 @@ When reviewing a pull request:
 - If no release note or changeset is needed, make sure the review states why
 - For docs, CI, repository metadata, case, and schematics changes, verify release impact before requesting a release note or changeset
 - Ask for tested targets, hardware-specific behavior, and reproduction or verification details when they affect release risk
+
+<!-- AI-PLATFORM:START -->
+## AI Platform common rules (synchronized)
+
+- Inspect relevant implementation, configuration, and tests before changing code; follow the existing design and naming.
+- Keep changes focused and validate external input. Prefer type safety in TypeScript and clear type hints and errors in Python.
+- Add behavioral regression coverage for bugs where feasible. Run relevant lint, type checks, tests, and builds; do not bypass failures by disabling checks or weakening tests.
+- Do not expose secrets or personal data. Ground changes to authentication, authorization, databases, and public APIs in project requirements.
+- Report only checks actually run. Describe changes, test results, risks, and unverified areas in pull requests.
+
+Full guidance: `kumakumapon/ai-platform` `prompts/coding-agent-typescript-python.md`.
+<!-- AI-PLATFORM:END -->
