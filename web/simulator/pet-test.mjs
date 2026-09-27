@@ -59,6 +59,7 @@ try {
   await page.waitForTimeout(500)
   const statusImage = await page.locator('canvas[aria-hidden="true"]').evaluate((canvas) => canvas.toDataURL('image/png'))
   writeFileSync(join(tmpdir(), 'stackchan-pet-status.png'), Buffer.from(statusImage.split(',')[1], 'base64'))
+  await page.screenshot({ path: join(tmpdir(), 'stackchan-pet-status-stage.png') })
   const statusPixel = await page.locator('canvas[aria-hidden="true"]').evaluate((canvas) => {
     const [r, g, b] = canvas.getContext('2d').getImageData(2, 60, 1, 1).data
     return [r, g, b]
@@ -76,12 +77,13 @@ try {
   await stage.click({ position: { x: 325, y: 250 } }) // PET button on the LCD.
   await page.waitForTimeout(200)
   const afterTap = await bondPixels()
+  const tappedImage = await page.locator('canvas[aria-hidden="true"]').evaluate((canvas) => canvas.toDataURL('image/png'))
+  writeFileSync(join(tmpdir(), 'stackchan-pet-tapped.png'), Buffer.from(tappedImage.split(',')[1], 'base64'))
+  await page.screenshot({ path: join(tmpdir(), 'stackchan-pet-tapped-stage.png') })
   assert.notDeepEqual(afterTap, beforeTap, 'LCD PET should visibly increase the bond value')
   await stage.click({ position: { x: 325, y: 250 } })
   await page.waitForTimeout(200)
   assert.deepEqual(await bondPixels(), afterTap, 'rapid repeated PET taps should not farm bond')
-  const tappedImage = await page.locator('canvas[aria-hidden="true"]').evaluate((canvas) => canvas.toDataURL('image/png'))
-  writeFileSync(join(tmpdir(), 'stackchan-pet-tapped.png'), Buffer.from(tappedImage.split(',')[1], 'base64'))
   assert.equal(errors.length, 0, `browser errors: ${errors.join('; ')}`)
   assert.equal(await page.getByText(/MODエラー/).count(), 0, 'MOD should not report a runtime error')
   assert.doesNotMatch(await page.getByRole('log').innerText(), /# Exception|\[main\] error/)
