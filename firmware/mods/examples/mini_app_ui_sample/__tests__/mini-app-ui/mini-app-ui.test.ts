@@ -41,6 +41,7 @@ const context: MiniAppContext = Object.freeze({
   close() {
     closeCount += 1
   },
+  reportResult() {},
 })
 const root = definitions[0].create(context) as PiuContainer
 new Application(null, { displayListLength: 4096, contents: [root] })

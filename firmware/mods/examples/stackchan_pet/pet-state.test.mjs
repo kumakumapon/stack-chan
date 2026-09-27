@@ -79,4 +79,11 @@ test('only named future events affect state; scores never escape bounds', () => 
   assert.ok(result.state.xp <= 10)
   const repeated = applyPetEvent(result.state, { type: 'gameFinished', score: 1000, now: 100 })
   assert.equal(repeated.state.xp, result.state.xp)
+  assert.equal(levelForXp(Number.NaN), 1)
+  const capped = applyPetEvent(
+    { ...initial, interactions: 100000, pettings: 100000, games: 100000 },
+    { type: 'petted', now: 1 },
+  )
+  assert.equal(capped.state.interactions, 100000)
+  assert.equal(capped.state.pettings, 100000)
 })

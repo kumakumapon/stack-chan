@@ -20,7 +20,7 @@ equal(definitions[0].id, 'sample.stackchan-catch', 'CATCH should have a stable i
     },
   }
   const behavior = new StackchanCatchBehavior()
-  behavior.onCreate(port)
+  behavior.onCreate(port, { reportResult() {} })
   behavior.onDisplaying(port)
   equal(events.join(','), 'invalidate', 'displaying the title should not start the timer')
   behavior.onTouchBegan(port, 0, 160)
@@ -67,7 +67,7 @@ equal(definitions[0].id, 'sample.stackchan-catch', 'CATCH should have a stable i
     },
   }
   const behavior = new StackchanCatchBehavior()
-  behavior.onCreate(port)
+  behavior.onCreate(port, { reportResult() {} })
   startGame(behavior.state)
   behavior.onDraw(port)
   equal(

@@ -14,7 +14,7 @@ const timestamp = (value) => integer(value, 0, 0, Number.MAX_SAFE_INTEGER)
 const cooldownTimestamp = (value) => integer(value, -1, -1, Number.MAX_SAFE_INTEGER)
 
 export function levelForXp(xp) {
-  return Math.min(20, 1 + Math.floor(clamp(xp, 0, MAX_XP) / 20))
+  return Math.min(20, 1 + Math.floor(integer(xp, 0, 0, MAX_XP) / 20))
 }
 
 export function createPetState() {
@@ -117,8 +117,8 @@ export function applyPetEvent(previous, event) {
     if (accepted) {
       state.bond = clamp(state.bond + 2, 0, MAX_STAT)
       state.xp = clamp(state.xp + 3, 0, MAX_XP)
-      state.interactions += 1
-      state.pettings += 1
+      state.interactions = clamp(state.interactions + 1, 0, MAX_XP)
+      state.pettings = clamp(state.pettings + 1, 0, MAX_XP)
       state.lastPetAt = now
       reaction = 'delighted'
       speech = 'えへへ！'
@@ -130,8 +130,8 @@ export function applyPetEvent(previous, event) {
       state.energy = clamp(state.energy - 5, 0, MAX_STAT)
       state.curiosity = clamp(state.curiosity + 2, 0, MAX_STAT)
       state.xp = clamp(state.xp + 4 + Math.min(6, Math.floor(score / 10)), 0, MAX_XP)
-      state.interactions += 1
-      state.games += 1
+      state.interactions = clamp(state.interactions + 1, 0, MAX_XP)
+      state.games = clamp(state.games + 1, 0, MAX_XP)
       state.lastGameAt = now
       reaction = score >= 20 ? 'success' : 'greeting'
       if (score >= 20) speech = 'やったね！'
@@ -140,7 +140,7 @@ export function applyPetEvent(previous, event) {
     // Future integrations send a named, validated event. They never send raw stat values.
     state.bond = clamp(state.bond + 1, 0, MAX_STAT)
     state.xp = clamp(state.xp + 2, 0, MAX_XP)
-    state.interactions += 1
+    state.interactions = clamp(state.interactions + 1, 0, MAX_XP)
     reaction = 'greeting'
   }
   state.level = levelForXp(state.xp)
