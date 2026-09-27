@@ -217,6 +217,12 @@ jobs:
       - name: Build WebAssembly simulator
         working-directory: ./firmware
         run: source "$HOME/.local/share/xs-dev-export.sh" && npm run build:wasm
+      - name: Build Virtual Pet MOD for WASM
+        working-directory: ./firmware
+        run: source "$HOME/.local/share/xs-dev-export.sh" && npm run mod:build:wasm
+      - name: Verify Virtual Pet through the WASM simulator
+        working-directory: ./web
+        run: node simulator/pet-test.mjs
       - name: Run responsive and editor browser tests
         working-directory: ./firmware
         run: |
