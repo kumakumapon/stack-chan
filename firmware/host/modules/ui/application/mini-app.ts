@@ -6,7 +6,11 @@ export type MiniAppContext = Readonly<{
   width: number
   height: number
   close(): void
+  /** Report a completed game round to interested host capabilities. */
+  reportResult(score: number): void
 }>
+
+export type MiniAppResult = Readonly<{ id: string; score: number }>
 
 export type MiniAppInstance = Readonly<{
   content: PiuContainer
@@ -24,6 +28,7 @@ export type RegisteredMiniApp = Readonly<Pick<MiniAppDefinition, 'id' | 'title' 
 
 export type MiniAppRegistryCapability = Readonly<{
   register(definition: MiniAppDefinition): () => void
+  subscribeResult(listener: (result: MiniAppResult) => void): () => void
 }>
 
 type RegistryListener = () => void
@@ -58,6 +63,7 @@ function validateDefinition(definition: MiniAppDefinition): MiniAppDefinition {
 export class MiniAppRegistry implements MiniAppRegistryCapability {
   #definitions = new Map<string, MiniAppDefinition>()
   #listeners = new Set<RegistryListener>()
+  #resultListeners = new Set<(result: MiniAppResult) => void>()
 
   register(definition: MiniAppDefinition): () => void {
     const validated = validateDefinition(definition)
@@ -87,6 +93,17 @@ export class MiniAppRegistry implements MiniAppRegistryCapability {
   subscribe(listener: RegistryListener): () => void {
     this.#listeners.add(listener)
     return () => this.#listeners.delete(listener)
+  }
+
+  subscribeResult(listener: (result: MiniAppResult) => void): () => void {
+    this.#resultListeners.add(listener)
+    return () => this.#resultListeners.delete(listener)
+  }
+
+  reportResult(id: string, score: number): void {
+    if (!this.#definitions.has(id) || !Number.isFinite(score) || score < 0) return
+    const result = Object.freeze({ id, score: Math.min(1000, Math.trunc(score)) })
+    for (const listener of this.#resultListeners) listener(result)
   }
 
   #notify(): void {

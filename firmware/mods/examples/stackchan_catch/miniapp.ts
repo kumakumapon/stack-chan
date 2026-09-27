@@ -1,4 +1,4 @@
-import type { MiniAppDefinition } from 'capabilities'
+import type { MiniAppContext, MiniAppDefinition } from 'capabilities'
 import 'piu/MC'
 import type { Port as PiuPort, Texture as PiuTexture } from 'piu/MC'
 
@@ -242,13 +242,15 @@ function getMissTexture(): PiuTexture {
 
 export class StackchanCatchBehavior extends Behavior {
   #state = createGameState()
+  #reportResult?: MiniAppContext['reportResult']
 
   get state(): GameState {
     return this.#state
   }
 
-  onCreate(_port: PiuPort): void {
+  onCreate(_port: PiuPort, context: MiniAppContext): void {
     this.#state = createGameState()
+    this.#reportResult = context.reportResult
   }
 
   onDisplaying(port: PiuPort): void {
@@ -283,7 +285,10 @@ export class StackchanCatchBehavior extends Behavior {
   onTimeChanged(port: PiuPort): void {
     updateGame(this.#state)
     port.interval = this.#state.tickInterval
-    if (this.#state.phase === 'gameover') port.stop()
+    if (this.#state.phase === 'gameover') {
+      port.stop()
+      this.#reportResult?.(this.#state.score)
+    }
     port.invalidate()
   }
 
@@ -394,7 +399,7 @@ const definition: MiniAppDefinition = Object.freeze({
   id: 'sample.stackchan-catch',
   title: 'ｽﾀｯｸﾁｬﾝ CATCH',
   icon: 'play',
-  create() {
+  create(context) {
     return new Container(null, {
       left: 0,
       right: 0,
@@ -402,7 +407,7 @@ const definition: MiniAppDefinition = Object.freeze({
       bottom: 0,
       skin: background,
       contents: [
-        new Port(null, {
+        new Port(context, {
           left: 0,
           right: 0,
           top: 0,

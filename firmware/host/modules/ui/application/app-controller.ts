@@ -167,6 +167,9 @@ export class AppController extends Behavior {
         if (this.#activeMiniApp?.token === token) this.exitMiniApp()
         else closeRequested = true
       },
+      reportResult: (score) => {
+        if (this.#activeMiniApp?.token === token) this.#miniAppRegistry.reportResult(id, score)
+      },
     })
 
     let instance: MiniAppInstance | null = null

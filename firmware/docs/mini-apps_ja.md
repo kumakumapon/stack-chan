@@ -58,6 +58,12 @@ export default behavior
 ホストは終了時に `content.behavior.onDispose(content)` と `dispose()` をそれぞれ一度呼びます。
 タイマーやソケットなど、Piu ツリーを外れて生存する資源は `dispose()` で解放してください。
 
+ゲーム系 Mini App はラウンド終了時に `create` に渡された `context.reportResult(score)` を呼べます。
+スコアは有限の非負数だけ受け付け、ホストで 0〜1000 の整数に正規化されます。
+`context.ui.miniApps.subscribeResult(listener)` を使う MOD は `{ id, score }` を受け取り、
+返された登録解除関数を MOD 終了時に呼びます。Mini App を閉じた後の通知は無視されます。
+育成ゲーム MOD はこのイベントで JUMP/CATCH の結果を状態に反映します。
+
 ## 外部 archive の形式
 
 外部ミニアプリは、archive の `miniapp` module から定義の配列を default export します。

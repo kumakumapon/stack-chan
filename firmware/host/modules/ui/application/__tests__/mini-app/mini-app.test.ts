@@ -51,6 +51,8 @@ const title = appBar.content('title') as unknown as { string?: string }
 let receivedContext: MiniAppContext | null = null
 let behaviorDisposals = 0
 let instanceDisposals = 0
+const gameResults: Array<{ id: string; score: number }> = []
+const unsubscribeResults = controller.miniApps.subscribeResult((result) => gameResults.push(result))
 const unregister = controller.miniApps.register({
   id: 'test.lifecycle',
   title: 'Lifecycle',
@@ -107,11 +109,19 @@ assert(receivedContext, 'mini app factory should receive its context')
 const context = receivedContext as unknown as MiniAppContext
 equal(context.width, 320, 'mini app context should expose the screen width')
 equal(context.height, 196, 'mini app context should exclude the 44px AppBar')
+context.reportResult(23.9)
+equal(gameResults.length, 1, 'active mini app should publish one game result')
+equal(gameResults[0].id, 'test.lifecycle', 'game result should identify the source mini app')
+equal(gameResults[0].score, 23, 'game result should normalize a finite score')
+context.reportResult(Number.NaN)
+equal(gameResults.length, 1, 'invalid game scores should be ignored')
 assert(Object.isFrozen(context), 'mini app context should be immutable')
 equal(topOf(viewBehavior.main as PiuContainer), 44, 'mini app viewport should remain below the AppBar')
 equal(title.string, 'Lifecycle', 'running mini app should set its title')
 
 controller.onMiniAppBack()
+context.reportResult(50)
+equal(gameResults.length, 1, 'disposed mini app should not publish stale results')
 equal(viewBehavior.main, viewBehavior.faceMain, 'back should restore the preserved face main content')
 equal(behaviorDisposals, 1, 'back should invoke content onDispose exactly once')
 equal(instanceDisposals, 1, 'back should invoke instance dispose exactly once')
@@ -132,3 +142,4 @@ assert(viewBehavior.main !== viewBehavior.faceMain, 'an unknown id should leave 
 equal(title.string, 'ミニアプリ', 'an unknown id should preserve the launcher AppBar')
 
 trace('ok\n')
+unsubscribeResults()
