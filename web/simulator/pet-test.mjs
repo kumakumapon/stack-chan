@@ -74,14 +74,14 @@ try {
     )
   const beforeTap = await bondPixels()
   await page.waitForTimeout(5200) // Allow the physical petting cooldown to expire.
-  await stage.click({ position: { x: 325, y: 250 } }) // PET button on the LCD.
+  await stage.click({ position: { x: 325, y: 265 } }) // PET button on the LCD.
   await page.waitForTimeout(200)
   const afterTap = await bondPixels()
   const tappedImage = await page.locator('canvas[aria-hidden="true"]').evaluate((canvas) => canvas.toDataURL('image/png'))
   writeFileSync(join(tmpdir(), 'stackchan-pet-tapped.png'), Buffer.from(tappedImage.split(',')[1], 'base64'))
   await page.screenshot({ path: join(tmpdir(), 'stackchan-pet-tapped-stage.png') })
   assert.notDeepEqual(afterTap, beforeTap, 'LCD PET should visibly increase the bond value')
-  await stage.click({ position: { x: 325, y: 250 } })
+  await stage.click({ position: { x: 325, y: 265 } })
   await page.waitForTimeout(200)
   assert.deepEqual(await bondPixels(), afterTap, 'rapid repeated PET taps should not farm bond')
   assert.equal(errors.length, 0, `browser errors: ${errors.join('; ')}`)
