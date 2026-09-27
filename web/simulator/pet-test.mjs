@@ -40,7 +40,10 @@ try {
   // cancels its pending release instead of forming a gesture pair.
   await page.waitForTimeout(500)
   await page.getByRole('button', { name: '後方スワイプ', exact: true }).first().click()
-  await page.waitForTimeout(2000)
+  // The host animates the head for five seconds. Let its pose return before
+  // aiming simulated LCD clicks through the 3D viewport.
+  await page.waitForFunction(() => document.querySelector('[role="log"]')?.textContent?.includes('restore emotion'))
+  await page.waitForTimeout(1200)
   const gestureLog = await page.getByRole('log').innerText()
   assert.match(gestureLog, /gesture: forwardSwipe/)
   assert.match(gestureLog, /gesture: backwardSwipe/)
@@ -64,6 +67,21 @@ try {
     statusPixel[0] > 200 && statusPixel[1] > 200 && statusPixel[2] > 180,
     `PET STATUS should render its light background, got ${statusPixel.join(',')}`,
   )
+  const bondPixels = () =>
+    page.locator('canvas[aria-hidden="true"]').evaluate((canvas) =>
+      Array.from(canvas.getContext('2d').getImageData(85, 70, 100, 30).data),
+    )
+  const beforeTap = await bondPixels()
+  await page.waitForTimeout(5200) // Allow the physical petting cooldown to expire.
+  await stage.click({ position: { x: 325, y: 250 } }) // PET button on the LCD.
+  await page.waitForTimeout(200)
+  const afterTap = await bondPixels()
+  assert.notDeepEqual(afterTap, beforeTap, 'LCD PET should visibly increase the bond value')
+  await stage.click({ position: { x: 325, y: 250 } })
+  await page.waitForTimeout(200)
+  assert.deepEqual(await bondPixels(), afterTap, 'rapid repeated PET taps should not farm bond')
+  const tappedImage = await page.locator('canvas[aria-hidden="true"]').evaluate((canvas) => canvas.toDataURL('image/png'))
+  writeFileSync(join(tmpdir(), 'stackchan-pet-tapped.png'), Buffer.from(tappedImage.split(',')[1], 'base64'))
   assert.equal(errors.length, 0, `browser errors: ${errors.join('; ')}`)
   assert.equal(await page.getByText(/MODエラー/).count(), 0, 'MOD should not report a runtime error')
   assert.doesNotMatch(await page.getByRole('log').innerText(), /# Exception|\[main\] error/)
