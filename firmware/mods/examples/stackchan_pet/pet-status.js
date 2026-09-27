@@ -48,7 +48,7 @@ function statLine(top) {
 export function createPetStatusApp(getState, dispatch) {
   return {
     id: 'stackchan.pet-status',
-    title: 'ｽﾀｯｸﾁｬﾝ 育成',
+    title: 'PET STATUS',
     icon: 'play',
     create() {
       const title = statLine(5)
@@ -59,12 +59,12 @@ export function createPetStatusApp(getState, dispatch) {
       const record = statLine(125)
       const refresh = (message = '') => {
         const state = getState()
-        title.string = `ｽﾀｯｸﾁｬﾝ Lv.${state.level} ${message}`
-        bond.string = `なつき  ${state.bond}/100`
-        energy.string = `元気    ${state.energy}/100`
-        curiosity.string = `好奇心  ${state.curiosity}/100`
-        experience.string = `経験値  ${state.xp}`
-        record.string = `きろく: なで ${state.pettings}回 / あそび ${state.games}回`
+        title.string = `STACK-CHAN Lv.${state.level} ${message}`
+        bond.string = `BOND       ${state.bond}/100`
+        energy.string = `ENERGY     ${state.energy}/100`
+        curiosity.string = `CURIOSITY  ${state.curiosity}/100`
+        experience.string = `XP         ${state.xp}`
+        record.string = `PET ${state.pettings}  PLAY ${state.games}`
       }
       let open = true
       let gameTimer
@@ -72,19 +72,19 @@ export function createPetStatusApp(getState, dispatch) {
       const play = () => {
         if (score < 0) {
           score = 0
-          title.string = '6秒で「あそぶ」を何回タップできる？'
+          title.string = 'Tap PLAY for 6 seconds!'
           gameTimer = Timer.set(() => {
             gameTimer = undefined
             if (!open) return
             const result = score
             score = -1
             dispatch({ type: 'gameFinished', score: result })
-            refresh(`スコア ${result}`)
+            refresh(`SCORE ${result}`)
           }, 6000)
           return
         }
         score += 1
-        title.string = `スコア ${score}  あと少し！`
+        title.string = `SCORE ${score}  Keep going!`
       }
       const content = new Container(null, {
         left: 0,
@@ -99,11 +99,11 @@ export function createPetStatusApp(getState, dispatch) {
           curiosity,
           experience,
           record,
-          button('なでる', 16, () => {
+          button('PET', 16, () => {
             const result = dispatch({ type: 'tap' })
-            refresh(result?.changed ? 'えへへ！' : 'ちょっとまってね')
+            refresh(result?.changed ? 'Hehe!' : 'Wait a moment')
           }),
-          button('あそぶ', 168, play),
+          button('PLAY', 168, play),
         ],
       })
       refresh()

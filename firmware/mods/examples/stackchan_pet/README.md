@@ -9,8 +9,8 @@ npm run mod -- mods/examples/stackchan_pet/manifest.json
 
 The face remains the main screen. Swipe forward then backward on a supported
 head touch panel to pet Stack-chan. On targets without head touch, open the
-`ｽﾀｯｸﾁｬﾝ 育成` Mini App and tap `なでる`. The Mini App shows bond, energy,
-curiosity, level, experience and total interactions. Its `あそぶ` button starts
+`PET STATUS` Mini App and tap `PET`. The Mini App shows bond, energy,
+curiosity, level, experience and total interactions. Its `PLAY` button starts
 a six-second tap challenge. The same archive also includes the existing JUMP
 and CATCH Mini Apps; a completed round contributes to the pet's growth.
 

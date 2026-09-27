@@ -42,7 +42,11 @@ export function onContextCreated(context, options) {
     }
     if (result.speech && !event.handledByDefault) {
       if ((options?.config?.tts?.type ?? 'local') === 'local') {
-        context.ui.showBalloon(result.speech)
+        // Open Sans bitmap resources on embedded targets only include Latin glyphs.
+        const caption = result.levelUp
+          ? 'Level up!'
+          : ({ boot: 'Hello!', petted: 'Hehe!', tap: 'Hehe!', gameFinished: 'Nice!' }[event.type] ?? 'Hello!')
+        context.ui.showBalloon(caption)
         if (balloonTimer !== undefined) Timer.clear(balloonTimer)
         balloonTimer = Timer.set(() => {
           balloonTimer = undefined
