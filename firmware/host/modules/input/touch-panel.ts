@@ -76,7 +76,10 @@ export default class TouchPanel {
     if (this.#timer) return
     trace(`[TouchPanel] start interval=${this.#interval}ms\n`)
     this.#timer = Timer.repeat(() => {
-      const ticks = Time.ticks
+      // Older WASM runtimes expose Time.ticks as undefined. Use wall-clock
+      // milliseconds there so gesture timing and petting still work.
+      const platformTicks = Time.ticks
+      const ticks = Number.isFinite(platformTicks) ? platformTicks : Date.now()
       let sample: TouchPanelSample
       try {
         sample = this.#sample()

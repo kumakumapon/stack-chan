@@ -72,6 +72,8 @@ async function runTest(): Promise<void> {
   assertPressAndRelease(legacyEvents, 'legacy onEvent')
   assertPressAndRelease(subscriberEvents, 'subscriber')
   assertPressAndRelease(survivingEvents, 'surviving subscriber')
+  assert(Number.isFinite(subscriberEvents[0].ticks), 'touch timestamps must be finite for gesture pairing')
+  assert(Number.isFinite(subscriberEvents[1].ticks), 'release timestamps must be finite for tap recognition')
   const tap = subscriberEvents[1].tap
   assert(tap, 'release should include tap details')
   assert(tap.durationMs >= 0 && tap.durationMs <= 300, 'tap duration should remain inside the recognizer limit')

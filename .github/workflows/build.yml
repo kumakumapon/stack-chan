@@ -125,6 +125,17 @@ jobs:
         if: matrix.shard == 0
         working-directory: ./firmware
         run: source "$HOME/.local/share/xs-dev-export.sh" && npm run check:manifest
+      - name: Build Virtual Pet MOD for CoreS3
+        if: matrix.shard == 0
+        working-directory: ./firmware
+        run: source "$HOME/.local/share/xs-dev-export.sh" && npm run mod:build -- mods/examples/stackchan_pet/manifest.json --mode=release
+      - name: Upload Virtual Pet MOD archive
+        if: matrix.shard == 0
+        uses: actions/upload-artifact@v7
+        with:
+          name: stackchan-pet-cores3
+          path: firmware/dist/bin/esp32/release/stackchan_pet/stackchan_pet.xsa
+          if-no-files-found: error
       - name: Run Moddable module tests
         working-directory: ./firmware
         env:
@@ -206,11 +217,17 @@ jobs:
       - name: Build WebAssembly simulator
         working-directory: ./firmware
         run: source "$HOME/.local/share/xs-dev-export.sh" && npm run build:wasm
+      - name: Build Virtual Pet MOD for Simulator
+        working-directory: ./firmware
+        run: source "$HOME/.local/share/xs-dev-export.sh" && npm run mod:build:simulator
       - name: Run responsive and editor browser tests
         working-directory: ./firmware
         run: |
           npm --prefix ../web run test:visual
           npm --prefix ../web run test:i18n-visual
+      - name: Verify Virtual Pet through the WASM simulator
+        working-directory: ./web
+        run: node simulator/pet-test.mjs
       - name: Upload compiled simulator
         uses: actions/upload-artifact@v7
         with:

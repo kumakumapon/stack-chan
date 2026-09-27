@@ -5,7 +5,10 @@ declare module 'capabilities' {
     width: number
     height: number
     close(): void
+    reportResult(score: number): void
   }>
+
+  export type MiniAppResult = Readonly<{ id: string; score: number }>
 
   export type MiniAppInstance = Readonly<{
     content: PiuContainer
@@ -21,5 +24,6 @@ declare module 'capabilities' {
 
   export type MiniAppRegistryCapability = Readonly<{
     register(definition: MiniAppDefinition): () => void
+    subscribeResult(listener: (result: MiniAppResult) => void): () => void
   }>
 }

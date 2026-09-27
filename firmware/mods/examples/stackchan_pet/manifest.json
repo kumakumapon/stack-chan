@@ -1,0 +1,28 @@
+{
+  "include": [
+    "$(MODDABLE)/examples/manifest_mod.json",
+    "$(MODDABLE)/examples/manifest_typings.json",
+    "../../../host/app/manifest_typings.json"
+  ],
+  "modules": {
+    "mod": "./mod",
+    "miniapp": "../stackchan_minigames/miniapp",
+    "pet-state": "./pet-state",
+    "pet-storage": "./pet-storage",
+    "pet-status": "./pet-status"
+  },
+  "resources": {
+    "*": ["../stackchan_minigames/assets/stack-chan"],
+    "*-mask": [
+      "$(MODDABLE)/examples/assets/fonts/OpenSans-Regular-16",
+      "../stackchan_minigames/assets/player-left",
+      "../stackchan_minigames/assets/player-center",
+      "../stackchan_minigames/assets/player-right",
+      "../stackchan_minigames/assets/screw",
+      "../stackchan_minigames/assets/m5stack",
+      "../stackchan_minigames/assets/bubble",
+      "../stackchan_minigames/assets/bomb",
+      "../stackchan_minigames/assets/miss"
+    ]
+  }
+}

@@ -65,6 +65,9 @@ function createDrawerTestUI(calls: DrawerControllerCalls) {
       register() {
         return () => {}
       },
+      subscribeResult() {
+        return () => {}
+      },
     },
     update(_interval: number, _face: FaceState) {},
     addEffect(_effect: unknown) {},

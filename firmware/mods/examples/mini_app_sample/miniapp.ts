@@ -1,4 +1,4 @@
-import type { MiniAppDefinition } from 'capabilities'
+import type { MiniAppContext, MiniAppDefinition } from 'capabilities'
 import 'piu/MC'
 import type { Port as PiuPort, Texture as PiuTexture } from 'piu/MC'
 
@@ -49,6 +49,7 @@ function intersects(
 }
 
 class StackchanJumpBehavior extends Behavior {
+  #reportResult?: MiniAppContext['reportResult']
   #groundY = 0
   #playerY = 0
   #velocityY = 0
@@ -70,6 +71,10 @@ class StackchanJumpBehavior extends Behavior {
 
   get score(): number {
     return this.#score
+  }
+
+  onCreate(_port: PiuPort, context: MiniAppContext): void {
+    this.#reportResult = context.reportResult
   }
 
   onDisplaying(port: PiuPort): void {
@@ -133,6 +138,7 @@ class StackchanJumpBehavior extends Behavior {
     if (this.#collides()) {
       this.#gameOver = true
       port.stop()
+      this.#reportResult?.(this.#score)
       port.invalidate()
       return
     }
@@ -310,7 +316,7 @@ const sample: MiniAppDefinition = Object.freeze({
   id: 'sample.stackchan-jump',
   title: 'ｽﾀｯｸﾁｬﾝ JUMP',
   icon: 'play',
-  create() {
+  create(context) {
     return new Container(null, {
       left: 0,
       right: 0,
@@ -318,7 +324,7 @@ const sample: MiniAppDefinition = Object.freeze({
       bottom: 0,
       skin: background,
       contents: [
-        new Port(null, {
+        new Port(context, {
           left: 0,
           right: 0,
           top: 0,
