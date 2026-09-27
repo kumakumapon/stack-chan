@@ -5,7 +5,9 @@ import { join, resolve } from 'node:path'
 import { chromium } from 'playwright-core'
 import { resolveChromium, startPreview } from '../test-preview-server.mjs'
 
-const archiveRoot = resolve('../firmware/dist/bin/wasm')
+// mcrun 9.0 has no WASM MOD makefile; the same XS revision's `lin` archive
+// contains portable JavaScript bytecode and resources for browser launch.
+const archiveRoot = resolve('../firmware/dist/bin/lin')
 const archives = existsSync(archiveRoot)
   ? readdirSync(archiveRoot, { recursive: true })
       .filter((name) => name.endsWith('.xsa'))

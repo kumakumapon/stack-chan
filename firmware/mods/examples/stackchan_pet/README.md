@@ -8,7 +8,9 @@ npm run mod -- mods/examples/stackchan_pet/manifest.json
 ```
 
 The face remains the main screen. Swipe forward then backward on a supported
-head touch panel to pet Stack-chan. On targets without head touch, open the
+head touch panel to pet Stack-chan. If the panel only recognizes a simple
+touch, touching and releasing also pets after a brief delay. On targets
+without head touch, open the
 `PET STATUS` Mini App and tap `PET`. The Mini App shows bond, energy,
 curiosity, level, experience and total interactions. Its `PLAY` button starts
 a six-second tap challenge. The same archive also includes the existing JUMP

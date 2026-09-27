@@ -14,6 +14,7 @@ export function onContextCreated(context, options) {
   let state = loadPetState()
   let saveTimer
   let balloonTimer
+  let releaseTimer
   let closed = false
   let speaking = false
   let ownedReaction = null
@@ -79,6 +80,16 @@ export function onContextCreated(context, options) {
   let lastForwardSwipe
   let lastBackwardSwipe
   const unsubscribeTouch = context.input.touchPanel?.subscribe((event) => {
+    if (event.gesture === 'release') {
+      // A simple touch is a fallback when the panel cannot resolve a swipe.
+      // Defer it so a paired swipe keeps its existing host-owned animation.
+      if (releaseTimer !== undefined) Timer.clear(releaseTimer)
+      releaseTimer = Timer.set(() => {
+        releaseTimer = undefined
+        dispatch({ type: 'petted' })
+      }, PETTING_WINDOW_MS)
+      return
+    }
     if (event.gesture === 'forwardSwipe') lastForwardSwipe = event.ticks
     else if (event.gesture === 'backwardSwipe') lastBackwardSwipe = event.ticks
     else return
@@ -89,6 +100,10 @@ export function onContextCreated(context, options) {
     ) {
       lastForwardSwipe = undefined
       lastBackwardSwipe = undefined
+      if (releaseTimer !== undefined) {
+        Timer.clear(releaseTimer)
+        releaseTimer = undefined
+      }
       // Default behavior owns the gesture animation; the MOD only records growth.
       dispatch({ type: 'petted', handledByDefault: true })
     }
@@ -101,6 +116,7 @@ export function onContextCreated(context, options) {
       persist()
     }
     if (balloonTimer !== undefined) Timer.clear(balloonTimer)
+    if (releaseTimer !== undefined) Timer.clear(releaseTimer)
     context.ui.hideBalloon()
     if (speaking) context.audio.tts?.cancel?.()
     unsubscribeTouch?.()
