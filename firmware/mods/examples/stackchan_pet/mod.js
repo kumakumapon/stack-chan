@@ -19,6 +19,7 @@ export function onContextCreated(context, options) {
   let idleTimer
   let closed = false
   let speaking = false
+  let ownsBalloon = false
   let ownedReaction = null
   const persist = () => {
     saveTimer = undefined
@@ -50,10 +51,14 @@ export function onContextCreated(context, options) {
           ? 'Level up!'
           : ({ boot: 'Hello!', petted: 'Hehe!', tap: 'Hehe!', gameFinished: 'Nice!' }[event.type] ?? 'Hello!')
         context.ui.showBalloon(caption)
+        ownsBalloon = true
         if (balloonTimer !== undefined) Timer.clear(balloonTimer)
         balloonTimer = Timer.set(() => {
           balloonTimer = undefined
-          if (!closed) context.ui.hideBalloon()
+          if (!closed && ownsBalloon) {
+            context.ui.hideBalloon()
+            ownsBalloon = false
+          }
         }, 2200)
       } else {
         speaking = true
@@ -84,6 +89,8 @@ export function onContextCreated(context, options) {
   const unsubscribeTouch = context.input.touchPanel?.subscribe((event) => {
     if (event.gesture === 'release') {
       // A simple touch is a fallback when the panel cannot resolve a swipe.
+      // Swipe releases have no tap payload and must not create an extra pet.
+      if (!event.tap) return
       // Defer it so a paired swipe keeps its existing host-owned animation.
       if (releaseTimer !== undefined) Timer.clear(releaseTimer)
       releaseTimer = Timer.set(() => {
@@ -120,7 +127,7 @@ export function onContextCreated(context, options) {
     if (balloonTimer !== undefined) Timer.clear(balloonTimer)
     if (releaseTimer !== undefined) Timer.clear(releaseTimer)
     if (idleTimer !== undefined) Timer.clear(idleTimer)
-    context.ui.hideBalloon()
+    if (ownsBalloon) context.ui.hideBalloon()
     if (speaking) context.audio.tts?.cancel?.()
     unsubscribeTouch?.()
     unsubscribeResults?.()

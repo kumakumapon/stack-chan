@@ -19,6 +19,7 @@ assert.ok(archive && existsSync(archive), `build the WASM Pet MOD before this te
 
 const { baseUrl, server } = await startPreview({ port: 8100 })
 let browser
+let diagnosticPage
 try {
   browser = await chromium.launch({
     executablePath: resolveChromium(),
@@ -26,6 +27,7 @@ try {
     args: ['--no-sandbox', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'],
   })
   const page = await browser.newPage({ viewport: { width: 1280, height: 900 } })
+  diagnosticPage = page
   const errors = []
   page.on('pageerror', (error) => errors.push(error.message))
   await page.addInitScript(() => localStorage.setItem('stackchan.locale', 'ja'))
@@ -40,7 +42,13 @@ try {
   assert.equal(errors.length, 0, `browser errors: ${errors.join('; ')}`)
   assert.equal(await page.getByText(/MODエラー/).count(), 0, 'MOD should not report a runtime error')
   assert.doesNotMatch(await page.getByRole('log').innerText(), /# Exception|\[main\] error/)
+} catch (error) {
+  if (diagnosticPage) {
+    console.error(await diagnosticPage.locator('body').innerText())
+    await diagnosticPage.screenshot({ path: join(tmpdir(), 'stackchan-pet-failure.png') })
+  }
+  throw error
 } finally {
   await browser?.close()
-  await new Promise((resolveClose) => server.close(resolveClose))
+  server?.kill()
 }
