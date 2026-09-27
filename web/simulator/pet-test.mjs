@@ -36,9 +36,9 @@ try {
   await page.locator('input[type="file"][aria-label="MODを追加"]').setInputFiles(archive)
   await page.getByText(/適用済み/).waitFor({ timeout: 45000 })
   await page.getByRole('button', { name: '前方スワイプ', exact: true }).first().click()
-  // The bridge plays a timed stroke; beginning another stroke immediately
-  // cancels its pending release instead of forming a gesture pair.
-  await page.waitForTimeout(500)
+  // The bridge plays a timed stroke. Wait for its release rather than a fixed
+  // delay so browser scheduling cannot cancel the first gesture mid-flight.
+  await page.waitForFunction(() => document.querySelector('[role="log"]')?.textContent?.includes('gesture: release'))
   await page.getByRole('button', { name: '後方スワイプ', exact: true }).first().click()
   // The host animates the head for five seconds. Let its pose return before
   // aiming simulated LCD clicks through the 3D viewport.
