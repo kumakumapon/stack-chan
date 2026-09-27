@@ -1,13 +1,19 @@
 import assert from 'node:assert/strict'
-import { existsSync } from 'node:fs'
+import { existsSync, readdirSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { chromium } from 'playwright-core'
 import { resolveChromium, startPreview } from '../test-preview-server.mjs'
 
-const archive = resolve('../firmware/dist/bin/wasm/debug/stackchan_pet/stackchan_pet.xsa')
+const archiveRoot = resolve('../firmware/dist/bin/wasm')
+const archives = existsSync(archiveRoot)
+  ? readdirSync(archiveRoot, { recursive: true })
+      .filter((name) => name.endsWith('.xsa'))
+      .map((name) => resolve(archiveRoot, name))
+  : []
+const archive = archives.find((name) => name.endsWith('stackchan_pet.xsa')) ?? archives[0]
 assert.ok(existsSync('simulator/mc.wasm'), 'build the WASM simulator before this test')
-assert.ok(existsSync(archive), 'build the WASM Pet MOD before this test')
+assert.ok(archive && existsSync(archive), `build the WASM Pet MOD before this test; found ${archives.join(', ')}`)
 
 const { baseUrl, server } = await startPreview({ port: 8100 })
 let browser
