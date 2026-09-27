@@ -65,7 +65,9 @@ export function onContextCreated(context, options) {
   }
 
   const unregister = context.ui.miniApps.register(createPetStatusApp(() => state, dispatch))
-  const unsubscribeResults = context.ui.miniApps.subscribeResult(({ id, score }) => {
+  // Older installed hosts have Mini Apps but not the result capability yet.
+  // Keep the offline pet loop usable until the host firmware is upgraded.
+  const unsubscribeResults = context.ui.miniApps.subscribeResult?.(({ id, score }) => {
     if (id === 'sample.stackchan-jump' || id === 'sample.stackchan-catch') {
       dispatch({ type: 'gameFinished', score })
     }
@@ -98,7 +100,7 @@ export function onContextCreated(context, options) {
     context.ui.hideBalloon()
     if (speaking) context.audio.tts?.cancel?.()
     unsubscribeTouch?.()
-    unsubscribeResults()
+    unsubscribeResults?.()
     unregister()
     if (ownedReaction && context.reaction.status().active === ownedReaction) context.reaction.cancel()
     if (active?.close === close) active = undefined
