@@ -36,11 +36,28 @@ try {
   await page.locator('input[type="file"][aria-label="MODを追加"]').setInputFiles(archive)
   await page.getByText(/適用済み/).waitFor({ timeout: 45000 })
   await page.getByRole('button', { name: '前方スワイプ', exact: true }).first().click()
+  // The bridge plays a timed stroke; beginning another stroke immediately
+  // cancels its pending release instead of forming a gesture pair.
+  await page.waitForTimeout(500)
   await page.getByRole('button', { name: '後方スワイプ', exact: true }).first().click()
   await page.waitForTimeout(2000)
+  assert.match(await page.getByRole('log').innerText(), /petting detected/)
   await page.screenshot({ path: join(tmpdir(), 'stackchan-pet-wasm.png') })
   const lcdImage = await page.locator('canvas[aria-hidden="true"]').evaluate((canvas) => canvas.toDataURL('image/png'))
   writeFileSync(join(tmpdir(), 'stackchan-pet-lcd.png'), Buffer.from(lcdImage.split(',')[1], 'base64'))
+  const stage = page.getByRole('region', { name: 'ｽﾀｯｸﾁｬﾝ3Dシミュレーター' })
+  await stage.scrollIntoViewIfNeeded()
+  await stage.click({ position: { x: 370, y: 200 } }) // Reveal face AppBar.
+  await stage.click({ position: { x: 450, y: 140 } }) // Open Mini App launcher.
+  await stage.click({ position: { x: 370, y: 170 } }) // Open PET STATUS, the only WASM MOD app.
+  await page.waitForTimeout(500)
+  const statusImage = await page.locator('canvas[aria-hidden="true"]').evaluate((canvas) => canvas.toDataURL('image/png'))
+  writeFileSync(join(tmpdir(), 'stackchan-pet-status.png'), Buffer.from(statusImage.split(',')[1], 'base64'))
+  const statusPixel = await page.locator('canvas[aria-hidden="true"]').evaluate((canvas) => {
+    const [r, g, b] = canvas.getContext('2d').getImageData(2, 60, 1, 1).data
+    return [r, g, b]
+  })
+  assert.deepEqual(statusPixel, [0xf7, 0xf3, 0xdf], 'PET STATUS should render its cream background')
   assert.equal(errors.length, 0, `browser errors: ${errors.join('; ')}`)
   assert.equal(await page.getByText(/MODエラー/).count(), 0, 'MOD should not report a runtime error')
   assert.doesNotMatch(await page.getByRole('log').innerText(), /# Exception|\[main\] error/)
