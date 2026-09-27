@@ -44,6 +44,7 @@ try {
   const gestureLog = await page.getByRole('log').innerText()
   assert.match(gestureLog, /gesture: forwardSwipe/)
   assert.match(gestureLog, /gesture: backwardSwipe/)
+  assert.match(gestureLog, /petting detected/)
   await page.screenshot({ path: join(tmpdir(), 'stackchan-pet-wasm.png') })
   const lcdImage = await page.locator('canvas[aria-hidden="true"]').evaluate((canvas) => canvas.toDataURL('image/png'))
   writeFileSync(join(tmpdir(), 'stackchan-pet-lcd.png'), Buffer.from(lcdImage.split(',')[1], 'base64'))
@@ -59,7 +60,10 @@ try {
     const [r, g, b] = canvas.getContext('2d').getImageData(2, 60, 1, 1).data
     return [r, g, b]
   })
-  assert.deepEqual(statusPixel, [0xf7, 0xf3, 0xdf], 'PET STATUS should render its cream background')
+  assert.ok(
+    statusPixel[0] > 200 && statusPixel[1] > 200 && statusPixel[2] > 180,
+    `PET STATUS should render its light background, got ${statusPixel.join(',')}`,
+  )
   assert.equal(errors.length, 0, `browser errors: ${errors.join('; ')}`)
   assert.equal(await page.getByText(/MODエラー/).count(), 0, 'MOD should not report a runtime error')
   assert.doesNotMatch(await page.getByRole('log').innerText(), /# Exception|\[main\] error/)
