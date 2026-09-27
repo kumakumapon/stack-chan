@@ -6,6 +6,7 @@ import {
   decodePetState,
   encodePetState,
   levelForXp,
+  petTendency,
   restorePetState,
   unlockedReactions,
 } from './pet-state.js'
@@ -86,4 +87,24 @@ test('only named future events affect state; scores never escape bounds', () => 
   )
   assert.equal(capped.state.interactions, 100000)
   assert.equal(capped.state.pettings, 100000)
+})
+
+test('idle growth is infrequent, positive and never drives a reaction', () => {
+  const booted = applyPetEvent(createPetState(), { type: 'boot', now: 1000 }).state
+  const early = applyPetEvent(booted, { type: 'idle', now: 1000 + 29 * 60 * 1000 })
+  assert.equal(early.state.xp, 0)
+  assert.equal(early.state.curiosity, 20)
+  const grown = applyPetEvent(early.state, { type: 'idle', now: 1000 + 30 * 60 * 1000 })
+  assert.equal(grown.state.curiosity, 21)
+  assert.equal(grown.state.xp, 1)
+  assert.equal(grown.reaction, null)
+  assert.equal(grown.speech, null)
+  assert.equal(applyPetEvent(grown.state, { type: 'idle', now: 1000 + 31 * 60 * 1000 }).changed, false)
+  assert.equal(applyPetEvent(grown.state, { type: 'boot', now: 1000 + 31 * 60 * 1000 }).state.xp, 1)
+})
+
+test('play history selects a derived tendency without changing saved identity', () => {
+  assert.equal(petTendency(createPetState()), 'calm')
+  assert.equal(petTendency({ pettings: 4, games: 1 }), 'cuddly')
+  assert.equal(petTendency({ pettings: 1, games: 4 }), 'playful')
 })

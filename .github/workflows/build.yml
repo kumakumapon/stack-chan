@@ -220,14 +220,14 @@ jobs:
       - name: Build Virtual Pet MOD for Simulator
         working-directory: ./firmware
         run: source "$HOME/.local/share/xs-dev-export.sh" && npm run mod:build:simulator
-      - name: Verify Virtual Pet through the WASM simulator
-        working-directory: ./web
-        run: node simulator/pet-test.mjs
       - name: Run responsive and editor browser tests
         working-directory: ./firmware
         run: |
           npm --prefix ../web run test:visual
           npm --prefix ../web run test:i18n-visual
+      - name: Verify Virtual Pet through the WASM simulator
+        working-directory: ./web
+        run: node simulator/pet-test.mjs
       - name: Upload compiled simulator
         uses: actions/upload-artifact@v7
         with:

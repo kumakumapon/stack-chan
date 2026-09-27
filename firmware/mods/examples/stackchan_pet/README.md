@@ -21,7 +21,11 @@ and all statistics are bounded. Energy recovers while time passes, including
 while the device is off. There are no absence penalties or streak rewards.
 The first level unlocks a basic greeting; level 2 unlocks the delighted
 reaction for screen petting. Higher levels retain named expression unlocks
-for later presentation variants.
+for later presentation variants. The status view gains a friend badge and
+mint theme at level 5, and a non-permanent calm/cuddly/playful tendency is
+derived from play counts. A quiet idle event adds a tiny amount of curiosity
+and experience at most once every 30 minutes without moving a servo or
+forcing a notification.
 
 The state is saved as a versioned JSON string through Moddable's public
 `preference` module. Writes are delayed by 1.5 seconds and flushed on MOD
@@ -34,6 +38,6 @@ tested with `node --test mods/examples/stackchan_pet/pet-state.test.mjs`.
 For an end-to-end check, install the MOD on M5StackChan CoreS3, pet or tap
 until the level increases, play JUMP/CATCH, then restart the device and confirm
 the Status Mini App retains the statistics. In the WASM Simulator, load the
-built MOD archive and verify status, tap fallback, game results and cleanup
+Simulator MOD archive and verify status, tap fallback and cleanup
 after exiting a Mini App. Hardware petting and restart persistence require a
 connected CoreS3; the pure tests cannot establish those behaviors alone.

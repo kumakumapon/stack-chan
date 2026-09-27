@@ -1,7 +1,9 @@
 import 'piu/MC'
+import { petTendency } from 'pet-state'
 import Timer from 'timer'
 
 const background = new Skin({ fill: '#f7f3df' })
+const friendBackground = new Skin({ fill: '#e7f6ee' })
 const buttonSkin = new Skin({ fill: ['#df795b', '#bd6047'] })
 const ink = new Style({ font: '16px Open Sans', color: '#29323c', horizontal: 'left', vertical: 'middle' })
 const buttonText = new Style({ font: '16px Open Sans', color: '#ffffff', horizontal: 'center', vertical: 'middle' })
@@ -59,12 +61,13 @@ export function createPetStatusApp(getState, dispatch) {
       const record = statLine(125)
       const refresh = (message = '') => {
         const state = getState()
-        title.string = `STACK-CHAN Lv.${state.level} ${message}`
+        content.skin = state.level >= 5 ? friendBackground : background
+        title.string = `STACK-CHAN Lv.${state.level}${state.level >= 5 ? ' [FRIEND]' : ''} ${message}`
         bond.string = `BOND       ${state.bond}/100`
         energy.string = `ENERGY     ${state.energy}/100`
         curiosity.string = `CURIOSITY  ${state.curiosity}/100`
         experience.string = `XP         ${state.xp}`
-        record.string = `PET ${state.pettings}  PLAY ${state.games}`
+        record.string = `PET ${state.pettings}  PLAY ${state.games}  ${petTendency(state).toUpperCase()}`
       }
       let open = true
       let gameTimer

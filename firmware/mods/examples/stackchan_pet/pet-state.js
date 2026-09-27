@@ -6,6 +6,7 @@ const PET_COOLDOWN_MS = 5000
 const GAME_COOLDOWN_MS = 10000
 const REACTION_COOLDOWN_MS = 2500
 const ENERGY_RECOVERY_MS = 10 * 60 * 1000
+const IDLE_GROWTH_MS = 30 * 60 * 1000
 
 const clamp = (value, minimum, maximum) => Math.max(minimum, Math.min(maximum, value))
 const integer = (value, fallback, minimum, maximum) =>
@@ -33,6 +34,7 @@ export function createPetState() {
     lastPetAt: -1,
     lastGameAt: -1,
     lastReactionAt: -1,
+    lastIdleAt: -1,
   }
 }
 
@@ -56,6 +58,7 @@ export function restorePetState(value) {
     lastPetAt: cooldownTimestamp(value.lastPetAt),
     lastGameAt: cooldownTimestamp(value.lastGameAt),
     lastReactionAt: cooldownTimestamp(value.lastReactionAt),
+    lastIdleAt: cooldownTimestamp(value.lastIdleAt),
   }
 }
 
@@ -82,13 +85,22 @@ export function unlockedReactions(level) {
   }
 }
 
+/** A presentation tendency derived from play history, not a permanent identity. */
+export function petTendency(state) {
+  const pettings = integer(state?.pettings, 0, 0, MAX_XP)
+  const games = integer(state?.games, 0, 0, MAX_XP)
+  if (pettings >= games + 3) return 'cuddly'
+  if (games >= pettings + 3) return 'playful'
+  return 'calm'
+}
+
 /** Pure game transition. Wall-clock time is supplied by the caller. */
 export function applyPetEvent(previous, event) {
   const state = restorePetState(previous)
   const now = timestamp(event?.now)
   if (
     !event ||
-    !['boot', 'petted', 'tap', 'gameFinished', 'conversationFinished', 'taskCompleted'].includes(event.type)
+    !['boot', 'petted', 'tap', 'gameFinished', 'idle', 'conversationFinished', 'taskCompleted'].includes(event.type)
   ) {
     return { state, changed: false, reaction: null, speech: null, levelUp: false }
   }
@@ -98,6 +110,7 @@ export function applyPetEvent(previous, event) {
     state.lastPetAt = -1
     state.lastGameAt = -1
     state.lastReactionAt = -1
+    state.lastIdleAt = -1
     state.lastEnergyAt = now
   }
   const recovered = state.lastEnergyAt >= 0 ? Math.floor((now - state.lastEnergyAt) / ENERGY_RECOVERY_MS) : 0
@@ -110,8 +123,8 @@ export function applyPetEvent(previous, event) {
   let speech = null
   let accepted = true
   if (event.type === 'boot') {
-    reaction = 'greeting'
-    speech = state.interactions > 0 ? 'また会えたね！' : 'こんにちは！'
+    reaction = state.level >= 5 ? 'delighted' : 'greeting'
+    speech = state.level >= 5 ? 'また一緒に遊ぼう！' : state.interactions > 0 ? 'また会えたね！' : 'こんにちは！'
   } else if (event.type === 'petted' || event.type === 'tap') {
     if (state.lastPetAt >= 0 && now - state.lastPetAt < PET_COOLDOWN_MS) accepted = false
     if (accepted) {
@@ -133,8 +146,17 @@ export function applyPetEvent(previous, event) {
       state.interactions = clamp(state.interactions + 1, 0, MAX_XP)
       state.games = clamp(state.games + 1, 0, MAX_XP)
       state.lastGameAt = now
-      reaction = score >= 20 ? 'success' : 'greeting'
+      reaction = score >= 20 ? 'success' : state.level >= 3 ? 'thinking' : 'greeting'
+      if (state.energy <= 20 && state.level >= 4) reaction = 'sleepy-yawn'
       if (score >= 20) speech = 'やったね！'
+    }
+  } else if (event.type === 'idle') {
+    if (now - state.lastSeenAt < IDLE_GROWTH_MS || (state.lastIdleAt >= 0 && now - state.lastIdleAt < IDLE_GROWTH_MS)) {
+      accepted = false
+    } else {
+      state.curiosity = clamp(state.curiosity + 1, 0, MAX_STAT)
+      state.xp = clamp(state.xp + 1, 0, MAX_XP)
+      state.lastIdleAt = now
     }
   } else {
     // Future integrations send a named, validated event. They never send raw stat values.
@@ -146,11 +168,11 @@ export function applyPetEvent(previous, event) {
   state.level = levelForXp(state.xp)
   const levelUp = state.level > priorLevel
   if (levelUp) {
-    reaction = 'delighted'
+    reaction = state.level >= 5 ? 'success' : 'delighted'
     speech = '新しいことができそう！'
   }
   if (reaction && state.lastReactionAt >= 0 && now - state.lastReactionAt < REACTION_COOLDOWN_MS) reaction = null
   if (reaction) state.lastReactionAt = now
-  state.lastSeenAt = now
+  if (accepted || event.type !== 'idle') state.lastSeenAt = now
   return { state, changed: accepted || recovered > 0, reaction, speech: accepted ? speech : null, levelUp }
 }

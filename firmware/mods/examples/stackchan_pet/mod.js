@@ -5,6 +5,7 @@ import Timer from 'timer'
 
 const SAVE_DELAY_MS = 1500
 const PETTING_WINDOW_MS = 1500
+const IDLE_POLL_MS = 30 * 60 * 1000
 let active
 
 export const appendDefaultContextCreated = true
@@ -15,6 +16,7 @@ export function onContextCreated(context, options) {
   let saveTimer
   let balloonTimer
   let releaseTimer
+  let idleTimer
   let closed = false
   let speaking = false
   let ownedReaction = null
@@ -117,6 +119,7 @@ export function onContextCreated(context, options) {
     }
     if (balloonTimer !== undefined) Timer.clear(balloonTimer)
     if (releaseTimer !== undefined) Timer.clear(releaseTimer)
+    if (idleTimer !== undefined) Timer.clear(idleTimer)
     context.ui.hideBalloon()
     if (speaking) context.audio.tts?.cancel?.()
     unsubscribeTouch?.()
@@ -127,6 +130,7 @@ export function onContextCreated(context, options) {
   }
   active = { close }
   context.lifecycle.onClose?.(close)
+  idleTimer = Timer.repeat(() => dispatch({ type: 'idle' }), IDLE_POLL_MS)
   // Companion boot greetings are disabled while a MOD is installed.
   dispatch({ type: 'boot' })
 }
