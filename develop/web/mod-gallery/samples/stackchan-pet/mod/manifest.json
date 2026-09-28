@@ -1,0 +1,12 @@
+{
+  "include": ["$(MODDABLE)/examples/manifest_mod.json"],
+  "modules": {
+    "mod": "./mod",
+    "pet-state": "./pet-state",
+    "pet-storage": "./pet-storage",
+    "pet-status": "./pet-status"
+  },
+  "resources": {
+    "*-mask": ["$(MODDABLE)/examples/assets/fonts/OpenSans-Regular-16"]
+  }
+}
