@@ -1,21 +1,15 @@
 import assert from 'node:assert/strict'
-import { existsSync, readdirSync, writeFileSync } from 'node:fs'
+import { existsSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { chromium } from 'playwright-core'
 import { resolveChromium, startPreview } from '../test-preview-server.mjs'
 
-// mcrun 9.0 has no WASM MOD makefile; the same XS revision's `lin` archive
-// contains portable JavaScript bytecode and resources for browser launch.
-const archiveRoot = resolve('../firmware/dist/bin/lin')
-const archives = existsSync(archiveRoot)
-  ? readdirSync(archiveRoot, { recursive: true })
-      .filter((name) => name.endsWith('.xsa'))
-      .map((name) => resolve(archiveRoot, name))
-  : []
-const archive = archives.find((name) => name.endsWith('stackchan_pet.xsa')) ?? archives[0]
 assert.ok(existsSync('simulator/mc.wasm'), 'build the WASM simulator before this test')
-assert.ok(archive && existsSync(archive), `build the WASM Pet MOD before this test; found ${archives.join(', ')}`)
+assert.ok(
+  existsSync('mod-gallery/samples/stackchan-pet/stackchan-pet.xsa'),
+  'stage the Pet Gallery archive before this test',
+)
 
 const { baseUrl, server } = await startPreview({ port: 8100 })
 let browser
@@ -31,9 +25,34 @@ try {
   const errors = []
   page.on('pageerror', (error) => errors.push(error.message))
   await page.addInitScript(() => localStorage.setItem('stackchan.locale', 'ja'))
-  await page.goto(`${baseUrl}/simulator/`)
+  await page.goto(`${baseUrl}/mod-gallery/`)
+  const petCard = page.locator('[data-mod-id="sample.stackchan-pet"]')
+  await petCard.getByText('ｽﾀｯｸﾁｬﾝ Virtual Pet').waitFor()
+  const [archiveResponse] = await Promise.all([
+    page.waitForResponse((response) => response.url().endsWith('/stackchan-pet.xsa')),
+    petCard.getByRole('button', { name: 'シミュレーターで試す' }).click(),
+    page.waitForURL(/\/simulator\/\?gallery=sample\.stackchan-pet/),
+  ])
+  assert.equal(archiveResponse.status(), 200, 'Gallery should serve the Pet archive')
   await page.getByText('シミュレーターを実行中').waitFor({ timeout: 45000 })
-  await page.locator('input[type="file"][aria-label="MODを追加"]').setInputFiles(archive)
+  await page.getByText(/適用済み/).waitFor({ timeout: 45000 })
+  const installed = await page.evaluate(
+    () =>
+      new Promise((resolveInstalled, reject) => {
+        const request = indexedDB.open('stackchan-wasm-mods')
+        request.onerror = () => reject(request.error)
+        request.onsuccess = () => {
+          const transaction = request.result.transaction('installed-mods', 'readonly')
+          const record = transaction.objectStore('installed-mods').get('installed')
+          record.onsuccess = () => resolveInstalled({ name: record.result?.name, size: record.result?.size })
+          record.onerror = () => reject(record.error)
+        }
+      }),
+  )
+  assert.equal(installed.name, 'sample.stackchan-pet.xsa')
+  assert.ok(installed.size > 0, 'IndexedDB should retain the Pet archive')
+  await page.reload()
+  await page.getByText('シミュレーターを実行中').waitFor({ timeout: 45000 })
   await page.getByText(/適用済み/).waitFor({ timeout: 45000 })
   await page.getByRole('button', { name: '前方スワイプ', exact: true }).first().click()
   // The bridge plays a timed stroke. Wait for its release rather than a fixed
@@ -70,7 +89,7 @@ try {
   )
   const bondPixels = () =>
     page.locator('canvas[aria-hidden="true"]').evaluate((canvas) =>
-      Array.from(canvas.getContext('2d').getImageData(85, 70, 100, 30).data),
+      Array.from(canvas.getContext('2d').getImageData(85, 75, 100, 18).data),
     )
   const beforeTap = await bondPixels()
   await page.waitForTimeout(5200) // Allow the physical petting cooldown to expire.
@@ -84,6 +103,15 @@ try {
   await stage.click({ position: { x: 325, y: 265 } })
   await page.waitForTimeout(200)
   assert.deepEqual(await bondPixels(), afterTap, 'rapid repeated PET taps should not farm bond')
+  await page.waitForTimeout(1800) // Pet preferences are saved after a debounce.
+  await page.reload()
+  await page.getByText('シミュレーターを実行中').waitFor({ timeout: 45000 })
+  await page.getByText(/適用済み/).waitFor({ timeout: 45000 })
+  await stage.click({ position: { x: 370, y: 200 } })
+  await stage.click({ position: { x: 450, y: 140 } })
+  await stage.click({ position: { x: 370, y: 170 } })
+  await page.waitForTimeout(500)
+  assert.deepEqual(await bondPixels(), afterTap, 'reloading the Gallery MOD should retain Pet growth')
   assert.equal(errors.length, 0, `browser errors: ${errors.join('; ')}`)
   assert.equal(await page.getByText(/MODエラー/).count(), 0, 'MOD should not report a runtime error')
   assert.doesNotMatch(await page.getByRole('log').innerText(), /# Exception|\[main\] error/)

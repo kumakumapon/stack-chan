@@ -100,6 +100,33 @@ describe('ModGalleryPage', () => {
     expect(screen.getByText('Block test')).toBeInTheDocument()
   })
 
+  it('offers simulator installation without device flashing for a simulator-only archive', async () => {
+    vi.mocked(loadGalleryCatalog).mockResolvedValue([
+      {
+        ...textMod,
+        id: 'sample.stackchan-pet',
+        name: 'Virtual Pet',
+        artifacts: [
+          {
+            format: 'xsa',
+            path: 'stackchan-pet.xsa',
+            target: 'simulator',
+            url: new URL('https://example.test/gallery/stackchan-pet.xsa'),
+          },
+        ],
+      },
+    ])
+
+    render(
+      <I18nProvider>
+        <ModGalleryPage />
+      </I18nProvider>
+    )
+
+    expect(await screen.findByRole('button', { name: 'シミュレーターで試す' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '実機へ書き込む' })).not.toBeInTheDocument()
+  })
+
   it('explains the mini-app entrypoint in a popover', async () => {
     vi.mocked(loadGalleryCatalog).mockResolvedValue([{ ...textMod, entrypoints: ['miniapp'] }])
     const user = userEvent.setup()

@@ -1,4 +1,4 @@
-import Preference from 'preference'
+import Preference, { createWasmPreference } from 'preference'
 import { assert, equal } from 'testing/assert'
 
 function expectThrow(callback: () => void, expectedMessage: string): void {
@@ -44,5 +44,24 @@ Preference.set('test', 'object', 'previous')
 expectThrow(() => Preference.set('test', 'object', {}), 'unsupported type')
 equal(Preference.get('test', 'object'), 'previous', 'a rejected object should preserve the existing value')
 Preference.delete('test', 'object')
+
+let savedPetState: string | null = null
+const persistence = {
+  get: () => savedPetState,
+  set: (value: string) => {
+    savedPetState = value
+  },
+  delete: () => {
+    savedPetState = null
+  },
+}
+const firstSession = createWasmPreference(persistence)
+firstSession.set('stackchan_pet', 'state', '{"bond":24}')
+equal(savedPetState, '{"bond":24}', 'Pet growth should be written outside the MOD archive')
+const secondSession = createWasmPreference(persistence)
+equal(secondSession.get('stackchan_pet', 'state'), '{"bond":24}', 'Pet growth should survive a new session')
+equal(secondSession.keys('stackchan_pet').includes('state'), true, 'restored Pet state should appear in keys')
+secondSession.delete('stackchan_pet', 'state')
+equal(savedPetState, null, 'deleting Pet state should clear persisted data')
 
 trace('ok\n')

@@ -7,7 +7,8 @@
     "../../app/manifest_typings.json"
   ],
   "modules": {
-    "preference": "./wasm/preference",
+    "preference": "./wasm/preference-wasm",
+    "wasm-preference-memory": "./wasm/preference",
     "consts": "./consts",
     "loadPreference": "./loadPreference",
     "timezone-model": "./timezone-model",

@@ -219,7 +219,10 @@ jobs:
         run: source "$HOME/.local/share/xs-dev-export.sh" && npm run build:wasm
       - name: Build Virtual Pet MOD for Simulator
         working-directory: ./firmware
-        run: source "$HOME/.local/share/xs-dev-export.sh" && npm run mod:build:simulator
+        run: |
+          source "$HOME/.local/share/xs-dev-export.sh"
+          npm run mod:build:simulator
+          node ../web/mod-gallery/stage-pet.mjs
       - name: Run responsive and editor browser tests
         working-directory: ./firmware
         run: |
