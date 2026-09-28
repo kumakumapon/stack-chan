@@ -335,7 +335,8 @@ export function ModGalleryPage() {
                 />
               )
             }
-            const artifact = mod.artifacts[0]
+            const simulatorArtifact = mod.artifacts.find((candidate) => candidate.target === 'simulator') ?? mod.artifacts[0]
+            const deviceArtifact = mod.artifacts.find((candidate) => candidate.target !== 'simulator')
             const supportsSimulator = mod.targets.includes('simulator')
             return (
               <ModCard
@@ -345,21 +346,21 @@ export function ModGalleryPage() {
                 badges={badges}
                 operation={operations[mod.id]}
                 primaryAction={
-                  artifact && supportsSimulator
+                  simulatorArtifact && supportsSimulator
                     ? {
                         label: t('シミュレーターで試す'),
                         icon: Play,
-                        onClick: () => void installToSimulator(mod, artifact),
+                        onClick: () => void installToSimulator(mod, simulatorArtifact),
                       }
                     : undefined
                 }
                 secondaryActions={[
-                  ...(artifact
+                  ...(deviceArtifact
                     ? [
                         {
                           label: t('実機へ書き込む'),
                           icon: Usb,
-                          onClick: () => void installToDevice(mod, artifact),
+                          onClick: () => void installToDevice(mod, deviceArtifact),
                           variant: supportsSimulator ? ('outline' as const) : ('default' as const),
                         },
                       ]

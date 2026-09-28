@@ -1,0 +1,26 @@
+{
+  "$schema": "https://kumakumapon.github.io/stack-chan/web/schemas/stackchan-mod.schema.json",
+  "format": "tech.stackchan.mod",
+  "schemaVersion": 1,
+  "id": "sample.stackchan-pet",
+  "version": "1.0.0",
+  "type": "text",
+  "name": "ｽﾀｯｸﾁｬﾝ Virtual Pet",
+  "description": "撫でたり遊んだりするほど少しずつ成長するオフライン育成MOD。PET STATUSで育成値を確認できます。",
+  "author": "Stack-chan Community",
+  "license": "Apache-2.0",
+  "source": {
+    "path": "mod/manifest.json",
+    "entrypoint": "mod/mod.js"
+  },
+  "entrypoints": ["mod"],
+  "targets": ["simulator"],
+  "capabilities": [],
+  "artifacts": [
+    {
+      "format": "xsa",
+      "path": "stackchan-pet.xsa",
+      "target": "simulator"
+    }
+  ]
+}

@@ -115,6 +115,12 @@ jobs:
       - name: Build WASM simulator firmware
         working-directory: ./firmware
         run: source "$HOME/.local/share/xs-dev-export.sh" && npm run build:wasm
+      - name: Build and stage Virtual Pet Gallery archive
+        working-directory: ./firmware
+        run: |
+          source "$HOME/.local/share/xs-dev-export.sh"
+          npm run mod:build:simulator
+          node ../web/mod-gallery/stage-pet.mjs
       - name: Build web application
         working-directory: ./firmware
         run: npm --prefix ../web run build

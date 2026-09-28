@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import test from 'node:test'
 
 import { isXsArchive, xsArchiveVersion } from '../editor/mod-builder.mjs'
@@ -21,13 +21,16 @@ async function fileFetch(url) {
 
 test('共通MOD定義からテキストとブロックのGalleryを構成する', async () => {
   const definitions = await loadModCatalog(catalogUrl, fileFetch)
-  assert.equal(definitions.length, 10)
-  assert.equal(definitions.filter((definition) => definition.type === 'text').length, 6)
+  assert.equal(definitions.length, 11)
+  assert.equal(definitions.filter((definition) => definition.type === 'text').length, 7)
   assert.equal(definitions.filter((definition) => definition.type === 'block').length, 4)
   assert.equal(definitions.filter((definition) => definition.entrypoints.includes('miniapp')).length, 2)
   assert.equal(new Set(definitions.map((definition) => definition.id)).size, definitions.length)
 
   for (const definition of definitions) {
+    // Pet sources and archive are staged from the same firmware checkout as the
+    // WASM host in release and browser jobs; fast Node tests do not build XS.
+    if (definition.id === 'sample.stackchan-pet' && !existsSync(definition.sourceUrl)) continue
     assert.equal(definition.sourceUrl.protocol, 'file:')
     assert.doesNotThrow(() => readFileSync(definition.sourceUrl))
     assert.doesNotThrow(() => readFileSync(definition.sourceViewUrl))
@@ -43,9 +46,10 @@ test('共通MOD定義からテキストとブロックのGalleryを構成する'
 test('テキストMODの成果物は既存の実行互換性を維持する', async () => {
   const definitions = await loadModCatalog(catalogUrl, fileFetch)
   const textMods = definitions.filter((definition) => definition.type === 'text')
-  assert.equal(textMods.length, 6)
+  assert.equal(textMods.length, 7)
   for (const definition of textMods) {
     assert.equal(definition.artifacts.length, 1, `${definition.id}: installable text MOD should include one artifact`)
+    if (definition.id === 'sample.stackchan-pet' && !existsSync(definition.artifacts[0].url)) continue
     const archive = readFileSync(definition.artifacts[0].url)
     assert.equal(isXsArchive(archive), true, `${definition.id}: artifact should be an XS archive`)
     assert.deepEqual(
