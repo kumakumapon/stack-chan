@@ -13,7 +13,7 @@ const archiveRoot = join(firmwareRoot, 'dist/bin/lin')
 
 if (!existsSync(archiveRoot)) throw new Error('Build the simulator Pet MOD before staging the Gallery package')
 const archives = readdirSync(archiveRoot, { recursive: true })
-  .filter((name) => name.replaceAll('\\', '/').endsWith('stackchan_pet.xsa'))
+  .filter((name) => name.endsWith('.xsa'))
   .map((name) => join(archiveRoot, name))
 if (archives.length !== 1) throw new Error(`Expected one simulator Pet archive, found ${archives.length}`)
 
