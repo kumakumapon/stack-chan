@@ -89,7 +89,7 @@ try {
   )
   const bondPixels = () =>
     page.locator('canvas[aria-hidden="true"]').evaluate((canvas) =>
-      Array.from(canvas.getContext('2d').getImageData(85, 70, 100, 30).data),
+      Array.from(canvas.getContext('2d').getImageData(85, 75, 100, 18).data),
     )
   const beforeTap = await bondPixels()
   await page.waitForTimeout(5200) // Allow the physical petting cooldown to expire.
