@@ -52,3 +52,20 @@ test('registry snapshots metadata without exposing the create callback', () => {
   assert.equal(Object.isFrozen(listed), true)
   assert.equal('create' in listed, false)
 })
+
+test('status updates preserve definitions, notify only on changes and clear on unregister', () => {
+  const registry = new MiniAppRegistry()
+  const unregister = registry.register({ id: 'focus', title: 'Focus', create: () => content })
+  const definition = registry.get('focus')
+  let notifications = 0
+  registry.subscribe(() => notifications++)
+  registry.setStatus('focus', 'Done')
+  registry.setStatus('focus', 'Done')
+  assert.equal(notifications, 1)
+  assert.equal(registry.get('focus'), definition)
+  assert.equal(registry.list()[0].status, 'Done')
+  assert.throws(() => registry.setStatus('focus', 'x'.repeat(25)), /status/)
+  unregister()
+  registry.register({ id: 'focus', title: 'Focus', create: () => content })
+  assert.equal(registry.list()[0].status, undefined)
+})

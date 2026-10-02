@@ -1,0 +1,6 @@
+{
+  "include": ["../../manifest.json", "../../../modules/testing/manifest.json"],
+  "modules": {
+    "main": "./focus-timer.test"
+  }
+}

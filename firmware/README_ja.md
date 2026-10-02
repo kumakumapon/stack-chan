@@ -98,5 +98,6 @@ xsbugの書き込み経路を使わないため、ホストはデバッグビル
 - [MOD](mods/README_ja.md)
 - [ローカライズ](docs/localization_ja.md)
 - [ミニアプリ（実験的）](docs/mini-apps_ja.md)
+- [オフライン集中タイマー](docs/focus-timer_ja.md)
 - [v1.1.0リリースノート](../docs/release-notes/v1.1.0.md)
 - [v1.0.0リリースノート](../docs/release-notes/v1.0.0.md)

@@ -11,6 +11,7 @@
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
     "paths": {
+      "focus-timer-model": ["./host/app/focus-timer-model.ts"],
       "piu/MC": [
         "./node_modules/@moddable/typings/piu/MC.d.ts"
       ],
