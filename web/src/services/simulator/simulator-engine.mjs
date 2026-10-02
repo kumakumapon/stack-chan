@@ -17,6 +17,7 @@ import {
   summarizeImageData,
 } from '../../../simulator/bridge.mjs'
 import { DEFAULT_DEVICE_PROFILE_ID, resolveDeviceProfile } from '../../../simulator/device-profile.mjs'
+import { installFocusTimerVisibility } from '../../../simulator/focus-timer-lifecycle.mjs'
 import {
   SCREEN_CANVAS,
   STACKCHAN_FACE_MM,
@@ -496,6 +497,11 @@ class WasmView {
     this.readyTimeout = 0
 
     this.#bindTouches()
+    this.removeFocusVisibility = installFocusTimerVisibility({
+      document,
+      runtime: this.runtime,
+      idle: () => this.fxMainIdle?.(),
+    })
   }
 
   start() {
@@ -523,6 +529,7 @@ class WasmView {
 
   dispose() {
     this.disposed = true
+    this.removeFocusVisibility?.()
     this.#clearPendingReady()
     this.fxMainQuit?.()
     for (const [eventName, handler] of Object.entries(this.touchHandlers ?? {})) {

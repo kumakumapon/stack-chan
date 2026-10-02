@@ -1,4 +1,5 @@
 import type { StackchanAppBehavior } from 'app-behavior'
+import { isCompanionIdleSuppressed } from 'companion-idle'
 import Modules from 'modules'
 import Timer from 'timer'
 
@@ -121,6 +122,7 @@ export const installCompanion: NonNullable<StackchanAppBehavior['onContextCreate
         if (
           settings.idleReactions !== 0 &&
           settings.idleReactions !== false &&
+          !isCompanionIdleSuppressed(robot) &&
           Date.now() - lastAction >= 30000 &&
           isFree()
         ) {

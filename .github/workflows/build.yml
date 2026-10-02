@@ -231,6 +231,9 @@ jobs:
       - name: Verify Virtual Pet through the WASM simulator
         working-directory: ./web
         run: node simulator/pet-test.mjs
+      - name: Verify offline focus timer and Pet coexistence through WASM
+        working-directory: ./web
+        run: node simulator/focus-timer-test.mjs
       - name: Upload compiled simulator
         uses: actions/upload-artifact@v7
         with:

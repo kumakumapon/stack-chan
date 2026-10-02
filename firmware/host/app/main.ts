@@ -9,6 +9,7 @@ import { createStackchanContext, getHostDeviceEnvironment } from 'compose'
 import { DOMAIN } from 'consts'
 import { type StackchanDockRuntime, startStackchanDock } from 'dock'
 import { prepareExperimentalMiniApps, registerExperimentalMiniApps } from 'experimental-mini-app-loader'
+import { installFocusTimer } from 'focus-timer'
 import { initializeLocalization } from 'localization'
 import Modules from 'modules'
 import { Label, Style } from 'piu/MC'
@@ -187,6 +188,7 @@ async function main() {
     installPlatformPerformanceBridge(context)
     bootStage = 'mini apps'
     registerExperimentalMiniApps(experimentalMiniApps, context.ui.miniApps)
+    installFocusTimer(context)
     trace('[main] app context created\n')
     bootStage = 'menu behaviors'
     await runContextCreatedBehaviors(appBehaviors, context, {

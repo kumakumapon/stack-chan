@@ -24,11 +24,13 @@ export type MiniAppDefinition = Readonly<{
   create(context: MiniAppContext): PiuContainer | MiniAppInstance
 }>
 
-export type RegisteredMiniApp = Readonly<Pick<MiniAppDefinition, 'id' | 'title' | 'icon'>>
+export type RegisteredMiniApp = Readonly<Pick<MiniAppDefinition, 'id' | 'title' | 'icon'> & { status?: string }>
 
 export type MiniAppRegistryCapability = Readonly<{
   register(definition: MiniAppDefinition): () => void
   subscribeResult(listener: (result: MiniAppResult) => void): () => void
+  /** Optional on older hosts. Updates launcher metadata without reopening any screen. */
+  setStatus?(id: string, status?: string): void
 }>
 
 type RegistryListener = () => void
@@ -64,6 +66,7 @@ export class MiniAppRegistry implements MiniAppRegistryCapability {
   #definitions = new Map<string, MiniAppDefinition>()
   #listeners = new Set<RegistryListener>()
   #resultListeners = new Set<(result: MiniAppResult) => void>()
+  #statuses = new Map<string, string>()
 
   register(definition: MiniAppDefinition): () => void {
     const validated = validateDefinition(definition)
@@ -76,6 +79,7 @@ export class MiniAppRegistry implements MiniAppRegistryCapability {
       registered = false
       if (this.#definitions.get(validated.id) !== validated) return
       this.#definitions.delete(validated.id)
+      this.#statuses.delete(validated.id)
       this.#notify()
     }
   }
@@ -86,7 +90,10 @@ export class MiniAppRegistry implements MiniAppRegistryCapability {
 
   list(): RegisteredMiniApp[] {
     return [...this.#definitions.values()]
-      .map(({ id, title, icon }) => Object.freeze({ id, title, ...(icon ? { icon } : {}) }))
+      .map(({ id, title, icon }) => {
+        const status = this.#statuses.get(id)
+        return Object.freeze({ id, title, ...(icon ? { icon } : {}), ...(status ? { status } : {}) })
+      })
       .sort((left, right) => left.title.localeCompare(right.title))
   }
 
@@ -98,6 +105,17 @@ export class MiniAppRegistry implements MiniAppRegistryCapability {
   subscribeResult(listener: (result: MiniAppResult) => void): () => void {
     this.#resultListeners.add(listener)
     return () => this.#resultListeners.delete(listener)
+  }
+
+  setStatus(id: string, status?: string): void {
+    if (!this.#definitions.has(id)) return
+    if (status !== undefined && (typeof status !== 'string' || status.length > 24)) {
+      throw new TypeError('mini app status must be at most 24 characters')
+    }
+    if (this.#statuses.get(id) === status) return
+    if (status) this.#statuses.set(id, status)
+    else this.#statuses.delete(id)
+    this.#notify()
   }
 
   reportResult(id: string, score: number): void {

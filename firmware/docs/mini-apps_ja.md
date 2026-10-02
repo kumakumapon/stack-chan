@@ -26,6 +26,12 @@ Application
 
 ## 組み込みアプリの登録
 
+標準ホストには[集中タイマー](./focus-timer_ja.md)が組み込まれています。
+その計時サービスはホストが所有するため、Mini Appを閉じても計時は続きます。
+ホストの `miniApps.setStatus(id, status)` は、アプリ一覧の状態文字列だけを更新します。
+定義・AppBarタイトルを変更せず、完了時にも実行中の別アプリを閉じません。
+古いホストにはこの任意APIがない場合があります。
+
 通常の app behavior は、`onContextCreated` で `context.ui.miniApps.register` を呼び出せます。
 戻り値は登録解除関数であり、実行中のアプリを登録解除した場合もホストが顔画面へ戻してから破棄します。
 

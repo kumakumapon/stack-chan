@@ -17,7 +17,7 @@ export const MiniAppLauncher = Container.template(($: MiniAppLauncherData) => {
         {
           name: `miniApp:${app.id}`,
           icon: app.icon ?? 'play',
-          label: app.title,
+          label: app.status ? `${app.title} (${app.status})` : app.title,
           onTap: () => $.onLaunch(app.id),
         },
         { left: 8, right: 8, height: 44 },
