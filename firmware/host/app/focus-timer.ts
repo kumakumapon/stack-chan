@@ -1,7 +1,7 @@
 import type { StackchanContext } from 'capabilities'
 import { suppressCompanionIdle } from 'companion-idle'
 import { registerFocusTimerApp } from 'focus-timer-mini-app'
-import { FOCUS_TIMER_DOMAIN, FOCUS_TIMER_KEY, FocusTimerService } from 'focus-timer-service'
+import { createFocusTimerScheduler, FOCUS_TIMER_DOMAIN, FOCUS_TIMER_KEY, FocusTimerService } from 'focus-timer-service'
 import Modules from 'modules'
 import Preference from 'preference'
 import Time from 'time'
@@ -15,10 +15,7 @@ export function installFocusTimer(context: StackchanContext): void {
   const service = new FocusTimerService({
     now: platform ? () => platform.now() : () => Time.ticks,
     takeHiddenAt: platform ? () => platform.takeHiddenAt() : undefined,
-    schedule: (callback, delay) => {
-      const timer = Timer.set(callback, delay)
-      return () => Timer.clear(timer)
-    },
+    schedule: createFocusTimerScheduler(Timer),
     storage: {
       get: () => Preference.get(FOCUS_TIMER_DOMAIN, FOCUS_TIMER_KEY),
       set: (value) => Preference.set(FOCUS_TIMER_DOMAIN, FOCUS_TIMER_KEY, value),

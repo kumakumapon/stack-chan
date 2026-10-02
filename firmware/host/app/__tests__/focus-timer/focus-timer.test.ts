@@ -2,9 +2,10 @@ import { AppController } from 'app-controller'
 import { ChatStatusBar } from 'chat-status-bar'
 import { isCompanionIdleSuppressed, suppressCompanionIdle } from 'companion-idle'
 import { FOCUS_TIMER_APP_ID, registerFocusTimerApp } from 'focus-timer-mini-app'
-import { FocusTimerService } from 'focus-timer-service'
+import { createFocusTimerScheduler, FocusTimerService } from 'focus-timer-service'
 import { Application, Container, type Container as PiuContainer, type Label as PiuLabel } from 'piu/MC'
 import { assert, equal } from 'testing/assert'
+import Timer from 'timer'
 
 const application = new Application(
   { face: new Container(null, { left: 0, right: 0, top: 0, bottom: 0 }), appBar: new ChatStatusBar() },
@@ -85,4 +86,19 @@ equal(tick, undefined, 'host shutdown clears its Timer')
 equal(service.getSnapshot().state, 'interrupted', 'shutdown records an interrupted session')
 assert(!controller.launchMiniApp(FOCUS_TIMER_APP_ID), 'host shutdown unregisters only its app')
 assert(controller.launchMiniApp('test.pet'), 'host timer shutdown must leave MOD registration intact')
-trace('ok\n')
+const scheduleNative = createFocusTimerScheduler(Timer)
+let fired = 0
+const releaseFired = scheduleNative(() => {
+  fired++
+  releaseFired()
+  releaseFired()
+}, 1)
+const releaseCancelled = scheduleNative(() => {
+  throw new Error('cancelled native timer must not fire')
+}, 1)
+releaseCancelled()
+releaseCancelled()
+scheduleNative(() => {
+  equal(fired, 1, 'native one-shot callback must fire once and accept repeated cleanup')
+  trace('ok\n')
+}, 20)

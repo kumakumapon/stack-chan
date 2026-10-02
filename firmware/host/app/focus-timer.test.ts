@@ -8,7 +8,7 @@ import { FOCUS_TIMER_PRESETS, FocusTimerModel, type FocusTimerState } from './fo
 
 const appRoot = dirname(fileURLToPath(import.meta.url))
 writeAliasPackage(appRoot, 'focus-timer-model', resolve(appRoot, 'focus-timer-model.js'))
-const { FocusTimerService } = await import('./focus-timer-service.js')
+const { createFocusTimerScheduler, FocusTimerService } = await import('./focus-timer-service.js')
 
 function harness(saved?: unknown) {
   let now = 0
@@ -69,6 +69,42 @@ function harness(saved?: unknown) {
     },
   }
 }
+
+test('native one-shot handles are released once on firing or cancellation, including stale callbacks', () => {
+  type Handle = { fire(): void }
+  const retained = new Set<Handle>()
+  const all: Handle[] = []
+  let calls = 0
+  let clears = 0
+  const schedule = createFocusTimerScheduler({
+    set(callback: (handle: Handle) => void, delayMs: number) {
+      assert.equal(delayMs, 1000)
+      const handle = { fire: () => callback(handle) }
+      all.push(handle)
+      retained.add(handle)
+      return handle
+    },
+    clear(handle: Handle) {
+      assert(retained.delete(handle), 'a native handle must not be cleared twice')
+      clears++
+    },
+  })
+  for (let index = 0; index < 1500; index++) {
+    const cancel = schedule(() => calls++, 1000)
+    assert.equal(retained.size, 1)
+    all.at(-1)?.fire()
+    assert.equal(retained.size, 0, 'a 25-minute session cannot accumulate fired handles')
+    cancel()
+  }
+  assert.equal(calls, 1500)
+  const cancel = schedule(() => calls++, 1000)
+  cancel()
+  cancel()
+  all.at(-1)?.fire()
+  assert.equal(calls, 1500, 'cancelled native callbacks cannot publish')
+  assert.equal(clears, 1501)
+  assert.equal(retained.size, 0)
+})
 
 test('all offline presets, double start and exact deadline complete only once', () => {
   for (const [preset, { durationMs, phase }] of Object.entries(FOCUS_TIMER_PRESETS)) {

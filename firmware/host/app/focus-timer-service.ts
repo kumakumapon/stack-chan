@@ -13,6 +13,27 @@ export type FocusTimerServiceOptions = {
   takeHiddenAt?(): number | undefined
 }
 
+/** WASM Timer.set retains its native handle until Timer.clear, even after firing. */
+export function createFocusTimerScheduler<Handle>(timer: {
+  set(callback: (handle: Handle) => void, delayMs: number): Handle
+  clear(handle: Handle): void
+}): FocusTimerServiceOptions['schedule'] {
+  return (callback, delayMs) => {
+    let active = true
+    const handle = timer.set((expired) => {
+      if (!active) return
+      active = false
+      timer.clear(expired)
+      callback()
+    }, delayMs)
+    return () => {
+      if (!active) return
+      active = false
+      timer.clear(handle)
+    }
+  }
+}
+
 export class FocusTimerService {
   #model: FocusTimerModel
   #options: FocusTimerServiceOptions
