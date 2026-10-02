@@ -34,10 +34,25 @@ try {
         .click()
       await page.waitForURL(/\/simulator\/\?gallery=sample\.stackchan-pet/)
     } else await page.goto(`${baseUrl}/simulator/`)
-    const ready = () => page.getByText('シミュレーターを実行中').waitFor({ timeout: 45000 })
+    const ready = async () => {
+      await page
+        .getByRole('log')
+        .getByText('[main] checking mod override', { exact: false })
+        .waitFor({ timeout: 15000 })
+      // WASM's boot splash also uses the intercepted timer. Drive the clock
+      // while waiting so it can finish before the browser's readiness timeout.
+      for (let attempt = 0; attempt < 8; attempt++) {
+        await page.clock.runFor(2000)
+        if (await page.getByText('シミュレーターを実行中').isVisible()) {
+          await page.clock.runFor(3000) // Finish the greeting and Pet's initial save.
+          return
+        }
+      }
+      throw new Error('WASM host did not finish booting under the injected clock')
+    }
     await ready()
     if (pet) await page.getByText(/適用済み/).waitFor({ timeout: 45000 })
-    await page.clock.fastForward(3000) // Finish the boot greeting and Pet's initial save.
+    console.log(`[Focus Timer] ${pet ? 'Pet' : 'host'} ready`)
 
     // Dispatch through the real browser LCD input handler. Coordinates are in
     // the native 320x240 screen, independent of the 3D camera's current pose.
@@ -54,11 +69,10 @@ try {
       await page.clock.runFor(70)
     }
     const saved = () => page.evaluate((storageKey) => JSON.parse(localStorage.getItem(storageKey)), key)
-    const waitState = (state) =>
-      page.waitForFunction(
-        ({ storageKey, state }) => JSON.parse(localStorage.getItem(storageKey) ?? 'null')?.state === state,
-        { storageKey: key, state }
-      )
+    const waitState = async (state) => {
+      await page.clock.runFor(70)
+      assert.equal((await saved())?.state, state, `LCD operation must persist ${state}`)
+    }
     const openTimer = async () => {
       await tap(160, 110) // Reveal face AppBar.
       await tap(270, 22) // Mini App launcher.
@@ -100,6 +114,7 @@ try {
     } else otherScreen = await pixel()
     await page.clock.fastForward(301000)
     await waitState('completed')
+    console.log(`[Focus Timer] ${pet ? 'Pet' : 'host'} background completion`)
     assert.deepEqual(await pixel(), otherScreen, 'completion must leave the face/other Mini App on screen')
     if (pet) {
       const petAfter = await page.evaluate(() => JSON.parse(localStorage.getItem('stackchan.pet.state.v1')))
@@ -132,6 +147,7 @@ try {
     await page.clock.fastForward(301000)
     assert.equal((await saved()).state, 'paused')
     await screenshot('hidden-paused')
+    console.log(`[Focus Timer] ${pet ? 'Pet' : 'host'} hidden pause`)
 
     await page.reload()
     await ready()
@@ -156,12 +172,21 @@ try {
     await waitState('idle')
     assert.equal(errors.length, 0, errors.join('; '))
     assert.doesNotMatch(await page.getByRole('log').innerText(), /\[main\] error|XS abort|stack overflow/)
+    console.log(`[Focus Timer] ${pet ? 'Pet' : 'host'} reboot recovery`)
     await context.close()
   }
 } catch (error) {
+  console.error(error)
   if (diagnosticPage && !diagnosticPage.isClosed()) {
-    console.error(await diagnosticPage.locator('body').innerText())
-    await diagnosticPage.screenshot({ path: join(tmpdir(), 'stackchan-focus-failure.png') })
+    try {
+      console.error(await diagnosticPage.locator('body').innerText())
+      const data = await diagnosticPage
+        .locator('canvas[aria-hidden="true"]')
+        .evaluate((canvas) => canvas.toDataURL('image/png'))
+      writeFileSync(join(tmpdir(), 'stackchan-focus-failure.png'), Buffer.from(data.split(',')[1], 'base64'))
+    } catch (diagnosticError) {
+      console.error('Could not capture the LCD:', diagnosticError)
+    }
   }
   throw error
 } finally {

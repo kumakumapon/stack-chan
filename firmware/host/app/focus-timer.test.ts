@@ -219,6 +219,8 @@ test('idle suppression is owned only while running and does not overwrite changi
   assert.equal(isCompanionIdleSuppressed(h.context), false)
   h.service.resume()
   assert.equal(isCompanionIdleSuppressed(h.context), true)
+  otherRelease()
+  assert.equal(isCompanionIdleSuppressed(h.context), true, 'an old release cannot remove a new owner')
   h.service.close()
   h.service.close()
   assert.equal(settings.idleReactions, false)

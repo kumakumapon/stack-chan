@@ -6,7 +6,10 @@ export function suppressCompanionIdle(context: object): () => void {
   const handle = {}
   handles.add(handle)
   owners.set(context, handles)
+  let released = false
   return () => {
+    if (released) return
+    released = true
     handles.delete(handle)
     if (handles.size === 0) owners.delete(context)
   }
