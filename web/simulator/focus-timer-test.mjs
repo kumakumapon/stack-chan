@@ -35,6 +35,7 @@ try {
       await page.waitForURL(/\/simulator\/\?gallery=sample\.stackchan-pet/)
     } else await page.goto(`${baseUrl}/simulator/`)
     const ready = async () => {
+      const hostReady = page.getByRole('log').getByText('[main] app behaviors ready', { exact: false })
       await page
         .getByRole('log')
         .getByText('[main] checking mod override', { exact: false })
@@ -43,7 +44,7 @@ try {
       // while waiting so it can finish before the browser's readiness timeout.
       for (let attempt = 0; attempt < 8; attempt++) {
         await page.clock.runFor(2000)
-        if (await page.getByText('シミュレーターを実行中').isVisible()) {
+        if ((await hostReady.count()) > 0) {
           await page.clock.runFor(3000) // Finish the greeting and Pet's initial save.
           return
         }
