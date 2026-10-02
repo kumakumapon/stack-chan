@@ -82,7 +82,7 @@ export async function runMiniAppSmoke(context: SmokeContext): Promise<void> {
   const launcher = launcherViewport.first as PiuContainer | null
   const scroller = launcher?.first as PiuContainer | null
   const column = scroller?.first as PiuContainer | null
-  const sampleButton = column?.first as PiuContainer | null
+  const sampleButton = column?.content('miniApp:sample.stackchan-jump') as PiuContainer | null
   assert(sampleButton, 'launcher must contain the external sample app')
 
   tap(sampleButton)

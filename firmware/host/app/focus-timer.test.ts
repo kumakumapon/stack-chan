@@ -141,7 +141,7 @@ test('a callback captured before cancel/restart cannot complete or clear the new
 })
 
 test('invalid, backwards and throwing clocks interrupt instead of claiming completion', () => {
-  for (const invalid of [Number.NaN, Number.POSITIVE_INFINITY, -1, 99]) {
+  for (const invalid of [Number.NaN, Number.POSITIVE_INFINITY, Number.MAX_VALUE, -1, 99]) {
     const h = harness()
     h.setNow(100)
     h.service.start()

@@ -179,7 +179,12 @@ export class FocusTimerModel {
       this.interrupt('clock')
       return undefined
     }
-    if (!Number.isFinite(now) || now < 0 || (this.#lastClock !== undefined && now < this.#lastClock)) {
+    if (
+      !Number.isFinite(now) ||
+      now < 0 ||
+      now > Number.MAX_SAFE_INTEGER - FOCUS_TIMER_PRESETS['focus-25'].durationMs ||
+      (this.#lastClock !== undefined && now < this.#lastClock)
+    ) {
       this.interrupt('clock')
       return undefined
     }

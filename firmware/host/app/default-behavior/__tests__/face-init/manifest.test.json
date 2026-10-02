@@ -11,6 +11,7 @@
     "app-behavior": "./app-behavior-stub",
     "app-default-behavior/on-context-created": "../../on-context-created",
     "app-default-behavior/companion": "../../companion",
+    "companion-idle": "../../../companion-idle",
     "modules": "$(MODULES)/base/modules/modules",
     "imu": "./imu-stub",
     "main": "./face-init.test"
