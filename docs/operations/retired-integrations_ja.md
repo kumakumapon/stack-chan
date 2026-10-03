@@ -16,7 +16,8 @@ Release impactはmajorです。専用接続機能を利用していた環境で�
 ## 導入済みのMiniStack MOD
 
 ソースを更新しても、実機へ既に書き込んだMODは削除されません。
-旧MODのDrawerにある「Stop MiniStack」、またはタッチの長押しでセッションを停止し、PC側のMiniStack接続プロセスも終了してください。
+旧MODのDrawerにある「Stop MiniStack」でセッションを停止し、PC側のMiniStack接続プロセスも終了してください。
+タッチの長押しは動作停止用であり、接続セッションを終了する操作ではありません。
 再起動すると旧MODが再び動くため、継続して使わない場合はホストの復元か別のMODへの置き換えが必要です。
 
 ホストの製品既定動作へ戻す手順は[フラッシュ領域の消去](../../firmware/docs/flashing-firmware_ja.md#オプショナルフラッシュ領域の消去)を参照してください。
