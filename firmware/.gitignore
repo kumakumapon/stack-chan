@@ -1,4 +1,6 @@
 node_modules/
+# Keep an old MiniStack shared key ignored after removing its local .gitignore.
+/mods/examples/ministack/config.local.js
 /tmp/
 /scripts/key.json
 /docs/api
