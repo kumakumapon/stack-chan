@@ -1,5 +1,9 @@
 # MiniStack と M5StackChan CoreS3 の実機検証メモ
 
+この文書は廃止前の検証記録です。MiniStack専用MODとWeb接続テスト画面は
+2026-10-03の方針変更で削除しました。以下の導入・接続手順は現行版では使用できません。
+停止・復元には[移行案内](./retired-integrations_ja.md)を参照してください。
+
 MiniStack Local Peer Phase 0 を M5StackChan CoreS3 で検証した結果と、接続・首制御が失敗したときの復旧手順をまとめる。
 
 ## 確認済みの動作

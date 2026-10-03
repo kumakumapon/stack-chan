@@ -206,7 +206,7 @@ class SCServo {
   #offset: number
   #awaitWriteResponse: boolean
   #isWriting = false
-  // Reused snapshot: getDiagnostics is called from the MiniStack request path.
+  // Reuse the diagnostics snapshot to avoid allocating on repeated polling.
   #diagnostics: SCServoDiagnostics = {
     id: 0,
     commandsSent: 0,

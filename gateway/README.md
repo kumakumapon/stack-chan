@@ -46,6 +46,10 @@ See [implementation status (Japanese)](../docs/IMPLEMENTATION_STATUS_ja.md) for 
 
 ## Quick start
 
+The dedicated Hermes Desktop bridge has been removed. See the
+[retirement notice](./HERMES_DESKTOP.md) for migration. The `hermes` backend
+below uses a separate HTTP/NDJSON protocol; it does not connect to Hermes Desktop.
+
 ```bash
 cd gateway
 npm install

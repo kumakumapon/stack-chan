@@ -1,5 +1,10 @@
 # Hermes Desktop / CoreS3 conversation investigation
 
+Archived investigation: the dedicated Hermes Desktop bridge was retired by the
+2026-10-03 policy change. The implementation and launch commands described below
+are no longer available in the current version. See the
+[migration guide (Japanese)](./retired-integrations_ja.md).
+
 Status: basic physical-device conversation confirmed by the user on 2026-09-21;
 long-running stability remains unverified. No sub-agents were used.
 
