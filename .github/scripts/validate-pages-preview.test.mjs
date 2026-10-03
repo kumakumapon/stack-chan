@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { mkdtemp, mkdir, symlink, writeFile } from 'node:fs/promises'
+import { mkdtemp, mkdir, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { test } from 'node:test'
@@ -21,6 +21,41 @@ test('accepts a complete static preview', async () => {
     fileCount: requiredFiles.length,
   })
 })
+
+test('accepts additional nested static assets', async (t) => {
+  const root = await fixture()
+  t.after(() => rm(root, { recursive: true, force: true }))
+  await mkdir(join(root, 'assets/scripts'), { recursive: true })
+  await writeFile(join(root, 'assets/scripts/index.js'), 'test')
+  assert.deepEqual(await validatePagesPreview(root), {
+    fileCount: requiredFiles.length + 1,
+  })
+})
+
+for (const name of ['.assetsignore', '_headers', '_redirects', '_routes.json', '_worker.js']) {
+  for (const parent of ['', 'assets']) {
+    for (const kind of ['file', 'empty directory', 'directory with index.js']) {
+      const relativePath = parent ? `${parent}/${name}` : name
+      test(`rejects forbidden ${kind}: ${relativePath}`, async (t) => {
+        const root = await fixture()
+        t.after(() => rm(root, { recursive: true, force: true }))
+        const path = join(root, relativePath)
+        await mkdir(dirname(path), { recursive: true })
+        if (kind === 'file') {
+          await writeFile(path, 'test')
+        } else {
+          await mkdir(path)
+          if (kind === 'directory with index.js') {
+            await writeFile(join(path, 'index.js'), 'test')
+          }
+        }
+        await assert.rejects(validatePagesPreview(root), {
+          message: `Cloudflare runtime controls are not allowed in PR previews: ${relativePath}`,
+        })
+      })
+    }
+  }
+}
 
 test('rejects a missing generated artifact', async () => {
   const root = await fixture()

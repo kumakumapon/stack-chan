@@ -39,6 +39,9 @@ export async function validatePagesPreview(directory) {
       const stat = await lstat(path)
 
       if (stat.isSymbolicLink()) throw new Error(`Symbolic links are not allowed: ${relativePath}`)
+      if (FORBIDDEN_FILES.has(basename(relativePath))) {
+        throw new Error(`Cloudflare runtime controls are not allowed in PR previews: ${relativePath}`)
+      }
       if (entry.isDirectory()) {
         if (relativePath === 'functions') {
           throw new Error('Cloudflare Pages Functions are not allowed in PR previews')
@@ -47,9 +50,6 @@ export async function validatePagesPreview(directory) {
         continue
       }
       if (!entry.isFile()) throw new Error(`Unsupported filesystem entry: ${relativePath}`)
-      if (FORBIDDEN_FILES.has(basename(relativePath))) {
-        throw new Error(`Cloudflare runtime controls are not allowed in PR previews: ${relativePath}`)
-      }
 
       fileCount += 1
       if (fileCount > MAX_FILE_COUNT) {
