@@ -2,6 +2,7 @@
 export const MEMORY_GAME_MAX_ROUNDS = 12
 export const MEMORY_GAME_SYMBOLS = ['yes', 'no', 'greeting'] as const
 export type MemoryGameSymbol = (typeof MEMORY_GAME_SYMBOLS)[number]
+export type MemoryGameMotionBlockReason = 'conversation' | 'busy'
 export type MemoryGamePhase =
   | 'ready'
   | 'showing'
@@ -19,12 +20,14 @@ export type MemoryGameSnapshot = Readonly<{
   matched: number
   score: number
   motion: boolean
+  motionBlockReason: MemoryGameMotionBlockReason | null
 }>
 export type MemoryGameOptions = {
   random(): number
   schedule(callback: () => void, delayMs: number): () => void
   /** An owner-scoped cancel handle: it must never stop another caller's reaction. */
   react?(name: MemoryGameSymbol | 'success' | 'failure'): (() => void) | undefined
+  motionBlockReason?(): MemoryGameMotionBlockReason | null
   onResult?(score: number): void
 }
 
@@ -57,6 +60,7 @@ export class MemoryGame {
   #matched = 0
   #score = 0
   #motion = false
+  #motionBlockReason: MemoryGameMotionBlockReason | null = null
   #generation = 0
   #cancelTimer: (() => void) | undefined
   #cancelReaction: (() => void) | undefined
@@ -74,6 +78,7 @@ export class MemoryGame {
       matched: this.#matched,
       score: this.#score,
       motion: this.#motion,
+      motionBlockReason: this.#motionBlockReason,
     }
   }
 
@@ -133,6 +138,7 @@ export class MemoryGame {
     if (this.#phase === 'closed') return
     this.#motion = enabled
     if (!enabled) this.#stopReaction()
+    this.#motionBlockReason = enabled ? (this.#options.motionBlockReason?.() ?? null) : null
     this.#publish()
   }
 
@@ -190,7 +196,8 @@ export class MemoryGame {
 
   #react(name: MemoryGameSymbol | 'success' | 'failure'): void {
     this.#stopReaction()
-    if (this.#motion) this.#cancelReaction = this.#options.react?.(name)
+    this.#motionBlockReason = this.#motion ? (this.#options.motionBlockReason?.() ?? null) : null
+    if (this.#motion && !this.#motionBlockReason) this.#cancelReaction = this.#options.react?.(name)
   }
 
   #stopReaction(): void {

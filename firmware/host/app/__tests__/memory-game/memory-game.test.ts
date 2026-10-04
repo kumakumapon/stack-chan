@@ -17,9 +17,11 @@ const timers: { fire(): void; active: boolean }[] = []
 let effects = 0
 let cancelled = 0
 let results = 0
+let conversationActive = false
 const unregister = controller.miniApps.register(
   createMemoryGameApp({
     random: () => 0,
+    motionBlockReason: () => (conversationActive ? 'conversation' : null),
     schedule(callback) {
       const timer = { fire: callback, active: true }
       timers.push(timer)
@@ -95,6 +97,25 @@ equal(behavior.main, behavior.faceMain, 'Back restores face')
 for (const timer of oldTimers) timer.fire()
 equal(effects, 1, 'disposed callbacks cannot produce new movement')
 assert(controller.launchMiniApp('test.pet'), 'Pet is still available')
+conversationActive = true
+assert(controller.launchMiniApp(MEMORY_GAME_APP_ID), 'open while conversation is active')
+tap('memoryMotion')
+equal(
+  (control('memoryPrompt') as unknown as PiuLabel).string,
+  localize('memory.motionBlocked.conversation'),
+  'show how to enable motion when conversation blocks it',
+)
+tap('memoryAction')
+step()
+equal(effects, 1, 'blocked cue does not interrupt conversation')
+tap('memoryMotion')
+equal(
+  (control('memoryPrompt') as unknown as PiuLabel).string,
+  localize('memory.hint'),
+  'OFF clears the waiting message',
+)
+controller.onMiniAppBack()
+conversationActive = false
 for (let index = 0; index < 10; index++) {
   assert(controller.launchMiniApp(MEMORY_GAME_APP_ID), 'reopen')
   equal(state(), localize('memory.phase.ready'), 'reopen starts a fresh game')

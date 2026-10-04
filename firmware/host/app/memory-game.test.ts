@@ -1,13 +1,20 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { createMemoryGameScheduler, MEMORY_GAME_MAX_ROUNDS, MEMORY_GAME_SYMBOLS, MemoryGame } from './memory-game.js'
+import {
+  createMemoryGameScheduler,
+  MEMORY_GAME_MAX_ROUNDS,
+  MEMORY_GAME_SYMBOLS,
+  MemoryGame,
+  type MemoryGameOptions,
+} from './memory-game.js'
 
-function harness(random = () => 0) {
+function harness(random = () => 0, motionBlockReason?: MemoryGameOptions['motionBlockReason']) {
   const timers: { fire(): void; active: boolean; delay: number }[] = []
   const effects: { name: string; cancelled: boolean }[] = []
   const results: number[] = []
   const game = new MemoryGame({
     random,
+    motionBlockReason,
     schedule(callback, delay) {
       const timer = { fire: callback, active: true, delay }
       timers.push(timer)
@@ -44,6 +51,46 @@ function harness(random = () => 0) {
   }
   return { game, timers, effects, results, active, step, show }
 }
+
+test('motion reports a blocking conversation, keeps the game playable, and resumes after it stops', () => {
+  let blocked = true
+  const h = harness(
+    () => 0,
+    () => (blocked ? 'conversation' : null),
+  )
+  assert.equal(h.game.snapshot().motionBlockReason, null, 'OFF has no waiting warning')
+  h.game.setMotion(true)
+  assert.equal(h.game.snapshot().motionBlockReason, 'conversation')
+  h.game.start()
+  h.show()
+  assert.equal(h.effects.length, 0)
+  h.game.answer('yes')
+  h.step()
+  assert.equal(h.game.snapshot().phase, 'won')
+  assert.equal(h.effects.length, 0)
+  blocked = false
+  h.game.next()
+  h.step()
+  assert.equal(h.game.snapshot().motionBlockReason, null)
+  assert.equal(h.effects[0].name, 'yes')
+})
+
+test('motion checks activity again at cue time and OFF clears the waiting warning', () => {
+  let busy = false
+  const h = harness(
+    () => 0,
+    () => (busy ? 'busy' : null),
+  )
+  h.game.setMotion(true)
+  h.game.start()
+  busy = true
+  h.step()
+  assert.equal(h.game.snapshot().motionBlockReason, 'busy')
+  assert.equal(h.effects.length, 0)
+  h.game.setMotion(false)
+  assert.equal(h.game.snapshot().motionBlockReason, null)
+  assert.equal(h.game.snapshot().motion, false)
+})
 
 test('offline presentation separates repeated symbols, blocks early input, and extends the same sequence', () => {
   let random = 0
