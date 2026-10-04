@@ -52,10 +52,11 @@ try {
     }
     const highlighted = async () => lcd.evaluate((canvas) => {
       const ctx = canvas.getContext('2d')
-      return [16, 120, 224].findIndex((x) => {
-        const [r, g, b] = ctx.getImageData(x, 114, 1, 1).data
-        return r === 66 && g === 189 && b === 232
-      })
+      // The LCD uses RGB565, so rendered channels differ from CSS colors.
+      // A cue is the single pad whose fill differs from the other two.
+      const fills = [16, 120, 224].map((x) => Array.from(ctx.getImageData(x, 114, 1, 1).data).join(','))
+      return fills.findIndex((fill, index) =>
+        fill !== fills[(index + 1) % 3] && fills[(index + 1) % 3] === fills[(index + 2) % 3])
     })
     const image = () => lcd.evaluate((canvas) => canvas.toDataURL('image/png'))
     const capture = async (name) => writeFileSync(
