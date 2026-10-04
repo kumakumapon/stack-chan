@@ -129,7 +129,7 @@ export class ReactionPlayer {
   playOwned(timeline: ReactionTimeline, options: ReactionOptions = {}): OwnedReactionPlayResult {
     if (this.#active !== undefined) return { ok: false, error: 'reaction active' }
     const result = this.play(timeline, options)
-    if (!result.ok) return result
+    if (result.ok === false) return result
     const owner = this.#owner
     return {
       ok: true,
