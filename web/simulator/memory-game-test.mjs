@@ -48,7 +48,7 @@ try {
     const open = async () => {
       await tap(160, 110)
       await tap(270, 22)
-      await tap(140, pet ? 118 : 74)
+      await tap(140, pet ? 162 : 118)
     }
     const highlighted = async () => lcd.evaluate((canvas) => {
       const ctx = canvas.getContext('2d')

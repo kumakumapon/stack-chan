@@ -46,3 +46,34 @@ test('timer persistence errors reach the caller without committing an in-memory 
   assert.equal(pet.get(), 'pet growth')
   assert.throws(() => preference.set('stackchan_focus', 'state', 123), /must be a string/)
 })
+
+test('daily apps persist independently across WASM sessions without leaking into other domains', () => {
+  const pet = persistence('pet')
+  const focus = persistence('focus')
+  const daily = { quest: persistence(), quiz: persistence() }
+  const first = createWasmPreference(pet, focus, daily)
+  first.set('stackchan_quest', 'state', 'quest')
+  first.set('stackchan_quiz', 'state', 'quiz')
+  first.set('stackchan_quiz', 'other', 'temporary')
+  const second = createWasmPreference(pet, focus, daily)
+  assert.equal(second.get('stackchan_quest', 'state'), 'quest')
+  assert.equal(second.get('stackchan_quiz', 'state'), 'quiz')
+  assert.equal(second.get('stackchan_quiz', 'other'), undefined)
+  assert.deepEqual(second.keys('stackchan_quiz'), ['state'])
+  second.delete('stackchan_quest', 'state')
+  assert.deepEqual(second.keys('stackchan_quest'), [])
+  assert.equal(second.get('stackchan_quiz', 'state'), 'quiz')
+  assert.equal(pet.get(), 'pet')
+  assert.equal(focus.get(), 'focus')
+})
+
+test('daily save failures reach the app without a phantom memory commit', () => {
+  const daily = { quest: persistence('before'), quiz: persistence('quiz') }
+  daily.quest.set = () => {
+    throw new Error('quota')
+  }
+  const preference = createWasmPreference(undefined, undefined, daily)
+  assert.throws(() => preference.set('stackchan_quest', 'state', 'after'), /quota/)
+  assert.equal(preference.get('stackchan_quest', 'state'), 'before')
+  assert.equal(preference.get('stackchan_quiz', 'state'), 'quiz')
+})

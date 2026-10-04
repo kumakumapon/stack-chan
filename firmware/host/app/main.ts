@@ -7,6 +7,7 @@ import { type BootWiFiStatus, startHostBootServices } from 'boot-services'
 import type { StackchanContext } from 'capabilities'
 import { createStackchanContext, getHostDeviceEnvironment } from 'compose'
 import { DOMAIN } from 'consts'
+import { installDailyMiniApps } from 'daily-mini-apps-host'
 import { type StackchanDockRuntime, startStackchanDock } from 'dock'
 import { prepareExperimentalMiniApps, registerExperimentalMiniApps } from 'experimental-mini-app-loader'
 import { installFocusTimer } from 'focus-timer'
@@ -191,6 +192,7 @@ async function main() {
     registerExperimentalMiniApps(experimentalMiniApps, context.ui.miniApps)
     installFocusTimer(context)
     installMemoryGame(context)
+    installDailyMiniApps(context)
     trace('[main] app context created\n')
     bootStage = 'menu behaviors'
     await runContextCreatedBehaviors(appBehaviors, context, {

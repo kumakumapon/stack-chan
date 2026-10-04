@@ -3,6 +3,7 @@ import { existsSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { chromium } from 'playwright-core'
+import { dragLcd } from './lcd-test-helpers.mjs'
 import { resolveChromium, startPreview } from '../test-preview-server.mjs'
 
 assert.ok(existsSync('simulator/mc.wasm'), 'build the WASM host first')
@@ -77,7 +78,8 @@ try {
     const openTimer = async () => {
       await tap(160, 110) // Reveal face AppBar.
       await tap(270, 22) // Mini App launcher.
-      await tap(140, pet ? 162 : 118) // MEMORY also sorts before the timer; PET STATUS is first.
+      if (pet) await dragLcd(page, 215, 60)
+      await tap(140, pet ? 210 : 206) // The timer is last, below Quiz, Memory and Quests.
     }
     const pixel = () =>
       page
@@ -109,7 +111,7 @@ try {
     if (pet) {
       await tap(160, 110)
       await tap(270, 22)
-      await tap(140, 74) // PET STATUS while the timer continues.
+      await tap(140, 118) // PET STATUS while the timer continues.
       otherScreen = await pixel()
       petBefore = await page.evaluate(() => JSON.parse(localStorage.getItem('stackchan.pet.state.v1')))
     } else otherScreen = await pixel()

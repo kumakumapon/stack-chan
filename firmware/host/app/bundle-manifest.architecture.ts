@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { test } from 'node:test'
 
 type FontResource = {
@@ -75,17 +76,20 @@ test('the 24px font bundles UI glyphs and uppercase Latin letters', () => {
   assert.equal(wasmFont.characterFiles, undefined)
 })
 
-test('the CJK font bundles only glyphs used by localization catalogs', () => {
-  const font = findFont(manifest.resources?.['*-mask'], (resource) => resource.name === 'StackchanCJK')
-
-  assert.ok(font, 'expected the StackchanCJK font resource')
-  assert.equal(font.localization, true)
-  assert.equal(font.characters, ' ')
-  assert.deepEqual(font.blocks, [])
-
-  const wasmFont = findFont(wasmManifest.resources?.['*-mask'], (resource) => resource.name === 'StackchanCJK')
-  assert.ok(wasmFont, 'expected the WASM StackchanCJK font resource')
-  assert.equal(wasmFont.localization, font.localization)
-  assert.equal(wasmFont.characters, font.characters)
-  assert.deepEqual(wasmFont.blocks, font.blocks)
+test('the CJK bitmap covers the Chinese catalog and Latin UI text on both hosts', () => {
+  const catalog = JSON.parse(readFileSync('host/app/strings/zh-CN.json', 'utf8')) as Record<string, string>
+  const required = sortedGlyphs(Object.values(catalog).join(''))
+  for (const host of [manifest, wasmManifest]) {
+    const font = findFont(host.resources?.['*-mask'], (resource) => resource.name === 'StackchanCJK')
+    assert.ok(font, 'expected the StackchanCJK font resource')
+    const files = typeof font.characterFiles === 'string' ? [font.characterFiles] : (font.characterFiles ?? [])
+    const characters = new Set(
+      (font.characters ?? '') + files.map((file) => readFileSync(resolve('host/app', file), 'utf8')).join(''),
+    )
+    assert.ok(font.blocks?.includes('Basic Latin'), 'dynamic scores and Latin UI text must be covered')
+    assert.deepEqual(
+      required.filter((character) => !characters.has(character)),
+      [],
+    )
+  }
 })

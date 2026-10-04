@@ -9,3 +9,5 @@ This is a build-time subset of Noto Sans CJK SC 2.004 Regular. It contains print
 - License: SIL Open Font License 1.1; see `StackchanCJK-Regular.LICENSE.txt`
 
 The manifest publishes the bitmap resource as `StackchanCJK-12`; the source font's internal family metadata remains `Noto Sans SC`.
+
+The firmware uses this font only for Simplified Chinese. Its bitmap resources include Basic Latin and characters from `host/app/strings/zh-CN.json` (read directly as a UTF-8 character file), rather than the union of all locales. Japanese uses `k8x12-12`; excluding Japanese-only glyphs from the Chinese bitmap avoids duplicating them in the small M5Stack factory partition. The source TTF retains the full catalog subset above.

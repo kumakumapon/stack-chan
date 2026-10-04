@@ -24,14 +24,22 @@ function assertSupportedPreferenceValue(value: unknown): void {
   throw new Error('unsupported type')
 }
 
-export function createWasmPreference(petPersistence?: StatePersistence, focusPersistence?: StatePersistence) {
+export function createWasmPreference(
+  petPersistence?: StatePersistence,
+  focusPersistence?: StatePersistence,
+  dailyPersistence?: { quest: StatePersistence; quiz: StatePersistence },
+) {
   const values: PreferenceStore = Object.create(null)
   const persistenceFor = (domain: string, key: string) =>
     isPetState(domain, key)
       ? petPersistence
       : domain === FOCUS_DOMAIN && key === FOCUS_KEY
         ? focusPersistence
-        : undefined
+        : domain === 'stackchan_quest' && key === 'state'
+          ? dailyPersistence?.quest
+          : domain === 'stackchan_quiz' && key === 'state'
+            ? dailyPersistence?.quiz
+            : undefined
 
   return {
     get(domain: string, key: string): unknown {
@@ -42,11 +50,12 @@ export function createWasmPreference(petPersistence?: StatePersistence, focusPer
 
     set(domain: string, key: string, value: unknown): void {
       assertSupportedPreferenceValue(value)
-      // Timer writes are transactional so a failed browser save is visible to
-      // the host service. Preserve the existing Pet persistence contract.
-      if (domain === FOCUS_DOMAIN && key === FOCUS_KEY && focusPersistence) {
-        if (typeof value !== 'string') throw new TypeError('timer state must be a string')
-        focusPersistence.set(value)
+      // Persist before updating memory so failed saves remain visible to the app.
+      // Preserve the legacy Pet persistence contract.
+      const persistence = persistenceFor(domain, key)
+      if (!isPetState(domain, key) && persistence) {
+        if (typeof value !== 'string') throw new TypeError('app state must be a string')
+        persistence.set(value)
       }
       let domainValues = values[domain]
       if (!domainValues) {
@@ -75,7 +84,8 @@ export function createWasmPreference(petPersistence?: StatePersistence, focusPer
       const domainValues = values[domain]
       const keys = domainValues ? Object.keys(domainValues) : []
       if (domain === PET_DOMAIN && !keys.includes(PET_KEY) && petPersistence?.get() != null) keys.push(PET_KEY)
-      if (domain === FOCUS_DOMAIN && !keys.includes(FOCUS_KEY) && focusPersistence?.get() != null) keys.push(FOCUS_KEY)
+      if (!isPetState(domain, 'state') && !keys.includes('state') && persistenceFor(domain, 'state')?.get() != null)
+        keys.push('state')
       return keys
     },
   }
