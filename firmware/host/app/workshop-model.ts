@@ -13,6 +13,18 @@ export function parseQuizDeck(json: string): QuizDeck {
   if (!record(value) || value.version !== 1 || !identifier(value.id) || !text(value.title, 32))
     throw new Error('Invalid quiz deck')
   validateQuizQuestions(value.questions)
+  // Reserve room for the answer controls in both the Latin and full-width CJK fonts.
+  const width = (text: string) => Array.from(text).reduce((sum, char) => sum + (char.charCodeAt(0) > 255 ? 2 : 1), 0)
+  const lines = (text: string) =>
+    text.split(/\r?\n/).reduce((sum, line) => sum + Math.max(1, Math.ceil(width(line) / 46)), 0)
+  for (const question of value.questions) {
+    if (
+      lines(question.prompt) > 2 ||
+      lines(question.explanation) > 5 ||
+      question.choices.some((choice) => /[\r\n]/.test(choice) || width(choice) > 40)
+    )
+      throw new Error(`Question ${question.id}: shorten text to fit the device screen`)
+  }
   return {
     version: 1,
     id: value.id,

@@ -101,7 +101,7 @@ export class WorkshopService {
     if (!this.settings().pet) return
     try {
       const raw = Preference.get('sc_activity', 'state')
-      const previous = typeof raw === 'string' ? Number(raw) : 0
+      const previous = raw === undefined ? 0 : typeof raw === 'string' ? Number(raw) : Number.NaN
       if (!Number.isSafeInteger(previous) || previous < 0 || previous >= Number.MAX_SAFE_INTEGER)
         throw new Error('Invalid activity sequence')
       const sequence = previous + 1

@@ -29,3 +29,22 @@ test('notification transport bounds responses and does not forward credentials o
   assert.deepEqual(bridge.exchange({ action: 'httpResult', id }), { value: { entries: [] } })
   bridge.reset()
 })
+
+test('oversized streamed responses fail and reset aborts requests without replaying results', async () => {
+  const large = createWorkshopBridge({ fetchImpl: async () => new Response('x'.repeat(32769)) })
+  const { id } = large.exchange({ action: 'http', url: 'http://localhost/api/inbox/poll', body: {} })
+  await new Promise((resolve) => setImmediate(resolve))
+  assert.match(large.exchange({ action: 'httpResult', id }).error, /too large/)
+  let signal
+  const pending = createWorkshopBridge({
+    fetchImpl: async (_url, options) => {
+      signal = options.signal
+      return new Promise((_resolve, reject) => signal.addEventListener('abort', () => reject(Error('aborted'))))
+    },
+  })
+  const stale = pending.exchange({ action: 'http', url: 'http://localhost/api/inbox/poll', body: {} })
+  pending.reset()
+  assert.equal(signal.aborted, true)
+  await new Promise((resolve) => setImmediate(resolve))
+  assert.match(pending.exchange({ action: 'httpResult', id: stale.id }).error, /expired/)
+})

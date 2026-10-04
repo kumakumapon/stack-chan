@@ -276,12 +276,12 @@ export function WorkshopPanel({ controller }: { controller: ReturnType<typeof us
                 >
                   {STUDIO_MOTIONS.map((name) => (
                     <option key={name} value={`motion:${name}`}>
-                      {t(name)}
+                      {t(`studio.${name}`)}
                     </option>
                   ))}
                   {STUDIO_REACTIONS.map((name) => (
                     <option key={name} value={`reaction:${name}`}>
-                      {t(name)}
+                      {t(`studio.${name}`)}
                     </option>
                   ))}
                 </select>
@@ -319,7 +319,12 @@ export function WorkshopPanel({ controller }: { controller: ReturnType<typeof us
               </Button>
               <Button
                 variant="outline"
-                onClick={() => void run(() => controller.workshopCommand({ action: 'stop' }), '停止しました')}
+                onClick={() => {
+                  void controller.workshopCommand({ action: 'stop' }).then(
+                    () => setStatus(t('停止しました')),
+                    (error) => setStatus(String(error))
+                  )
+                }}
               >
                 {t('停止')}
               </Button>
@@ -399,7 +404,9 @@ export function WorkshopPanel({ controller }: { controller: ReturnType<typeof us
                 onChange={(event) => setToken(event.target.value)}
               />
             </label>
-            <Button disabled={busy}>{t('受信を開始')}</Button>
+            <Button type="submit" disabled={busy}>
+              {t('受信を開始')}
+            </Button>
             <p className="text-sm">{t('会話やマイクは開始しません。送信者の登録は本体の伝言箱で行います。')}</p>
           </form>
         </details>

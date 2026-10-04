@@ -24,6 +24,18 @@ test('quiz import validates before replacing any saved deck', () => {
   assert.throws(() => parseQuizDeck(JSON.stringify({ ...deck, questions: [...questions, questions[0]] })))
   assert.throws(() => parseQuizDeck(JSON.stringify({ ...deck, version: 2 })))
   assert.throws(() => parseQuizDeck(' '.repeat(20001)))
+  assert.throws(
+    () =>
+      parseQuizDeck(JSON.stringify({ ...deck, questions: questions.map((q) => ({ ...q, prompt: '熊'.repeat(80) })) })),
+    /fit the device screen/,
+  )
+  assert.throws(
+    () =>
+      parseQuizDeck(
+        JSON.stringify({ ...deck, questions: questions.map((q) => ({ ...q, choices: ['熊'.repeat(36), 'はい'] })) }),
+      ),
+    /fit the device screen/,
+  )
 })
 
 test('story reaches both endings, rejects invalid graphs and ignores closed/stale choices', () => {
