@@ -113,8 +113,8 @@
         "name": "StackchanCJK",
         "size": 12,
         "characters": " ",
-        "blocks": [],
-        "localization": true,
+        "blocks": ["Basic Latin"],
+        "characterFiles": "./strings/zh-CN.json",
         "monochrome": true
       }
     ],
