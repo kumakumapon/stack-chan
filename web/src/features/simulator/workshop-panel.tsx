@@ -34,7 +34,11 @@ const initialStudio: StudioTimeline = {
   ],
 }
 function download(name: string, value: unknown) {
-  const url = URL.createObjectURL(new Blob([JSON.stringify(value, null, 2)], { type: 'application/json' }))
+  const url = URL.createObjectURL(
+    new Blob([name === 'quiz.json' ? JSON.stringify(value) : JSON.stringify(value, null, 2)], {
+      type: 'application/json',
+    })
+  )
   const anchor = document.createElement('a')
   anchor.href = url
   anchor.download = name
