@@ -98,5 +98,5 @@ try {
   }
 } finally {
   await browser?.close()
-  await new Promise((resolve) => server.close(resolve))
+  server?.kill('SIGTERM')
 }

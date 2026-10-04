@@ -1,41 +1,11 @@
-import type { StackchanContext } from 'capabilities'
-import { suppressCompanionIdle } from 'companion-idle'
 import { localize } from 'localization'
-import { createMemoryGameScheduler, MEMORY_GAME_SYMBOLS, MemoryGame, type MemoryGameOptions } from 'memory-game'
+import { MEMORY_GAME_SYMBOLS, MemoryGame, type MemoryGameOptions } from 'memory-game'
 import type { MiniAppDefinition } from 'mini-app'
 import { Container, Label, type Container as PiuContainer } from 'piu/MC'
-import Timer from 'timer'
 import { ActionButton, type ActionButtonBehavior } from 'ui-controls'
 import { uiStyles } from 'ui-theme'
 
 export const MEMORY_GAME_APP_ID = 'stackchan.memory-game'
-
-export function installMemoryGame(context: StackchanContext): void {
-  const unregister = context.ui.miniApps.register(
-    createMemoryGameApp({
-      random: Math.random,
-      schedule: createMemoryGameScheduler(Timer),
-      react(name) {
-        // Explicit user activity and another MOD's animation always win.
-        if (
-          context.audio.isActive ||
-          context.performance.status().active ||
-          context.reaction.status().active ||
-          context.conversation.remoteSession?.activationState === 'active'
-        )
-          return undefined
-        const result = context.reaction.playOwned?.(name, { intensity: 0.3, restore: true })
-        return result?.ok
-          ? () => {
-              result.cancel()
-            }
-          : undefined
-      },
-      suppressIdle: () => suppressCompanionIdle(context),
-    }),
-  )
-  context.lifecycle.onClose(unregister)
-}
 
 export function createMemoryGameApp(options: MemoryGameOptions & { suppressIdle(): () => void }): MiniAppDefinition {
   return {

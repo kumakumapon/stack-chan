@@ -42,6 +42,7 @@
       "./focus-timer-service",
       "./focus-timer-mini-app",
       "./memory-game",
+      "./memory-game-host",
       "./memory-game-mini-app",
       "./capabilities",
       "./dock",

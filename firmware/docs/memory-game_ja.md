@@ -39,7 +39,8 @@ MODの追加、PCの常駐、Wi-Fi、音声認識、AI契約は必要ありま�
 ## 実装と検証
 
 - `host/app/memory-game.ts`: 出題、入力ロック、採点、上限、タイマー所有。
-- `host/app/memory-game-mini-app.ts`: Host登録、Piu表示、タッチ入力、任意のReaction。
+- `host/app/memory-game-mini-app.ts`: Piu表示とタッチ入力。
+- `host/app/memory-game-host.ts`: Host登録、アイドル制御、任意のReaction。
 - `reaction.playOwned(name, options)`: 空いている時だけ再生し、成功時にその再生だけをキャンセルするハンドルを返します。旧ホストでは省略可能なAPIです。
 
 検証コマンドは `firmware/` から `npm run test`、`npm run test:moddable`、`npm run build:wasm`。

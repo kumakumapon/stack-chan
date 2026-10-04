@@ -180,8 +180,8 @@ try {
   await page.waitForTimeout(100)
   await tapMiniGameScreen(254, 22)
   await page.waitForTimeout(200)
-  // The host Focus Timer sorts before the two sample games; CATCH is the second row.
-  await tapMiniGameScreen(160, 118)
+  // The host Focus Timer and Memory sort before the sample games; CATCH is the third row.
+  await tapMiniGameScreen(160, 162)
   await page.waitForTimeout(300)
   const catchTitleFrame = await miniGameScreen.evaluate((canvas) => canvas.toDataURL('image/png'))
   await tapMiniGameScreen(160, 142)

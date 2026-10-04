@@ -42,6 +42,7 @@
       "../../app/focus-timer-service",
       "../../app/focus-timer-mini-app",
       "../../app/memory-game",
+      "../../app/memory-game-host",
       "../../app/memory-game-mini-app",
       "../../app/capabilities",
       "../../app/dock",
