@@ -43,10 +43,10 @@ describe('WorkshopPanel', () => {
     )
     show(command)
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: '再生', exact: true, hidden: true }))
+      fireEvent.click(screen.getByRole('button', { name: '再生', hidden: true }))
     })
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: '停止', exact: true, hidden: true }))
+      fireEvent.click(screen.getByRole('button', { name: '停止', hidden: true }))
     })
     expect(command).toHaveBeenCalledWith({ action: 'stop' })
     await act(async () => release({ ok: true }))
