@@ -66,7 +66,7 @@ test('the Japanese UI font covers the host Mini App catalogs on embedded targets
   const font = fontkit.openSync(join(firmwareRoot, 'host', 'modules', 'ui', 'assets', 'fonts', 'k8x12.ttf'))
   const supported = new Set(font.characterSet)
   const messages = Object.entries(catalogs.ja)
-    .filter(([key]) => key.startsWith('focus.') || key.startsWith('memory.'))
+    .filter(([key]) => ['focus.', 'memory.', 'quest.', 'quiz.', 'daily.'].some((prefix) => key.startsWith(prefix)))
     .map(([, value]) => value)
   const required = new Set(
     messages

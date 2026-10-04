@@ -104,3 +104,69 @@ void xs_stackchan_wasm_focus_preference_delete(xsMachine* the)
 	});
 	if (failed) xsUnknownError("timer delete failed");
 }
+
+// A closed allowlist keeps daily app state separate from Pet, timer and other settings.
+static int dailyPreferenceIndex(xsMachine* the)
+{
+	int index = xsmcToInteger(xsArg(0));
+	if (index < 0 || index > 1) xsRangeError("invalid daily app");
+	return index;
+}
+
+void xs_stackchan_wasm_daily_preference_get(xsMachine* the)
+{
+	int index = dailyPreferenceIndex(the);
+	char* value = (char*)EM_ASM_PTR({
+		try {
+			const key = $0 === 0 ? 'stackchan.quest.state.v1' : 'stackchan.quiz.state.v1';
+			const saved = globalThis.localStorage.getItem(key);
+			if (saved == null) return 0;
+			if (saved.length > 4096) return 1;
+			const length = lengthBytesUTF8(saved) + 1;
+			const pointer = _malloc(length);
+			if (!pointer) return 1;
+			stringToUTF8(saved, pointer, length);
+			return pointer;
+		} catch {
+			return 1;
+		}
+	}, index);
+	if (value == (char*)1) xsUnknownError("daily app storage unavailable");
+	if (!value) {
+		xsmcSetNull(xsResult);
+		return;
+	}
+	xsmcSetString(xsResult, value);
+	free(value);
+}
+
+void xs_stackchan_wasm_daily_preference_set(xsMachine* the)
+{
+	int index = dailyPreferenceIndex(the);
+	const char* value = xsmcToString(xsArg(1));
+	int failed = EM_ASM_INT({
+		try {
+			const key = $0 === 0 ? 'stackchan.quest.state.v1' : 'stackchan.quiz.state.v1';
+			globalThis.localStorage.setItem(key, UTF8ToString($1));
+			return 0;
+		} catch {
+			return 1;
+		}
+	}, index, value);
+	if (failed) xsUnknownError("daily app save failed");
+}
+
+void xs_stackchan_wasm_daily_preference_delete(xsMachine* the)
+{
+	int index = dailyPreferenceIndex(the);
+	int failed = EM_ASM_INT({
+		try {
+			const key = $0 === 0 ? 'stackchan.quest.state.v1' : 'stackchan.quiz.state.v1';
+			globalThis.localStorage.removeItem(key);
+			return 0;
+		} catch {
+			return 1;
+		}
+	}, index);
+	if (failed) xsUnknownError("daily app delete failed");
+}

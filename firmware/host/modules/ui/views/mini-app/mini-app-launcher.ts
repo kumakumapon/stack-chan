@@ -1,5 +1,5 @@
 import { MINI_APP_BAR_HEIGHT, type RegisteredMiniApp } from 'mini-app'
-import type { Content as PiuContent } from 'piu/MC'
+import type { Content as PiuContent, Scroller as PiuScroller } from 'piu/MC'
 import { Column, Container, Label, Scroller } from 'piu/MC'
 import { ActionButton } from 'ui-controls'
 import { uiStyles } from 'ui-theme'
@@ -8,6 +8,27 @@ export type MiniAppLauncherData = Readonly<{
   apps: readonly RegisteredMiniApp[]
   onLaunch(id: string): void
 }>
+
+// Observe child touches until a drag is clear; ordinary taps still launch apps.
+class MiniAppScrollerBehavior extends Behavior {
+  anchor = 0
+  startY = 0
+  waiting = false
+  onTouchBegan(scroller: PiuScroller, _id: number, _x: number, y: number) {
+    this.anchor = scroller.scroll.y ?? 0
+    this.startY = y
+    this.waiting = true
+  }
+  onTouchMoved(scroller: PiuScroller, id: number, x: number, y: number, ticks: number) {
+    const delta = y - this.startY
+    if (this.waiting) {
+      if (Math.abs(delta) < 8) return
+      this.waiting = false
+      scroller.captureTouch(id as unknown as string, x, y, ticks)
+    }
+    scroller.scrollTo(0, this.anchor - delta)
+  }
+}
 
 export const MiniAppLauncher = Container.template(($: MiniAppLauncherData) => {
   const styles = uiStyles()
@@ -31,7 +52,10 @@ export const MiniAppLauncher = Container.template(($: MiniAppLauncherData) => {
             right: 0,
             top: 8,
             bottom: 8,
+            name: 'miniAppScroller',
             active: true,
+            backgroundTouch: true,
+            Behavior: MiniAppScrollerBehavior,
             clip: true,
             contents: [new Column(null, { left: 0, right: 0, top: 0, contents: rows })],
           }),
