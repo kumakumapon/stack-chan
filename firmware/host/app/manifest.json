@@ -41,6 +41,8 @@
       "./focus-timer-model",
       "./focus-timer-service",
       "./focus-timer-mini-app",
+      "./memory-game",
+      "./memory-game-mini-app",
       "./capabilities",
       "./dock",
       "./experimental-mini-app-loader",

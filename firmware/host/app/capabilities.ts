@@ -11,7 +11,13 @@ import type { MiniAppRegistryCapability } from 'mini-app'
 import type { MotionControllerPose, MotionDriverDiagnostics, MotionDurationSeconds } from 'motion-controller'
 import type { PerformanceName, PerformanceOptions, PerformancePlayResult, PerformanceStatus } from 'performance-types'
 import type { Container as PiuContainer, Content as PiuContent } from 'piu/MC'
-import type { ReactionName, ReactionOptions, ReactionPlayResult, ReactionStatus } from 'reaction-types'
+import type {
+  OwnedReactionPlayResult,
+  ReactionName,
+  ReactionOptions,
+  ReactionPlayResult,
+  ReactionStatus,
+} from 'reaction-types'
 import type { Maybe, Pose, Rotation, Vector3 } from 'stackchan-util'
 import type Touch from 'touch'
 import type TouchPanel from 'touch-panel'
@@ -296,6 +302,8 @@ export type UICapability = {
 export type ReactionCapability = {
   readonly names: readonly ReactionName[]
   play(name: ReactionName, options?: ReactionOptions): ReactionPlayResult
+  /** Non-interrupting playback with owner-scoped cleanup; absent on older hosts. */
+  playOwned?(name: ReactionName, options?: ReactionOptions): OwnedReactionPlayResult
   /** Stops the active reaction and restores the stage. False when nothing was playing. */
   cancel(): boolean
   status(): ReactionStatus

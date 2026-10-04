@@ -77,7 +77,7 @@ try {
     const openTimer = async () => {
       await tap(160, 110) // Reveal face AppBar.
       await tap(270, 22) // Mini App launcher.
-      await tap(140, pet ? 118 : 74) // PET STATUS sorts before the timer.
+      await tap(140, pet ? 162 : 118) // MEMORY also sorts before the timer; PET STATUS is first.
     }
     const pixel = () =>
       page

@@ -42,6 +42,7 @@ import { reactionTimeline } from 'reaction-catalog'
 import { defaultTrace, ReactionPlayer } from 'reaction-player'
 import {
   isReactionName,
+  type OwnedReactionPlayResult,
   REACTION_NAMES,
   type ReactionName,
   type ReactionOptions,
@@ -105,6 +106,7 @@ export type ReactionRuntimeDeps = {
 export type ReactionCapability = {
   readonly names: readonly ReactionName[]
   play(name: ReactionName, options?: ReactionOptions): ReactionPlayResult
+  playOwned?(name: ReactionName, options?: ReactionOptions): OwnedReactionPlayResult
   cancel(): boolean
   status(): ReactionStatus
 }
@@ -315,6 +317,12 @@ export function createReactionRuntime(deps: ReactionRuntimeDeps): ReactionRuntim
       const timeline = lookupReaction(name)
       if (timeline === undefined) return { ok: false, error: `unknown reaction: ${name}` }
       return reactionPlayer.play(timeline, options)
+    },
+    playOwned(name, options) {
+      if (performancePlayer.status().active !== null) return { ok: false, error: 'performance active' }
+      const timeline = lookupReaction(name)
+      if (timeline === undefined) return { ok: false, error: `unknown reaction: ${name}` }
+      return reactionPlayer.playOwned(timeline, options)
     },
     cancel() {
       return reactionPlayer.cancel()

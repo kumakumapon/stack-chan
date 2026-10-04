@@ -87,6 +87,25 @@ function setup() {
   return { stage, player, ended, traced }
 }
 
+test('owned playback refuses a busy stage and never cancels a same-name replacement at the same timestamp', () => {
+  const { player } = setup()
+  const first = player.playOwned(timeline([{ at: 0, emotion: 'HAPPY' }]))
+  assert(first.ok)
+  const started = player.status()
+  assert.equal(player.playOwned(timeline([])).ok, false)
+  assert.deepEqual(player.status(), started, 'busy refusal leaves the active reaction intact')
+  player.play(timeline([{ at: 0, emotion: 'SAD' }]))
+  assert.deepEqual(player.status(), started, 'name and clock alone do not identify an owner')
+  assert.equal(first.cancel(), false)
+  assert.equal(player.status().active, 'yes')
+  player.cancel()
+  const second = player.playOwned(timeline([{ at: 0, emotion: 'HAPPY' }]))
+  assert(second.ok)
+  assert.equal(second.cancel(), true)
+  assert.equal(second.cancel(), false)
+  assert.equal(player.status().active, null)
+})
+
 test('frames apply at their times, touching only the fields they name, then the stage is restored', () => {
   const { stage, player, ended } = setup()
   const result = player.play(
