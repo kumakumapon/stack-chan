@@ -1,5 +1,5 @@
+import { parseQuizDeck, type QuizDeck } from 'workshop-model'
 import type { MiniAppStorage } from './life-quest.js'
-import { parseQuizDeck, type QuizDeck } from './workshop-model.js'
 
 export type WorkshopSettings = { version: 1; gestures: boolean; sound: boolean; pet: boolean; receiving: boolean }
 export const defaultWorkshopSettings = (): WorkshopSettings => ({

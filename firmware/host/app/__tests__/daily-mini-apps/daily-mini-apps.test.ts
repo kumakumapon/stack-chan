@@ -24,11 +24,22 @@ let questSaved: string | undefined
 let quizSaved: string | undefined
 let failSave = false
 let results = 0
+const activities: string[] = []
+let cancellations = 0
+const effects = {
+  activity: (kind: string) => {
+    activities.push(kind)
+  },
+  react: () => () => {
+    cancellations++
+  },
+}
 controller.miniApps.subscribeResult(() => results++)
 const suppressIdle = () => suppressCompanionIdle(controller)
 const unregisterQuest = controller.miniApps.register(
   createLifeQuestApp({
     suppressIdle,
+    ...effects,
     storage: {
       get: () => questSaved,
       set: (value) => {
@@ -41,6 +52,7 @@ const unregisterQuest = controller.miniApps.register(
 const unregisterQuiz = controller.miniApps.register(
   createQuizApp({
     suppressIdle,
+    ...effects,
     storage: {
       get: () => quizSaved,
       set: (value) => {
@@ -81,7 +93,9 @@ equal(text('questStatus'), localize('quest.celebrate'), 'first completion celebr
 tap('questTask:2')
 tap('questTask:2')
 equal(text('questStatus'), localize('quest.complete'), 'undo and redo does not celebrate again')
+equal(activities.join(','), 'quest-complete', 'undo and redo emit one activity')
 controller.onMiniAppBack()
+equal(cancellations, 1, 'closing quest cancels its owned reaction')
 assert(!isCompanionIdleSuppressed(controller), 'quest releases idle suppression')
 assert(controller.launchMiniApp(LIFE_QUEST_APP_ID), 'quest reopens')
 equal(text('questStatus'), localize('quest.complete'), 'saved progress restores')
@@ -123,7 +137,8 @@ for (let index = 0; index < 2; index++) {
 }
 equal(text('quizStatus'), `${localize('quiz.score')} 2/3`, 'round ends after three answers')
 equal(questSaved, questBefore, 'quiz leaves quest storage intact')
-equal(results, 0, 'quest and quiz do not award Pet game XP')
+equal(results, 0, 'quest and quiz do not emit legacy game results')
+equal(activities.join(','), 'quest-complete,quiz-complete', 'one activity per completed round')
 unregisterQuiz()
 assert(!isCompanionIdleSuppressed(controller), 'unregister releases active quiz')
 assert(controller.launchMiniApp('test.pet'), 'Pet remains available')

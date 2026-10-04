@@ -86,15 +86,24 @@ export function createGatewayServer(options: GatewayServerOptions): GatewayServe
       if (http) throw new Error('the Gateway server is already listening')
       const server = createServer((request, response) => {
         if (request.method === 'GET' && request.url === '/inbox') {
-          response.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' })
+          response.writeHead(200, {
+            'content-type': 'text/html; charset=utf-8',
+            'cache-control': 'no-store',
+            'x-content-type-options': 'nosniff',
+          })
           response.end(inboxPage)
           return
         }
-        void handleInbox(request, response, inbox, config.inbox?.allowedOrigins).then(handled => {
-          if (handled) return
-          response.writeHead(426, { 'content-type': 'text/plain' })
-          response.end('the Stack-chan Gateway speaks WebSocket only\n')
-        }).catch(() => { if (!response.headersSent) response.writeHead(500); response.end() })
+        void handleInbox(request, response, inbox, config.inbox?.allowedOrigins)
+          .then((handled) => {
+            if (handled) return
+            response.writeHead(426, { 'content-type': 'text/plain' })
+            response.end('the Stack-chan Gateway speaks WebSocket only\n')
+          })
+          .catch(() => {
+            if (!response.headersSent) response.writeHead(500)
+            response.end()
+          })
       })
       const socketServer = new WebSocketServer({ server, path: config.listen.path })
       http = server

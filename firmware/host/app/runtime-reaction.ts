@@ -1,4 +1,4 @@
-import { validateStudio } from './workshop-model.js'
+import { validateStudio } from 'workshop-model'
 /**
  * Wires the reaction and performance capabilities (issues #35/#36) onto the
  * app runtime context. This builds one `PerformanceStage` over a small,

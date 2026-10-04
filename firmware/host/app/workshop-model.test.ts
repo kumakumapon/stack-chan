@@ -1,6 +1,15 @@
 import assert from 'node:assert/strict'
+import { dirname, resolve } from 'node:path'
 import test from 'node:test'
-import { parseQuizDeck, StorySession, validateStory, validateStudio } from './workshop-model.js'
+import { fileURLToPath } from 'node:url'
+import { writeAliasPackage } from '../modules/testing/node-alias-package.js'
+
+const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
+writeAliasPackage(root, 'quiz', resolve(root, 'app/quiz.js'))
+writeAliasPackage(root, 'workshop-model', resolve(root, 'app/workshop-model.js'))
+const { parseQuizDeck, StorySession, validateStory } = await import('./workshop-model.js')
+const validateStudio: typeof import('./workshop-model.js').validateStudio = (await import('./workshop-model.js'))
+  .validateStudio
 
 test('quiz import validates before replacing any saved deck', () => {
   const questions = ['a', 'b', 'c'].map((id) => ({

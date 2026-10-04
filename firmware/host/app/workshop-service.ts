@@ -3,8 +3,8 @@ import type { StackchanContext } from 'capabilities'
 import { chunkStorage } from 'chunk-storage'
 import { isCompanionIdleSuppressed } from 'companion-idle'
 import { InboxModel } from 'inbox-model'
+import { monotonicNow } from 'monotonic-clock'
 import Preference from 'preference'
-import Time from 'time'
 import Timer from 'timer'
 import { workshopRequest } from 'workshop-http'
 import { type WorkshopSettings, WorkshopStore } from 'workshop-store'
@@ -31,7 +31,7 @@ export class WorkshopService {
   constructor(readonly context: StackchanContext) {
     this.#gateway = loadPreferences('gateway')
     this.inbox = new InboxModel(
-      () => Time.ticks,
+      () => monotonicNow(),
       () => {
         this.react('greeting')
       },
@@ -53,6 +53,7 @@ export class WorkshopService {
   }
   set(key: keyof Omit<WorkshopSettings, 'version'>, value: boolean): void {
     this.store.set(key, value)
+    if (key === 'gestures' && !value) this.#cancelReaction?.()
     if (key === 'receiving' && !value) {
       this.inbox.clear()
       this.pairCode = ''
@@ -135,7 +136,7 @@ export class WorkshopService {
       if (!this.#closed) this.status = String(error)
     } finally {
       this.#working = false
-      if (Time.ticks >= this.#pairUntil) this.pairCode = ''
+      if (monotonicNow() >= this.#pairUntil) this.pairCode = ''
       this.notify()
     }
   }
@@ -147,7 +148,7 @@ export class WorkshopService {
       if (this.#closed) return
       if (action === 'pair') {
         this.pairCode = result.code ?? ''
-        this.#pairUntil = Time.ticks + 120000
+        this.#pairUntil = monotonicNow() + 120000
       }
       if (action === 'revoke') this.pairCode = ''
       this.status = ''
@@ -167,7 +168,7 @@ export class WorkshopService {
       return { title: this.store.deck()?.title }
     }
     if (command.action === 'studio') {
-      if (this.busy()) throw new Error('Close the Mini App or conversation before previewing')
+      if (this.busy()) throw new Error('Close Mini Apps and wait for the current conversation or gesture to finish')
       const result = this.context.performance.playStudio?.(command.value)
       if (!result) throw new Error('Studio unsupported')
       if (result.ok === false) throw new Error(result.error)

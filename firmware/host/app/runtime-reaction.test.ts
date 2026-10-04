@@ -22,6 +22,9 @@ writeAliasPackage(hostRoot, 'performance-player', resolve(hostRoot, 'modules/per
 writeAliasPackage(hostRoot, 'performance-catalog', resolve(hostRoot, 'modules/performance/performance-catalog.js'))
 writeAliasPackage(hostRoot, 'motion-catalog', resolve(hostRoot, 'modules/performance/motion-catalog.js'))
 
+writeAliasPackage(hostRoot, 'quiz', resolve(hostRoot, 'app/quiz.js'))
+writeAliasPackage(hostRoot, 'workshop-model', resolve(hostRoot, 'app/workshop-model.js'))
+
 const { default: Timer } = await import('timer')
 const { createReactionRuntime, createReactionStage } = await import('./runtime-reaction.js')
 type ReactionRuntimeDeps = import('./runtime-reaction.js').ReactionRuntimeDeps

@@ -1,5 +1,5 @@
+import { parseQuizDeck } from 'workshop-model'
 import type { MiniAppStorage } from './life-quest.js'
-import { parseQuizDeck } from './workshop-model.js'
 
 /** Short acknowledged BLE commands; only commit touches the installed deck. */
 export function createQuizTransfer(storage: MiniAppStorage) {

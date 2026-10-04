@@ -3,7 +3,7 @@ import { suppressCompanionIdle } from 'companion-idle'
 import { localize } from 'localization'
 import type { MiniAppDefinition } from 'mini-app'
 import Modules from 'modules'
-import { Container, Label, Text } from 'piu/MC'
+import { Container, Label } from 'piu/MC'
 import { ActionButton } from 'ui-controls'
 import { uiStyles } from 'ui-theme'
 import { type Story, StorySession } from 'workshop-model'
@@ -65,8 +65,37 @@ export function createWorkshopApp(service: WorkshopService): MiniAppDefinition {
         error = ''
         render()
       }
-      const text = (name: string, string: string, top: number, height = 32) =>
-        content.add(new Text(null, { name, string, left: 8, right: 8, top, height, style: uiStyles().body }))
+      const text = (name: string, string: string, top: number, height = 32) => {
+        const lines: string[] = []
+        let line = '',
+          width = 0
+        for (const char of string) {
+          const size = char.charCodeAt(0) > 255 ? 2 : 1
+          if (char === '\n' || width + size > 46) {
+            lines.push(line)
+            line = ''
+            width = 0
+          }
+          if (char !== '\n') {
+            line += char
+            width += size
+          }
+        }
+        if (line) lines.push(line)
+        lines.slice(0, Math.max(1, Math.floor(height / 18))).forEach((string, index) => {
+          content.add(
+            new Label(null, {
+              name: index ? `${name}:${index}` : name,
+              string,
+              left: 8,
+              right: 8,
+              top: top + index * 18 + 2,
+              height: 18,
+              style: uiStyles().body,
+            }),
+          )
+        })
+      }
       const button = (name: string, title: string, top: number, action: () => void) => {
         const current = revision
         const control = new ActionButton(

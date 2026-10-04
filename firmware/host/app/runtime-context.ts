@@ -22,6 +22,7 @@ import type { Emotion, FaceEyeKey, FaceThemeKey } from 'face-state'
 import { isHandAnimationName } from 'hands'
 import { LocalPeerError, type LocalPeerSession } from 'local-peer-types'
 import { createI18nCapability } from 'localization'
+import { monotonicNow } from 'monotonic-clock'
 import {
   MotionController,
   type MotionControllerConstructorParam,
@@ -574,6 +575,7 @@ export class StackchanRuntimeContext implements StackchanContext {
   private createReactionRuntime(): ReactionRuntime {
     const context = this
     return createReactionRuntime({
+      now: monotonicNow,
       face: this.#faceCapability,
       ui: this.#uiCapability,
       motion: this.#motionCapability,

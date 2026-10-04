@@ -1,4 +1,4 @@
-import { type QuizQuestion, validateQuizQuestions } from './quiz.js'
+import { type QuizQuestion, validateQuizQuestions } from 'quiz'
 
 export type QuizDeck = Readonly<{ version: 1; id: string; title: string; questions: readonly QuizQuestion[] }>
 const identifier = (value: unknown): value is string => typeof value === 'string' && /^[a-z0-9-]{1,32}$/.test(value)

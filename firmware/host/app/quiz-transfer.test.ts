@@ -1,6 +1,13 @@
 import assert from 'node:assert/strict'
+import { dirname, resolve } from 'node:path'
 import test from 'node:test'
-import { createQuizTransfer } from './quiz-transfer.js'
+import { fileURLToPath } from 'node:url'
+import { writeAliasPackage } from '../modules/testing/node-alias-package.js'
+
+const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
+writeAliasPackage(root, 'quiz', resolve(root, 'app/quiz.js'))
+writeAliasPackage(root, 'workshop-model', resolve(root, 'app/workshop-model.js'))
+const { createQuizTransfer } = await import('./quiz-transfer.js')
 
 test('BLE upload commits only a complete valid deck and drops interrupted or out-of-order transfers', () => {
   let saved = 'previous'
