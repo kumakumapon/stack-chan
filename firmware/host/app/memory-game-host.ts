@@ -9,15 +9,14 @@ export function installMemoryGame(context: StackchanContext): void {
     createMemoryGameApp({
       random: Math.random,
       schedule: createMemoryGameScheduler(Timer),
-      react(name) {
+      motionBlockReason() {
         // Explicit user activity and another MOD's animation always win.
-        if (
-          context.audio.isActive ||
-          context.performance.status().active ||
-          context.reaction.status().active ||
-          context.conversation.remoteSession?.activationState === 'active'
-        )
-          return undefined
+        if (context.conversation.remoteSession?.activationState === 'active') return 'conversation'
+        if (context.audio.isActive || context.performance.status().active || context.reaction.status().active)
+          return 'busy'
+        return null
+      },
+      react(name) {
         const result = context.reaction.playOwned?.(name, { intensity: 0.3, restore: true })
         return result?.ok
           ? () => {

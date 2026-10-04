@@ -136,8 +136,9 @@ export function createMemoryGameApp(options: MemoryGameOptions & { suppressIdle(
         const phase = snapshot.phase
         status.string = localize(`memory.phase.${phase}`)
         progress.string = `${localize('memory.round')} ${snapshot.round}/12   ${localize('memory.score')} ${snapshot.score}`
-        prompt.string =
-          phase === 'input' || phase === 'feedback'
+        prompt.string = snapshot.motionBlockReason
+          ? localize(`memory.motionBlocked.${snapshot.motionBlockReason}`)
+          : phase === 'input' || phase === 'feedback'
             ? `${localize('memory.answer')} ${snapshot.matched}/${snapshot.round}`
             : localize(phase === 'lost' ? 'memory.expected' : 'memory.hint')
         for (let index = 0; index < pads.length; index++) {
@@ -157,7 +158,16 @@ export function createMemoryGameApp(options: MemoryGameOptions & { suppressIdle(
           localize(phase === 'won' ? 'memory.next' : phase === 'ready' ? 'memory.start' : 'memory.again'),
         )
         const motionControls = motion.behavior as ActionButtonBehavior
-        motionControls.setLabel(motion, localize(snapshot.motion ? 'memory.motionOn' : 'memory.motionOff'))
+        motionControls.setLabel(
+          motion,
+          localize(
+            snapshot.motionBlockReason
+              ? 'memory.motionWaiting'
+              : snapshot.motion
+                ? 'memory.motionOn'
+                : 'memory.motionOff',
+          ),
+        )
         motionControls.setSelected(motion, snapshot.motion)
       })
       return {
