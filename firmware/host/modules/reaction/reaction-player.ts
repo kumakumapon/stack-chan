@@ -7,6 +7,7 @@
 
 import { clampFrame, REACTION_LIMITS, validateTimeline } from 'reaction-limits'
 import type {
+  OwnedReactionPlayResult,
   ReactionEndReason,
   ReactionFrame,
   ReactionName,
@@ -71,6 +72,7 @@ export class ReactionPlayer {
   readonly #trace: (message: string) => void
 
   #active: ReactionTimeline | undefined
+  #owner: object | undefined
   #frames: readonly ReactionFrame[] = []
   #restore = true
   /**
@@ -106,6 +108,7 @@ export class ReactionPlayer {
       }
     }
     this.#active = timeline
+    this.#owner = {}
     this.#restore = options.restore ?? timeline.restore ?? true
     this.#frames = timeline.frames.map((frame) => clampFrame(frame, intensity))
     this.#clock.start(this.#frames, timeline.durationMs, {
@@ -120,6 +123,18 @@ export class ReactionPlayer {
     if (this.#active === undefined) return false
     this.#end('cancelled')
     return true
+  }
+
+  /** Non-interrupting playback for a temporary UI owner. Ordinary play() still replaces reactions. */
+  playOwned(timeline: ReactionTimeline, options: ReactionOptions = {}): OwnedReactionPlayResult {
+    if (this.#active !== undefined) return { ok: false, error: 'reaction active' }
+    const result = this.play(timeline, options)
+    if (result.ok === false) return result
+    const owner = this.#owner
+    return {
+      ok: true,
+      cancel: () => owner !== undefined && owner === this.#owner && this.cancel(),
+    }
   }
 
   #apply(frame: ReactionFrame): void {
@@ -164,6 +179,7 @@ export class ReactionPlayer {
     if (active === undefined) return
     this.#clock.stop()
     this.#active = undefined
+    this.#owner = undefined
     const baseline = this.#baseline
     if (this.#restore && baseline !== undefined) {
       this.#restoreStage(baseline, chained)

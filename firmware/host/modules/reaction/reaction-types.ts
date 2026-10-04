@@ -68,6 +68,9 @@ export type ReactionOptions = {
 
 export type ReactionPlayResult = { ok: true } | { ok: false; error: string }
 
+/** Cancels only this playback, even if another caller starts the same name at the same time. */
+export type OwnedReactionPlayResult = { ok: true; cancel(): boolean } | { ok: false; error: string }
+
 export type ReactionEndReason = 'completed' | 'cancelled' | 'interrupted' | 'error'
 
 export type ReactionStatus = {

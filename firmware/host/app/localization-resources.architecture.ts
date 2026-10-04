@@ -62,11 +62,11 @@ test('the Simplified Chinese UI font covers every localized firmware glyph', () 
   assert.deepEqual(missing, [])
 })
 
-test('the Japanese UI font covers the focus timer catalog on embedded targets', () => {
+test('the Japanese UI font covers the host Mini App catalogs on embedded targets', () => {
   const font = fontkit.openSync(join(firmwareRoot, 'host', 'modules', 'ui', 'assets', 'fonts', 'k8x12.ttf'))
   const supported = new Set(font.characterSet)
   const messages = Object.entries(catalogs.ja)
-    .filter(([key]) => key.startsWith('focus.'))
+    .filter(([key]) => key.startsWith('focus.') || key.startsWith('memory.'))
     .map(([, value]) => value)
   const required = new Set(
     messages

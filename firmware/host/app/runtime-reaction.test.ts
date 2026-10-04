@@ -136,6 +136,20 @@ async function flush(): Promise<void> {
   for (let i = 0; i < 8; i++) await Promise.resolve()
 }
 
+test('owned reaction capability refuses performance and preserves a later reaction on cleanup', () => {
+  const runtime = createReactionRuntime(createFakes().deps)
+  assert(runtime.reaction.playOwned)
+  const owned = runtime.reaction.playOwned('yes', { intensity: 0.3 })
+  assert(owned.ok)
+  runtime.reaction.play('yes')
+  assert.equal(owned.cancel(), false)
+  assert.equal(runtime.reaction.status().active, 'yes')
+  runtime.performance.play('happy-dance')
+  assert.deepEqual(runtime.reaction.playOwned('no'), { ok: false, error: 'performance active' })
+  assert.equal(runtime.performance.status().active, 'happy-dance')
+  runtime.close()
+})
+
 /**
  * Advances the fake clock in small steps, flushing microtasks after each one, until
  * `isActive()` reports done or `maxMs` is exceeded. A single big `tick()` can fire several
