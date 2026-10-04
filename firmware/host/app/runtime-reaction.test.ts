@@ -360,3 +360,33 @@ test('performance.play("greeting") sets its hand and effect from the nested reac
   assert.deepEqual(fakes.effects, [])
   assert.deepEqual(fakes.deps.motion.pose.body.rotation, { y: 0, p: 0, r: 0 })
 })
+
+test('studio validates imported cues, respects ownership and cancels queued work', async () => {
+  const fakes = createFakes()
+  const runtime = createReactionRuntime(fakes.deps)
+  const studio = {
+    version: 1,
+    title: 'Hello',
+    durationMs: 6000,
+    cues: [
+      { at: 0, motion: 'nod' },
+      { at: 3000, reaction: 'greeting' },
+    ],
+  }
+  assert.equal(runtime.performance.playStudio?.({ ...studio, durationMs: 30001 }).ok, false)
+  assert.equal(runtime.performance.playStudio?.(studio).ok, true)
+  assert.equal(runtime.performance.status().active, 'studio')
+  assert.equal(runtime.performance.playStudio?.(studio).ok, false)
+  fakes.tick(100)
+  await Promise.resolve()
+  runtime.performance.cancel()
+  fakes.tick(1000)
+  await Promise.resolve()
+  const calls = fakes.faceCalls.length
+  fakes.tick(10000)
+  await Promise.resolve()
+  assert.equal(runtime.performance.status().active, null)
+  assert.equal(fakes.faceCalls.length, calls)
+  assert.equal(fakes.sayCalls.length, 0)
+  runtime.close()
+})

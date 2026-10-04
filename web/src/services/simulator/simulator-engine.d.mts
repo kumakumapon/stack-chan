@@ -169,6 +169,7 @@ export class SimulatorEngine {
   readonly performanceStatus: PerformanceBridgeStatus
   playReaction(name: string, options?: PerformanceBridgeCommandOptions): void
   cancelReaction(): void
+  workshopCommand(command: { action: string; value?: unknown }): Promise<unknown>
   playPerformance(name: string, options?: PerformanceBridgeCommandOptions): void
   cancelPerformance(): void
   /** Puts the 3D camera back on the pose the simulator opens with. */

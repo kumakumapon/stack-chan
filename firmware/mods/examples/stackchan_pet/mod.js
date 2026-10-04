@@ -84,6 +84,15 @@ export function onContextCreated(context, options) {
       dispatch({ type: 'gameFinished', score })
     }
   })
+  const unsubscribeActivities = context.ui.miniApps.subscribeActivity?.((activity) => {
+    dispatch({ type: 'activityCompleted', ...activity, handledByDefault: true })
+    // Commit deduplication with XP; a restart cannot replay an acknowledged event.
+    if (saveTimer !== undefined) {
+      Timer.clear(saveTimer)
+      saveTimer = undefined
+    }
+    persist()
+  })
   let lastForwardSwipe
   let lastBackwardSwipe
   let swipedDuringTouch = false
@@ -138,6 +147,7 @@ export function onContextCreated(context, options) {
     if (speaking) context.audio.tts?.cancel?.()
     unsubscribeTouch?.()
     unsubscribeResults?.()
+    unsubscribeActivities?.()
     unregister()
     if (ownedReaction && context.reaction.status().active === ownedReaction) context.reaction.cancel()
     if (active?.close === close) active = undefined

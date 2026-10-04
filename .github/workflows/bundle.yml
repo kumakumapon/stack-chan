@@ -81,6 +81,15 @@ jobs:
         if: matrix.target == 'm5stackchan_cores3'
         working-directory: ./firmware
         run: node scripts/check-companion-build.mjs
+      - name: Report firmware capacity
+        working-directory: ./firmware
+        run: node scripts/report-firmware-size.mjs ${{ matrix.target }}
+      - name: Upload capacity report
+        uses: actions/upload-artifact@v7
+        with:
+          name: firmware-size-${{ matrix.target }}
+          path: ./firmware/dist/size-reports
+          if-no-files-found: error
       - name: Upload bundle target
         if: matrix.bundle
         uses: actions/upload-artifact@v7

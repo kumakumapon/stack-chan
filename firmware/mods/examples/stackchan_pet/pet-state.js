@@ -30,6 +30,8 @@ export function createPetState() {
     pettings: 0,
     games: 0,
     lastSeenAt: 0,
+    lastActivitySequence: 0,
+    lastActivityAt: -1,
     lastEnergyAt: -1,
     lastPetAt: -1,
     lastGameAt: -1,
@@ -54,6 +56,8 @@ export function restorePetState(value) {
     pettings: integer(value.pettings, 0, 0, MAX_XP),
     games: integer(value.games, 0, 0, MAX_XP),
     lastSeenAt: timestamp(value.lastSeenAt),
+    lastActivitySequence: timestamp(value.lastActivitySequence),
+    lastActivityAt: cooldownTimestamp(value.lastActivityAt),
     lastEnergyAt: cooldownTimestamp(value.lastEnergyAt ?? value.lastSeenAt),
     lastPetAt: cooldownTimestamp(value.lastPetAt),
     lastGameAt: cooldownTimestamp(value.lastGameAt),
@@ -100,9 +104,32 @@ export function applyPetEvent(previous, event) {
   const now = timestamp(event?.now)
   if (
     !event ||
-    !['boot', 'petted', 'tap', 'gameFinished', 'idle', 'conversationFinished', 'taskCompleted'].includes(event.type)
+    ![
+      'boot',
+      'petted',
+      'tap',
+      'gameFinished',
+      'idle',
+      'conversationFinished',
+      'taskCompleted',
+      'activityCompleted',
+    ].includes(event.type)
   ) {
     return { state, changed: false, reaction: null, speech: null, levelUp: false }
+  }
+  if (event.type === 'activityCompleted') {
+    const match = /^activity-([1-9][0-9]{0,15})$/.exec(event.eventId ?? '')
+    const sequence = match ? Number(match[1]) : 0
+    if (
+      !Number.isSafeInteger(sequence) ||
+      sequence <= state.lastActivitySequence ||
+      !['quest-complete', 'quiz-complete', 'memory-complete'].includes(event.kind)
+    )
+      return { state, changed: false, reaction: null, speech: null, levelUp: false }
+    state.lastActivitySequence = sequence
+    if (state.lastActivityAt >= 0 && now >= state.lastActivityAt && now - state.lastActivityAt < GAME_COOLDOWN_MS)
+      return { state, changed: true, reaction: null, speech: null, levelUp: false }
+    state.lastActivityAt = now
   }
   // Offline targets can restart with an unset clock. Reset time anchors rather
   // than retaining a future timestamp that would lock out all interactions.

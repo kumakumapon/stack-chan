@@ -70,7 +70,7 @@ export function isPerformanceName(value: unknown): value is PerformanceName {
 }
 
 export type PerformanceTimeline = {
-  name: PerformanceName
+  name: PerformanceName | 'studio'
   cues: readonly PerformanceCue[]
   durationMs: number
   restore?: boolean
@@ -86,7 +86,7 @@ export type PerformancePlayResult = { ok: true } | { ok: false; error: string }
 export type PerformanceEndReason = 'completed' | 'cancelled' | 'interrupted' | 'error'
 
 export type PerformanceStatus = {
-  active: PerformanceName | null
+  active: PerformanceName | 'studio' | null
   startedAt: number | null
   /** Index of the next cue to fire, or the cue count once all have fired. */
   nextCue: number

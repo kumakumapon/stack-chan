@@ -50,11 +50,9 @@
     "piuView": "$(PIU)/MC/piuView"
   },
   "resources": {
-    "*-alpha-monochrome": [
-      "./components/hands/assets/hands-outer-mask",
-      "./components/hands/assets/hands-inner-mask"
-    ],
     "*-mask": [
+      "./components/hands/assets/hands-outer-mask",
+      "./components/hands/assets/hands-inner-mask",
       "./assets/images/microphone",
       "./assets/images/indicator",
       "./assets/images/bubble",

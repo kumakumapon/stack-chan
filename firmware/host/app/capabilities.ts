@@ -315,6 +315,7 @@ export type ReactionCapability = {
  * pose; speech or song already handed to the TTS finishes on its own.
  */
 export type PerformanceCapability = {
+  playStudio?(value: unknown): PerformancePlayResult
   readonly names: readonly PerformanceName[]
   play(name: PerformanceName, options?: PerformanceOptions): PerformancePlayResult
   cancel(): boolean

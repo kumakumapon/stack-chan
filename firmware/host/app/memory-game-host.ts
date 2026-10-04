@@ -3,11 +3,13 @@ import { suppressCompanionIdle } from 'companion-idle'
 import { createMemoryGameScheduler } from 'memory-game'
 import { createMemoryGameApp } from 'memory-game-mini-app'
 import Timer from 'timer'
+import { workshopFor } from 'workshop-service'
 
 export function installMemoryGame(context: StackchanContext): void {
   const unregister = context.ui.miniApps.register(
     createMemoryGameApp({
       random: Math.random,
+      onResult: (score) => workshopFor(context).activity('memory-complete', score),
       schedule: createMemoryGameScheduler(Timer),
       motionBlockReason() {
         // Explicit user activity and another MOD's animation always win.

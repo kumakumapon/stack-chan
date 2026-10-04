@@ -209,6 +209,7 @@ export function useSimulatorEngine({
     shakeImu: () => engineRef.current?.shakeImu(),
     setImuAccelerometer: (vector: { x: number; y: number; z: number }) =>
       engineRef.current?.setImuAccelerometer(vector),
+    workshopCommand: (command: { action: string; value?: unknown }) => engineRef.current?.workshopCommand(command) ?? Promise.reject(new Error('Simulator unavailable')),
     performanceStatus,
     playReaction: (name: string, options?: PerformanceBridgeCommandOptions) =>
       engineRef.current?.playReaction(name, options),

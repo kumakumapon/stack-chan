@@ -28,6 +28,7 @@
     "./manifest_typings.json"
   ],
   "modules": {
+    "workshop-http": "./workshop-http",
     "*": [
       "./main",
       "./app-behavior",
@@ -45,6 +46,13 @@
       "./memory-game-host",
       "./memory-game-mini-app",
       "./life-quest",
+      "./workshop-model",
+      "./workshop-service",
+      "./workshop-mini-app",
+      "./workshop-store",
+      "./inbox-model",
+      "./chunk-storage",
+      "./quiz-transfer",
       "./quiz",
       "./quiz-questions",
       "./daily-mini-apps",

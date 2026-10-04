@@ -79,6 +79,7 @@ export type DiagnosticsConfig = {
 }
 
 export type GatewayConfig = {
+  inbox?: { allowedOrigins: string[] }
   listen: ListenConfig
   /** Shared token accepted from any device when no per-device token matches. */
   token?: string
@@ -114,6 +115,7 @@ export function parseGatewayConfig(raw: unknown, env: Record<string, string | un
   const tools = record(source.tools, 'tools')
 
   return {
+    inbox: { allowedOrigins: stringList(record(source.inbox, 'inbox').allowedOrigins, 'inbox.allowedOrigins') ?? [] },
     listen: readListen(gateway.listen),
     ...(optionalString(gateway.token, 'gateway.token') === undefined
       ? {}
