@@ -481,7 +481,7 @@ test('renders title', () => {
 - ブラウザ互換性（Chrome / Edge 推奨）
 - IndexedDB が使用不可の環境での localStorage フォールバック
 - BLE / Web Serial API サポートブラウザ確認
-- 国際化（`web/src/lib/i18n.mjs` で ja/en/zh-CN）
+- 国際化（`web/src/lib/i18n.mjs` で ja/en）
 
 ## よくあるエラーと対策
 

@@ -18,7 +18,7 @@ function catalog(messages: Readonly<Record<string, string>>): LocalizationCatalo
 test('normalizes supported language tags to firmware locales', () => {
   assert.equal(normalizeLocale('ja-JP'), 'ja')
   assert.equal(normalizeLocale('EN_us'), 'en')
-  assert.equal(normalizeLocale('zh-Hans-CN'), 'zh-CN')
+  assert.equal(normalizeLocale('zh-Hans-CN'), undefined)
   assert.equal(normalizeLocale('fr'), undefined)
   assert.equal(normalizeLocale(undefined), undefined)
 })

@@ -173,7 +173,6 @@ export function PreferencesPage() {
               {selectField('ui.language', '本体の表示言語', [
                 { value: 'ja', label: '日本語', translate: false },
                 { value: 'en', label: 'English', translate: false },
-                { value: 'zh-CN', label: '简体中文', translate: false },
               ])}
             </>
           )}

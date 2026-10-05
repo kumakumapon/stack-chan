@@ -77,7 +77,7 @@ test('successive rounds rotate the bundled set and never duplicate a question wi
 
 test('all bundled answer tables and localized packs are valid', () => {
   const answers: Record<string, string> = { sum: '5', byte: '8', minute: '60', triangle: '3', week: '7', binary: '2' }
-  for (const locale of ['ja', 'en', 'zh-CN']) {
+  for (const locale of ['ja', 'en']) {
     const catalog = JSON.parse(readFileSync(`host/app/strings/${locale}.json`, 'utf8'))
     const pack = bundledQuizQuestions((key) => catalog[key])
     validateQuizQuestions(pack)

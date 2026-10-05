@@ -1,4 +1,4 @@
-export const SUPPORTED_LOCALES = Object.freeze(['ja', 'en', 'zh-CN'])
+export const SUPPORTED_LOCALES = Object.freeze(['ja', 'en'])
 export const DEFAULT_LOCALE = 'ja'
 export const LOCALE_STORAGE_KEY = 'stackchan.locale'
 
@@ -20,7 +20,6 @@ export function normalizeLocale(locale) {
   const normalized = locale.trim().replaceAll('_', '-').toLowerCase()
   if (normalized === 'ja' || normalized.startsWith('ja-')) return 'ja'
   if (normalized === 'en' || normalized.startsWith('en-')) return 'en'
-  if (normalized === 'zh' || normalized.startsWith('zh-')) return 'zh-CN'
   return null
 }
 

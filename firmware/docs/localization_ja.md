@@ -2,7 +2,7 @@
 
 [English](./localization.md)
 
-Firmware は日本語（`ja`）、英語（`en`）、簡体字中国語（`zh-CN`）に対応します。
+Firmware は日本語（`ja`）と英語（`en`）に対応します。
 host と MOD は同じ `context.i18n` API を使えますが、辞書リソースは分離されています。
 
 ## 公開 API
@@ -49,7 +49,6 @@ my_mod/
 └── strings/
     ├── en.json
     ├── ja.json
-    └── zh-CN.json
 ```
 
 すべての辞書に同じキーと同じ placeholder 名を定義します。
@@ -117,9 +116,9 @@ Drawer Button は現在 host の style を使うため、MOD 固有の CJK glyph
 
 ## host の画面を追加する
 
-host の UI では `host/app/strings/{ja,en,zh-CN}.json` の3ファイルへ同じキーを追加し、`localization` module の `localize()` を使います。
+host の UI では `host/app/strings/{ja,en}.json` の2ファイルへ同じキーを追加し、`localization` module の `localize()` を使います。
 placeholder は `{name}` 形式で、各 locale で名前を一致させます。
-architecture test が辞書キー、placeholder、簡体字中国語用 font の glyph を検査します。
+architecture test が両方の辞書キーと placeholder の整合性を検査します。
 
 ## Moddable の公式資料
 

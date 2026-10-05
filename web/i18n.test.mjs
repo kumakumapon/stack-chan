@@ -21,10 +21,10 @@ const placeholders = (value) =>
 test('locale negotiation accepts BCP 47 variants and falls back to Japanese', () => {
   assert.equal(normalizeLocale('ja-JP'), 'ja')
   assert.equal(normalizeLocale('en_US'), 'en')
-  assert.equal(normalizeLocale('zh-Hans-CN'), 'zh-CN')
+  assert.equal(normalizeLocale('zh-Hans-CN'), null)
   assert.equal(normalizeLocale('fr-FR'), null)
-  assert.equal(resolveLocale({ stored: 'en-GB', browser: ['zh-CN'] }), 'en')
-  assert.equal(resolveLocale({ stored: null, browser: ['fr-FR', 'zh-TW'] }), 'zh-CN')
+  assert.equal(resolveLocale({ stored: 'zh-CN', browser: ['en-GB'] }), 'en')
+  assert.equal(resolveLocale({ stored: null, browser: ['fr-FR', 'zh-TW'] }), DEFAULT_LOCALE)
   assert.equal(resolveLocale({ stored: null, browser: ['fr-FR'] }), DEFAULT_LOCALE)
 })
 
