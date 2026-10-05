@@ -8,7 +8,6 @@ export const normalizeLocale = (locale: unknown): Locale | null => {
   const normalized = locale.trim().replaceAll('_', '-').toLowerCase()
   if (normalized === 'ja' || normalized.startsWith('ja-')) return 'ja'
   if (normalized === 'en' || normalized.startsWith('en-')) return 'en'
-  if (normalized === 'zh' || normalized.startsWith('zh-')) return 'zh-CN'
   return null
 }
 

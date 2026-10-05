@@ -4,7 +4,7 @@ import { join } from 'node:path'
 import test from 'node:test'
 import * as fontkit from 'fontkit'
 
-const locales = ['ja', 'en', 'zh-CN'] as const
+const locales = ['ja', 'en'] as const
 const firmwareRoot = process.cwd()
 const catalogs = Object.fromEntries(
   locales.map((locale) => [
@@ -39,27 +39,6 @@ test('firmware localization catalogs have matching keys and placeholders', () =>
       assert.deepEqual(placeholders(catalogs[locale][key]), placeholderContracts[key] ?? [], `${locale}: ${key}`)
     }
   }
-})
-
-test('the Simplified Chinese UI font covers every localized firmware glyph', () => {
-  const font = fontkit.openSync(
-    join(firmwareRoot, 'host', 'modules', 'ui', 'assets', 'fonts', 'StackchanCJK-Regular.ttf'),
-  )
-  const supported = new Set(font.characterSet)
-  const required = new Set(
-    [
-      ...Array.from({ length: 95 }, (_, index) => index + 32),
-      ...locales.flatMap((locale) =>
-        [...Object.values(catalogs[locale]).join('')].map((character) => character.codePointAt(0)),
-      ),
-    ].filter(
-      (codePoint): codePoint is number => codePoint !== undefined && !/\s/u.test(String.fromCodePoint(codePoint)),
-    ),
-  )
-  const missing = [...required]
-    .filter((codePoint) => !supported.has(codePoint))
-    .map((codePoint) => String.fromCodePoint(codePoint))
-  assert.deepEqual(missing, [])
 })
 
 test('the Japanese UI font covers the host Mini App catalogs on embedded targets', () => {

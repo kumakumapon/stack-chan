@@ -26,7 +26,6 @@ type AppShellProps = {
 const localeNames: Record<Locale, string> = {
   ja: '日本語',
   en: 'English',
-  'zh-CN': '简体中文',
 }
 
 export function AppShell({ current, surfaceName, rootHref, children, headerActions, contentClassName }: AppShellProps) {

@@ -10,7 +10,7 @@ const { baseUrl, server } = await startPreview({
   port,
   url: process.env.STACKCHAN_I18N_TEST_URL,
 })
-const locales = ['ja', 'en', 'zh-CN']
+const locales = ['ja', 'en']
 const homeHeadingKey = 'ｽﾀｯｸﾁｬﾝ Webツール'
 const galleryDescriptionKey = '公開済みMODを試して編集する'
 const expectedText = Object.fromEntries(

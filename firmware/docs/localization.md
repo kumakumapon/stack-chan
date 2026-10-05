@@ -2,7 +2,7 @@
 
 [日本語](./localization_ja.md)
 
-The firmware supports Japanese (`ja`), English (`en`), and Simplified Chinese (`zh-CN`).
+The firmware supports Japanese (`ja`) and English (`en`).
 The host and installed MOD use the same `context.i18n` API while keeping their catalog resources separate.
 
 ## Public API
@@ -49,7 +49,6 @@ my_mod/
 └── strings/
     ├── en.json
     ├── ja.json
-    └── zh-CN.json
 ```
 
 Every catalog must define the same keys and placeholder names.
@@ -117,9 +116,9 @@ The minimal sample intentionally uses characters already present in the host fon
 
 ## Add a host screen
 
-For host UI, add the same key to all three files under `host/app/strings/{ja,en,zh-CN}.json` and call `localize()` from the `localization` module.
+For host UI, add the same key to both files under `host/app/strings/{ja,en}.json` and call `localize()` from the `localization` module.
 Use `{name}` placeholders and keep placeholder names identical in every locale.
-Architecture tests verify catalog keys, placeholders, and Simplified Chinese font glyphs.
+Architecture tests verify catalog keys and placeholders across both supported locales.
 
 ## Official Moddable references
 

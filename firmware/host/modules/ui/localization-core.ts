@@ -1,4 +1,4 @@
-export const SUPPORTED_LOCALES = Object.freeze(['ja', 'en', 'zh-CN'] as const)
+export const SUPPORTED_LOCALES = Object.freeze(['ja', 'en'] as const)
 export type SupportedLocale = (typeof SUPPORTED_LOCALES)[number]
 export const DEFAULT_LOCALE: SupportedLocale = 'ja'
 
@@ -19,7 +19,6 @@ export function normalizeLocale(value: unknown): SupportedLocale | undefined {
   const language = value.trim().toLowerCase().split(/[-_]/, 1)[0]
   if (language === 'ja') return 'ja'
   if (language === 'en') return 'en'
-  if (language === 'zh') return 'zh-CN'
   return undefined
 }
 

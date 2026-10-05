@@ -1,4 +1,3 @@
-import { getLocalizationLanguage } from 'localization'
 import type { Skin as PiuSkin, Style as PiuStyle } from 'piu/MC'
 import { Skin, Style } from 'piu/MC'
 
@@ -45,7 +44,7 @@ let cached: FoundationStyles | null = null
 let cachedFont = ''
 
 export function uiFont(): string {
-  return getLocalizationLanguage() === 'zh-CN' ? 'StackchanCJK-12' : 'k8x12-12'
+  return 'k8x12-12'
 }
 
 export function uiStyles(): FoundationStyles {

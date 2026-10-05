@@ -729,7 +729,6 @@ const SettingsLanguageView = {
     const choices: readonly [SupportedLocale, string][] = [
       ['ja', 'language.japanese'],
       ['en', 'language.english'],
-      ['zh-CN', 'language.chineseSimplified'],
     ]
     const content = new Container(null, {
       left: 0,

@@ -12,15 +12,6 @@
         "characterFiles": "../../../../assets/fonts/k8x12-chars.txt",
         "localization": true,
         "monochrome": true
-      },
-      {
-        "source": "../../../../assets/fonts/StackchanCJK-Regular",
-        "name": "StackchanCJK",
-        "size": 12,
-        "characters": " ",
-        "blocks": [],
-        "localization": true,
-        "monochrome": true
       }
     ]
   },
