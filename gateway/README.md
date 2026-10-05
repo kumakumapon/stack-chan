@@ -161,3 +161,5 @@ extra context:
 npm test     # tsc + node --test over dist/
 npm run lint
 ```
+
+LAN-only quiet build notifications and paired messages are available through the independent HTTP inbox. See [通知・伝言の設定とAPI](INBOX_ja.md).

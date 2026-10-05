@@ -240,6 +240,9 @@ jobs:
       - name: Test offline daily Mini Apps in the simulator
         working-directory: ./web
         run: node simulator/daily-mini-apps-test.mjs
+      - name: Verify Daily Workshop through WASM
+        working-directory: ./web
+        run: node simulator/workshop-test.mjs
       - name: Upload compiled simulator
         uses: actions/upload-artifact@v7
         with:

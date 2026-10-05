@@ -1,9 +1,11 @@
 import { loadPreferenceConfig } from 'loadPreference'
+import { chunkStorage } from 'chunk-storage'
 import { DOMAIN, PREF_KEYS } from 'consts'
 import { getLocalizationLanguage, normalizeLocale, type SupportedLocale, setLocalizationLanguage } from 'localization'
 import { NetworkConnectionState, type NetworkConnectionState as NetworkState } from 'network-state'
 import Preference from 'preference'
 import { PreferenceServer } from 'preference-server'
+import { createQuizTransfer } from 'quiz-transfer'
 import { createSettingsNetworkEntries, type RawWiFiScanResult, type SettingsNetworkEntry } from 'settings-network-list'
 import { createInitialSettingsStatus } from 'settings-status'
 import {
@@ -248,6 +250,7 @@ export function startSetupMode(application: SettingsApplication): Promise<SetupM
     showView(SettingsViewId.MENU)
 
     preferenceServer = new PreferenceServer({
+      onWorkshopCommand: createQuizTransfer(chunkStorage(Preference, 'sc_deck')),
       onPreferenceChanged: (key, value) => {
         trace(`preference changed! ${key}\n`)
         if (key === `${DOMAIN.ui}.language`) {

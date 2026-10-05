@@ -14,6 +14,8 @@ import type { VadOptions } from '../audio/vad.ts'
 import type { GatewayConfig } from '../config.ts'
 import type { ToolDefinition } from '../tools/tool-types.ts'
 import { createAuthenticator } from './authenticator.ts'
+import { createInbox, handleInbox } from './inbox.ts'
+import { inboxPage } from './inbox-page.ts'
 import { createSessionManager, type SessionManager } from './session-manager.ts'
 
 export type GatewayServerOptions = {
@@ -50,6 +52,7 @@ function vadOptionsFromConfig(vad: GatewayConfig['audio']['vad']): Omit<VadOptio
 export function createGatewayServer(options: GatewayServerOptions): GatewayServer {
   const logger = options.logger ?? ((message: string) => console.log(message))
   const { config } = options
+  const inbox = createInbox({ devices: config.devices, sharedToken: config.token })
   const vad = vadOptionsFromConfig(config.audio.vad)
   const sessions = createSessionManager({
     backend: options.backend,
@@ -81,9 +84,26 @@ export function createGatewayServer(options: GatewayServerOptions): GatewayServe
     sessions,
     listen() {
       if (http) throw new Error('the Gateway server is already listening')
-      const server = createServer((_request, response) => {
-        response.writeHead(426, { 'content-type': 'text/plain' })
-        response.end('the Stack-chan Gateway speaks WebSocket only\n')
+      const server = createServer((request, response) => {
+        if (request.method === 'GET' && request.url === '/inbox') {
+          response.writeHead(200, {
+            'content-type': 'text/html; charset=utf-8',
+            'cache-control': 'no-store',
+            'x-content-type-options': 'nosniff',
+          })
+          response.end(inboxPage)
+          return
+        }
+        void handleInbox(request, response, inbox, config.inbox?.allowedOrigins)
+          .then((handled) => {
+            if (handled) return
+            response.writeHead(426, { 'content-type': 'text/plain' })
+            response.end('the Stack-chan Gateway speaks WebSocket only\n')
+          })
+          .catch(() => {
+            if (!response.headersSent) response.writeHead(500)
+            response.end()
+          })
       })
       const socketServer = new WebSocketServer({ server, path: config.listen.path })
       http = server

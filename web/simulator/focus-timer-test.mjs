@@ -78,8 +78,8 @@ try {
     const openTimer = async () => {
       await tap(160, 110) // Reveal face AppBar.
       await tap(270, 22) // Mini App launcher.
-      if (pet) await dragLcd(page, 215, 60)
-      await tap(140, pet ? 210 : 206) // The timer is last, below Quiz, Memory and Quests.
+      await dragLcd(page, 215, 60)
+      await tap(140, 210) // The timer is the last row after scrolling.
     }
     const pixel = () =>
       page

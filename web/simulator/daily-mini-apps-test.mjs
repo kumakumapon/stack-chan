@@ -68,9 +68,12 @@ try {
     const open = async (row) => {
       await tap(160, 110)
       await tap(270, 22)
-      await tap(140, 74 + row * 44)
+      if (row >= 4) {
+        await dragLcd(page, 215, 60)
+        await tap(140, 166)
+      } else await tap(140, 74 + row * 44)
     }
-    await open(pet ? 3 : 2)
+    await open(pet ? 4 : 3)
     await capture('quest')
     await tap(140, 84)
     assert.deepEqual((await saved('quest')).done, [true, false, false])
@@ -84,7 +87,7 @@ try {
     await tap(22, 22)
     await page.reload()
     await boot()
-    await open(pet ? 3 : 2)
+    await open(pet ? 4 : 3)
     await capture('quest-restored')
     assert.deepEqual((await saved('quest')).done, [true, true, true])
     await tap(22, 22)

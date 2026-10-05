@@ -100,7 +100,9 @@ def put_alpha(atlas: Image.Image, sprite: Image.Image, column: int, row: int) ->
 
 def save_alpha_texture(alpha: Image.Image, path: Path) -> None:
     texture = Image.new("RGBA", alpha.size, (255, 255, 255, 0))
-    texture.putalpha(alpha)
+    # Match png2bmp -alpha-monochrome: alpha >= 128 is opaque. Keeping the
+    # existing binary silhouette before RLE4 packing avoids antialias payload.
+    texture.putalpha(alpha.point(lambda value: 255 if value >= 128 else 0))
     texture.save(path, optimize=True)
 
 

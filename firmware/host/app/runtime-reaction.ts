@@ -1,3 +1,4 @@
+import { validateStudio } from 'workshop-model'
 /**
  * Wires the reaction and performance capabilities (issues #35/#36) onto the
  * app runtime context. This builds one `PerformanceStage` over a small,
@@ -113,6 +114,7 @@ export type ReactionCapability = {
 
 /** Structurally identical to `capabilities.ts`'s `PerformanceCapability` — see the file header. */
 export type PerformanceCapability = {
+  playStudio?(value: unknown): PerformancePlayResult
   readonly names: readonly PerformanceName[]
   play(name: PerformanceName, options?: PerformanceOptions): PerformancePlayResult
   cancel(): boolean
@@ -333,6 +335,18 @@ export function createReactionRuntime(deps: ReactionRuntimeDeps): ReactionRuntim
   }
 
   const performance: PerformanceCapability = {
+    playStudio(value) {
+      try {
+        validateStudio(value)
+      } catch (error) {
+        return { ok: false, error: String(error) }
+      }
+      if (reactionPlayer.status().active || performancePlayer.status().active) return { ok: false, error: 'stage busy' }
+      return performancePlayer.play(
+        { name: 'studio', cues: value.cues.map((cue) => ({ ...cue })), durationMs: value.durationMs, restore: true },
+        { intensity: 0.3 },
+      )
+    },
     names: PERFORMANCE_NAMES,
     play(name, options) {
       if (reactionPlayer.status().active !== null) reactionPlayer.cancel()

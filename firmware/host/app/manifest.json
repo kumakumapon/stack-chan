@@ -28,6 +28,7 @@
     "./manifest_typings.json"
   ],
   "modules": {
+    "workshop-http": "./workshop-http",
     "*": [
       "./main",
       "./app-behavior",
@@ -45,6 +46,13 @@
       "./memory-game-host",
       "./memory-game-mini-app",
       "./life-quest",
+      "./workshop-model",
+      "./workshop-service",
+      "./workshop-mini-app",
+      "./workshop-store",
+      "./inbox-model",
+      "./chunk-storage",
+      "./quiz-transfer",
       "./quiz",
       "./quiz-questions",
       "./daily-mini-apps",
@@ -75,7 +83,8 @@
     "app-default-behavior/on-context-created": "./default-behavior/on-context-created",
     "app-default-behavior/companion": "./default-behavior/companion",
     "app-default-behavior/on-launch": "./default-behavior/on-launch",
-    "app-default-behavior/startup-choice": "./default-behavior/startup-choice"
+    "app-default-behavior/startup-choice": "./default-behavior/startup-choice",
+    "monotonic-clock": "./monotonic-clock"
   },
   "preload": [
     "runtime-context",
@@ -122,7 +131,7 @@
       {
         "source": "../modules/ui/assets/fonts/k8x12",
         "size": 24,
-        "characters": "Stack-chan[・＿・]0123456789:ABCDEFGHIJKLMNOPQRSTUVWXYZ",
+        "characters": "Stack-chan[\u30fb\uff3f\u30fb]0123456789:ABCDEFGHIJKLMNOPQRSTUVWXYZ",
         "monochrome": true
       }
     ]

@@ -108,3 +108,17 @@ test('play history selects a derived tendency without changing saved identity', 
   assert.equal(petTendency({ pettings: 4, games: 1 }), 'cuddly')
   assert.equal(petTendency({ pettings: 1, games: 4 }), 'playful')
 })
+
+test('activity rewards survive restart without replay and rapid completions cannot farm XP', () => {
+  const event = { type: 'activityCompleted', kind: 'quiz-complete', eventId: 'activity-1', score: 999, now: 1000 }
+  const first = applyPetEvent(createPetState(), event).state
+  assert.equal(first.xp, 2)
+  const restored = decodePetState(encodePetState(first))
+  assert.equal(applyPetEvent(restored, { ...event, now: 20000 }).state.xp, 2)
+  const rapid = applyPetEvent(restored, { ...event, eventId: 'activity-2', now: 2000 }).state
+  assert.equal(rapid.xp, 2)
+  assert.equal(applyPetEvent(rapid, { ...event, eventId: 'activity-2', now: 30000 }).state.xp, 2)
+  const later = applyPetEvent(rapid, { ...event, eventId: 'activity-3', now: 30000 }).state
+  assert.equal(later.xp, 4)
+  assert.equal(applyPetEvent(later, { ...event, kind: 'setXp', eventId: 'activity-4', now: 50000 }).state.xp, 4)
+})

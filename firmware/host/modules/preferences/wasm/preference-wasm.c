@@ -170,3 +170,31 @@ void xs_stackchan_wasm_daily_preference_delete(xsMachine* the)
 	}, index);
 	if (failed) xsUnknownError("daily app delete failed");
 }
+
+void xs_workshop_preference(xsMachine* the) {
+  const char* json = xsmcToString(xsArg(0));
+  char* result = (char*)EM_ASM_PTR({
+    let result;
+    try {
+      const input = JSON.parse(UTF8ToString($0));
+      const action = input.action; const domain = input.domain; const key = input.key; const value = input.value;
+      if (!'sc_deck sc_workshop sc_inbox sc_activity sc_quiz'.split(' ').includes(domain) || !/^(state|meta|b[01]c[0-9][0-9]?)$/.test(key)) throw Error('Invalid workshop key');
+      const name = 'stackchan.workshop.' + domain + '.' + key;
+      if (action === 'set') {
+        if (typeof value !== 'string' || value.length > 4096) throw Error('Workshop state too large');
+        localStorage.setItem(name, value);
+      } else if (action === 'delete') localStorage.removeItem(name);
+      else if (action !== 'get') throw Error('Invalid storage action');
+      const saved = action === 'get' ? localStorage.getItem(name) : null;
+      if (saved && saved.length > 4096) throw Error('Workshop state too large');
+      result = {value: saved};
+    } catch { result = {error: 'Workshop storage unavailable'}; }
+    const text = JSON.stringify(result);
+    const pointer = _malloc(lengthBytesUTF8(text) + 1);
+    if (pointer) stringToUTF8(text, pointer, lengthBytesUTF8(text) + 1);
+    return pointer;
+  }, json);
+  if (!result) xsUnknownError("no memory");
+  xsmcSetString(xsResult, result);
+  free(result);
+}

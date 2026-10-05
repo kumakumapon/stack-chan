@@ -10,6 +10,12 @@ export type MiniAppContext = Readonly<{
   reportResult(score: number): void
 }>
 
+export type MiniAppActivity = Readonly<{
+  kind: 'quest-complete' | 'quiz-complete' | 'memory-complete'
+  eventId: string
+  score: number
+}>
+
 export type MiniAppResult = Readonly<{ id: string; score: number }>
 
 export type MiniAppInstance = Readonly<{
@@ -28,6 +34,8 @@ export type RegisteredMiniApp = Readonly<Pick<MiniAppDefinition, 'id' | 'title' 
 
 export type MiniAppRegistryCapability = Readonly<{
   register(definition: MiniAppDefinition): () => void
+  subscribeActivity?(listener: (activity: MiniAppActivity) => void): () => void
+  reportActivity?(activity: MiniAppActivity): void
   subscribeResult(listener: (result: MiniAppResult) => void): () => void
   /** Optional on older hosts. Updates launcher metadata without reopening any screen. */
   setStatus?(id: string, status?: string): void
@@ -66,6 +74,7 @@ export class MiniAppRegistry implements MiniAppRegistryCapability {
   #definitions = new Map<string, MiniAppDefinition>()
   #listeners = new Set<RegistryListener>()
   #resultListeners = new Set<(result: MiniAppResult) => void>()
+  #activityListeners = new Set<(activity: MiniAppActivity) => void>()
   #statuses = new Map<string, string>()
 
   register(definition: MiniAppDefinition): () => void {
@@ -116,6 +125,24 @@ export class MiniAppRegistry implements MiniAppRegistryCapability {
     if (status) this.#statuses.set(id, status)
     else this.#statuses.delete(id)
     this.#notify()
+  }
+
+  subscribeActivity(listener: (activity: MiniAppActivity) => void): () => void {
+    this.#activityListeners.add(listener)
+    return () => this.#activityListeners.delete(listener)
+  }
+
+  reportActivity(activity: MiniAppActivity): void {
+    if (
+      !['quest-complete', 'quiz-complete', 'memory-complete'].includes(activity.kind) ||
+      !/^activity-[1-9][0-9]{0,15}$/.test(activity.eventId) ||
+      !Number.isFinite(activity.score) ||
+      activity.score < 0 ||
+      activity.score > 1000
+    )
+      return
+    const event = Object.freeze({ ...activity })
+    for (const listener of this.#activityListeners) listener(event)
   }
 
   reportResult(id: string, score: number): void {

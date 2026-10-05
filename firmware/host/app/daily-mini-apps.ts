@@ -2,14 +2,20 @@ import { LIFE_QUEST_TASKS, LifeQuest, type MiniAppStorage } from 'life-quest'
 import { localize } from 'localization'
 import type { MiniAppDefinition } from 'mini-app'
 import { Container, Label, type Content as PiuContent, Text } from 'piu/MC'
-import { Quiz } from 'quiz'
+import { Quiz, type QuizQuestion } from 'quiz'
 import { bundledQuizQuestions } from 'quiz-questions'
 import { ActionButton } from 'ui-controls'
 import { uiStyles } from 'ui-theme'
 
 export const LIFE_QUEST_APP_ID = 'stackchan.life-quest'
 export const QUIZ_APP_ID = 'stackchan.quiz'
-type Options = { storage: MiniAppStorage; suppressIdle(): () => void }
+type Options = {
+  storage: MiniAppStorage
+  suppressIdle(): () => void
+  activity?(kind: 'quest-complete' | 'quiz-complete', score: number): void
+  react?(): () => void
+  quizSession?(): { questions: readonly QuizQuestion[]; storage: MiniAppStorage } | undefined
+}
 
 function button(name: string, label: string, onTap: () => void, top: number, selected = false): PiuContent {
   const control = new ActionButton(
@@ -46,6 +52,7 @@ export function createLifeQuestApp(options: Options): MiniAppDefinition {
       })
       let confirming = false
       let disposed = false
+      let cancelReaction: (() => void) | undefined
       const render = () => {
         if (disposed) return
         const state = model.snapshot()
@@ -92,7 +99,15 @@ export function createLifeQuestApp(options: Options): MiniAppDefinition {
               `${state.done[index] ? '[x]' : '[ ]'} ${localize(`quest.task.${LIFE_QUEST_TASKS[index]}`)}`,
               () => {
                 if (disposed) return
-                model.setDone(index, !state.done[index])
+                if (
+                  model.setDone(index, !state.done[index]) &&
+                  model.snapshot().celebration &&
+                  !model.snapshot().storageFailed
+                ) {
+                  options.activity?.('quest-complete', 3)
+                  cancelReaction?.()
+                  cancelReaction = options.react?.()
+                }
                 render()
               },
               24 + index * 36,
@@ -131,6 +146,7 @@ export function createLifeQuestApp(options: Options): MiniAppDefinition {
         dispose() {
           disposed = true
           model.close()
+          cancelReaction?.()
           releaseIdle()
         },
       }
@@ -144,7 +160,8 @@ export function createQuizApp(options: Options): MiniAppDefinition {
     title: localize('quiz.title'),
     icon: 'play',
     create() {
-      const model = new Quiz(bundledQuizQuestions(localize), options.storage)
+      const session = options.quizSession?.()
+      const model = new Quiz(session?.questions ?? bundledQuizQuestions(localize), session?.storage ?? options.storage)
       const releaseIdle = options.suppressIdle()
       const content = new Container(null, {
         name: 'quizApp',
@@ -155,6 +172,7 @@ export function createQuizApp(options: Options): MiniAppDefinition {
         skin: uiStyles().screen,
       })
       let disposed = false
+      let cancelReaction: (() => void) | undefined
       const render = () => {
         if (disposed) return
         const state = model.snapshot()
@@ -230,7 +248,11 @@ export function createQuizApp(options: Options): MiniAppDefinition {
                 'quizNext',
                 localize(state.position === 3 ? 'quiz.result' : 'quiz.next'),
                 () => {
-                  model.next()
+                  if (model.next() && model.snapshot().phase === 'complete' && !model.snapshot().storageFailed) {
+                    options.activity?.('quiz-complete', model.snapshot().score)
+                    cancelReaction?.()
+                    cancelReaction = options.react?.()
+                  }
                   render()
                 },
                 24,
@@ -258,6 +280,7 @@ export function createQuizApp(options: Options): MiniAppDefinition {
         dispose() {
           disposed = true
           model.close()
+          cancelReaction?.()
           releaseIdle()
         },
       }

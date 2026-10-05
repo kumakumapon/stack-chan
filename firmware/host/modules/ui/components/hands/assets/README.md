@@ -3,9 +3,11 @@
 The runtime hand colors are not baked into these images. Draw
 `hands-outer-mask.png` with the face primary color, then draw
 `hands-inner-mask.png` at the same position with the face secondary color.
-The UI manifests use Moddable's supported `*-alpha-monochrome` resource target
-so both masks stay compact one-bit alpha textures while retaining their PNG
-resource names at the Piu API boundary.
+The UI manifests use Moddable's `*-mask` resource target (RLE4 compression).
+The sparse alpha masks now occupy 94,354 bytes in the generated WASM resource
+table, compared with 154,896 bytes as fixed one-bit textures. The atlas generator applies the same alpha >= 128 threshold as the previous
+monochrome build before RLE4 packing, preserving every silhouette pixel, cell,
+color, dimension and PNG resource name at the Piu API boundary.
 
 Both atlases are 704 x 880 pixels and use 88 x 88 pixel cells. The artwork
 still has a maximum 76-pixel extent; the smaller cells only remove transparent

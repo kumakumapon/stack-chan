@@ -16,7 +16,6 @@ import {
   PERFORMANCE_LIMITS,
   type PerformanceCue,
   type PerformanceEndReason,
-  type PerformanceName,
   type PerformanceOptions,
   type PerformancePlayResult,
   type PerformanceStatus,
@@ -40,7 +39,7 @@ export type PerformanceLookups = {
 
 export type PerformancePlayerOptions = PerformanceLookups & {
   stage: PerformanceStage
-  onEnd?: (name: PerformanceName, reason: PerformanceEndReason) => void
+  onEnd?: (name: PerformanceTimeline['name'], reason: PerformanceEndReason) => void
   trace?: (message: string) => void
   maxCatchUpMs?: number
 }

@@ -17,6 +17,7 @@ import Modules from 'modules'
 import { Label, Style } from 'piu/MC'
 import { showStartupSplash, showWiFiConnectionStatus, showWiFiRecoveryChoice } from 'startup-splash'
 import { applyTimezone } from 'timezone-settings'
+import { installWorkshop } from 'workshop-mini-app'
 
 type DeviceButton = {
   onChanged: (this: DeviceButton) => void
@@ -191,6 +192,7 @@ async function main() {
     bootStage = 'mini apps'
     registerExperimentalMiniApps(experimentalMiniApps, context.ui.miniApps)
     installFocusTimer(context)
+    installWorkshop(context)
     installMemoryGame(context)
     installDailyMiniApps(context)
     trace('[main] app context created\n')

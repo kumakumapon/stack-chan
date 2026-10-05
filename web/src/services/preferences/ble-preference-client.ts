@@ -127,8 +127,12 @@ export class BlePreferenceClient implements PreferenceClient {
   async send(payload: { _batch: Record<string, string> }) {
     if (!this.rx || !this.isConnected()) throw new AppError('not-connected', 'ｽﾀｯｸﾁｬﾝへ接続していません')
     const bytes = this.encoder.encode(JSON.stringify(payload))
-    for (let index = 0; index < bytes.length; index += 128) {
-      await this.rx.writeValue(bytes.slice(index, index + 128))
+    for (let index = 0; index < bytes.length;) {
+      let end = Math.min(index + 128, bytes.length)
+      // Firmware decodes each GATT write as UTF-8, so never split a code point.
+      while (end < bytes.length && end > index && (bytes[end]! & 0xc0) === 0x80) end--
+      await this.rx.writeValue(bytes.slice(index, end))
+      index = end
     }
   }
 

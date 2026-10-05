@@ -30,11 +30,11 @@ describe('BlePreferenceClient', () => {
   it('reuses devices and characteristics without accumulating event listeners', async () => {
     const tx = Object.assign(new FakeEventTarget(), {
       startNotifications: vi.fn(async () => {}),
-      writeValue: vi.fn(async () => {}),
+      writeValue: vi.fn(async (_value: Uint8Array) => {}),
     })
     const rx = Object.assign(new FakeEventTarget(), {
       startNotifications: vi.fn(async () => {}),
-      writeValue: vi.fn(async () => {}),
+      writeValue: vi.fn(async (_value: Uint8Array) => {}),
     })
     const device = Object.assign(new FakeEventTarget(), {
       gatt: {
@@ -68,6 +68,19 @@ describe('BlePreferenceClient', () => {
       target: { value: new TextEncoder().encode(JSON.stringify({ prop: 'wifi.ssid', value: 'stackchan' })) },
     })
     expect(onValue).toHaveBeenCalledOnce()
+
+    const message = { _batch: { 'workshop.command': 'a'.repeat(90) + '熊🐻'.repeat(100) } }
+    await client.send(message)
+    const packets = rx.writeValue.mock.calls.map(([value]) => value as unknown as Uint8Array)
+    const decoder = new TextDecoder('utf-8', { fatal: true })
+    expect(packets.length).toBeGreaterThan(1)
+    const received = packets
+      .map((packet) => {
+        expect(packet.byteLength).toBeLessThanOrEqual(128)
+        return decoder.decode(packet)
+      })
+      .join('')
+    expect(JSON.parse(received.trim())).toEqual(message)
 
     await client.disconnect()
     expect(device.listeners.get('gattserverdisconnected')?.size).toBe(0)

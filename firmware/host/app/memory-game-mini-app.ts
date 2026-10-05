@@ -14,7 +14,13 @@ export function createMemoryGameApp(options: MemoryGameOptions & { suppressIdle(
     icon: 'play',
     create({ reportResult }) {
       const styles = uiStyles()
-      const game = new MemoryGame({ ...options, onResult: reportResult })
+      const game = new MemoryGame({
+        ...options,
+        onResult: (score) => {
+          reportResult(score)
+          options.onResult?.(score)
+        },
+      })
       const releaseIdle = options.suppressIdle()
       const status = new Label(null, {
         name: 'memoryStatus',

@@ -6,6 +6,7 @@ import { SERVICE_UUID, UARTServer } from 'uartserver'
 type PreferenceValue = string | boolean | number | ArrayBuffer
 
 type PreferenceServerProps = {
+  onWorkshopCommand?: (command: string) => string
   onPreferenceChanged?: (key: string, value: ReturnType<(typeof Preference)['get']>) => void
   onConnected?: () => void
   onDisconnected?: () => void
@@ -20,11 +21,13 @@ export class PreferenceServer extends UARTServer {
   #readOnlyKeys
   #rxBuffer = ''
   #timeout
+  #workshopCommand?: (command: string) => string
   #handlePreferenceChanged?: (key: string, value: PreferenceValue) => void
   #handleConnected?: () => void
   #handleDisconnected?: () => void
   constructor(option: PreferenceServerProps) {
     super()
+    this.#workshopCommand = option?.onWorkshopCommand
     this.deviceName = 'STK'
     if (option != null) {
       this.#handlePreferenceChanged = option.onPreferenceChanged
@@ -43,6 +46,7 @@ export class PreferenceServer extends UARTServer {
     this.#handleConnected?.()
   }
   onDisconnected() {
+    this.#workshopCommand?.('{"action":"cancel"}')
     this.advertise()
     this.#handleDisconnected?.()
   }
@@ -82,7 +86,10 @@ export class PreferenceServer extends UARTServer {
   }
   onRX(data) {
     this.#rxBuffer += String.fromArrayBuffer(data)
-    trace(`${this.#rxBuffer}\n`)
+    if (this.#rxBuffer.length > 32768) {
+      this.#rxBuffer = ''
+      return
+    }
     let _batch: object
     let prop: string
     let value: PreferenceValue
@@ -137,6 +144,13 @@ export class PreferenceServer extends UARTServer {
   }
 
   receiveAndSetPreference(domain: string, key: string, value: PreferenceValue) {
+    if (domain === 'workshop' && key === 'command') {
+      this.notifyPreference(
+        'workshop.reply',
+        typeof value === 'string' ? (this.#workshopCommand?.(value) ?? '{"ok":false}') : '{"ok":false}',
+      )
+      return
+    }
     const prop = `${domain}.${key}`
     if (this.#readOnlyKeys.includes(prop)) {
       trace(`ignoring read-only preference ... ${prop}: ${value}\n`)

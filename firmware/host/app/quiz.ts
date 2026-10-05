@@ -19,7 +19,7 @@ export type QuizSnapshot = Readonly<{
   storageFailed: boolean
 }>
 
-/** Limits are also suitable for a future import path; no JSON import UI is exposed yet. */
+/** Structural limits shared by bundled questions and validated custom decks. */
 export function validateQuizQuestions(value: unknown): asserts value is readonly QuizQuestion[] {
   const text = (item: unknown, limit: number) =>
     typeof item === 'string' && item.trim().length > 0 && item.length <= limit

@@ -28,6 +28,7 @@ export function createWasmPreference(
   petPersistence?: StatePersistence,
   focusPersistence?: StatePersistence,
   dailyPersistence?: { quest: StatePersistence; quiz: StatePersistence },
+  workshopPersistence?: (domain: string, key: string) => StatePersistence | undefined,
 ) {
   const values: PreferenceStore = Object.create(null)
   const persistenceFor = (domain: string, key: string) =>
@@ -39,7 +40,7 @@ export function createWasmPreference(
           ? dailyPersistence?.quest
           : domain === 'stackchan_quiz' && key === 'state'
             ? dailyPersistence?.quiz
-            : undefined
+            : workshopPersistence?.(domain, key)
 
   return {
     get(domain: string, key: string): unknown {

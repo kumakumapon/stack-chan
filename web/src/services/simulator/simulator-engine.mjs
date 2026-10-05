@@ -1,3 +1,4 @@
+import { createWorkshopBridge } from '../../../simulator/workshop-bridge.mjs'
 import * as THREE from 'three'
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js'
@@ -939,6 +940,7 @@ export class SimulatorEngine {
     this.buttonBridge = createHostButtonBridge({ logger: (message) => this.onTrace(message) })
     this.touchPanelBridge = createHostTouchPanelBridge({ logger: (message) => this.onTrace(message) })
     this.imuBridge = createHostImuBridge({ logger: (message) => this.onTrace(message) })
+    this.workshopBridge = createWorkshopBridge()
     this.performanceBridge = createHostPerformanceBridge({
       logger: (message) => this.onTrace(message),
       onStatus: (status) => this.onPerformanceStatus(status),
@@ -972,6 +974,7 @@ export class SimulatorEngine {
       // Unlike the profile-gated sensors above, every profile's firmware links the
       // reaction/performance capabilities, so Host.Performance is always present.
       Performance: this.performanceBridge,
+      Workshop: this.workshopBridge,
       Conversation: this.conversationBridge,
     }
     this.wasmView = new WasmView({
@@ -1045,11 +1048,13 @@ export class SimulatorEngine {
     const bytes = new Uint8Array(await file.arrayBuffer())
     const installedMod = await this.modStorage.saveInstalledMod({ name: file.name, bytes })
     this.onModStatus({ status: 'restarting' }, installedMod)
+    this.workshopBridge.reset()
     await this.wasmView.restart()
   }
 
   async restart() {
     this.onModStatus({ status: 'restarting' })
+    this.workshopBridge.reset()
     await this.wasmView.restart()
   }
 
@@ -1181,6 +1186,8 @@ export class SimulatorEngine {
     return this.performanceBridge.getStatus()
   }
 
+  workshopCommand(command) { return this.workshopBridge.command(command) }
+
   playReaction(name, options) {
     this.performanceBridge.enqueue({ target: 'reaction', action: 'play', name, options })
   }
@@ -1217,6 +1224,7 @@ export class SimulatorEngine {
     this.scene.dispose()
     this.cameraBridge.stop()
     this.conversationBridge.close()
+    this.workshopBridge.reset()
     this.audioOutBridge.close()
     this.touchPanelBridge.cancel()
     this.imuBridge.cancel()

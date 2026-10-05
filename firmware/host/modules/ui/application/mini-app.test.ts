@@ -69,3 +69,19 @@ test('status updates preserve definitions, notify only on changes and clear on u
   registry.register({ id: 'focus', title: 'Focus', create: () => content })
   assert.equal(registry.list()[0].status, undefined)
 })
+
+test('activity subscriptions accept bounded typed events and unsubscribe cleanly', () => {
+  const registry = new MiniAppRegistry()
+  const received: unknown[] = []
+  const unsubscribe = registry.subscribeActivity((event) => received.push(event))
+  const event = { kind: 'quiz-complete' as const, eventId: 'activity-1', score: 3 }
+  registry.reportActivity(event)
+  assert.deepEqual(received, [event])
+  assert.equal(Object.isFrozen(received[0]), true)
+  registry.reportActivity({ ...event, score: Infinity })
+  registry.reportActivity({ ...event, eventId: 'arbitrary' })
+  assert.equal(received.length, 1)
+  unsubscribe()
+  registry.reportActivity({ ...event, eventId: 'activity-2' })
+  assert.equal(received.length, 1)
+})

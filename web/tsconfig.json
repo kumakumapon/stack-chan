@@ -2,7 +2,11 @@
   "compilerOptions": {
     "target": "ES2022",
     "useDefineForClassFields": true,
-    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "lib": [
+      "ES2022",
+      "DOM",
+      "DOM.Iterable"
+    ],
     "allowJs": true,
     "skipLibCheck": true,
     "esModuleInterop": true,
@@ -16,9 +20,20 @@
     "noEmit": true,
     "jsx": "react-jsx",
     "paths": {
-      "@/editor/*": ["./editor/*"],
-      "@/*": ["./src/*"]
+      "@/editor/*": [
+        "./editor/*"
+      ],
+      "@/*": [
+        "./src/*"
+      ],
+      "quiz": [
+        "../firmware/host/app/quiz.ts"
+      ]
     }
   },
-  "include": ["src", "vite.config.ts", "vitest.config.ts"]
+  "include": [
+    "src",
+    "vite.config.ts",
+    "vitest.config.ts"
+  ]
 }

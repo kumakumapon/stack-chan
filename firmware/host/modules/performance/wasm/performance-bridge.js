@@ -32,10 +32,12 @@ export function installWasmPerformance(context) {
   if (!context?.reaction || !context.performance) return false
 
   let ticksSinceStatus = 0
+  let wasActive = false
 
   const pushStatusNow = () => {
     pushStatus(JSON.stringify(buildStatusPayload(context)))
     ticksSinceStatus = 0
+    wasActive = isPerformanceBridgeActive(context)
   }
 
   Timer.repeat(() => {
@@ -53,7 +55,7 @@ export function installWasmPerformance(context) {
 
     ticksSinceStatus += 1
     if (ticksSinceStatus >= STATUS_INTERVAL_TICKS) {
-      if (isPerformanceBridgeActive(context)) pushStatusNow()
+      if (isPerformanceBridgeActive(context) || wasActive) pushStatusNow()
       else ticksSinceStatus = 0
     }
   }, POLL_INTERVAL_MS)
