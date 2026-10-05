@@ -301,7 +301,7 @@ const unsupportedLocaleView = settingsViews[SettingsViewId.WIFI].create(context)
 mount(unsupportedLocaleView)
 const unsupportedLocaleHeader = unsupportedLocaleView.content.first as PiuContent
 const fallbackLabel = unsupportedLocaleHeader.next as PiuContent & { string?: string }
-equal(fallbackLabel.string, 'Wi-Fi：接続済み', 'unsupported settings locale should fall back to Japanese')
+equal(fallbackLabel.string, 'Wi-Fi: 接続済み', 'unsupported settings locale should fall back to Japanese')
 setLocalizationLanguage('ja')
 
 trace('ok\n')
