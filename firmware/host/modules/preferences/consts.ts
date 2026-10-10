@@ -42,6 +42,7 @@ export const PREF_KEYS: readonly [keyof typeof DOMAIN, string, StringConstructor
     [DOMAIN.gateway, 'microphone', Number],
     [DOMAIN.companion, 'greetingOnBoot', Number],
     [DOMAIN.companion, 'idleReactions', Number],
+    [DOMAIN.companion, 'lowBatteryNotice', Number],
   ],
   true,
 )

@@ -1,5 +1,7 @@
 import type { StackchanAppBehavior } from 'app-behavior'
+import { createCompanionBattery } from 'companion-battery'
 import { isCompanionIdleSuppressed } from 'companion-idle'
+import { localize } from 'localization'
 import Modules from 'modules'
 import Timer from 'timer'
 
@@ -20,6 +22,7 @@ export const installCompanion: NonNullable<StackchanAppBehavior['onContextCreate
   let closed = false
   let lastAction = Date.now()
   let lastIdle = ''
+  let noticeBalloon = false // true only while our own low-battery balloon is on screen
   const isFree = () =>
     !closed &&
     controller?.companionIdle !== false &&
@@ -90,6 +93,7 @@ export const installCompanion: NonNullable<StackchanAppBehavior['onContextCreate
     }
   const unsubscribe = remote?.subscribe((state, error) => {
     lastAction = Date.now()
+    noticeBalloon = false
     if (state === 'standby') {
       robot.hideBalloon()
       return
@@ -116,6 +120,40 @@ export const installCompanion: NonNullable<StackchanAppBehavior['onContextCreate
   const removeTouch = robot.touchPanel?.subscribe(() => {
     lastAction = Date.now()
   })
+  const loadBatteryReader = (): (() => number | undefined) | undefined => {
+    if (settings.lowBatteryNotice === 0 || settings.lowBatteryNotice === false) return undefined
+    if (!Modules.has('battery-status')) return undefined
+    try {
+      return Modules.importNow('battery-status') as () => number | undefined
+    } catch (error) {
+      trace(`[companion] battery status unavailable: ${String(error)}
+`)
+      return undefined
+    }
+  }
+  let noticeTimer: ReturnType<typeof Timer.set> | undefined
+  const battery = createCompanionBattery({
+    readLevel: loadBatteryReader(),
+    timer: Timer,
+    onLow: () => {
+      if (!isFree() || (remote && remote.state !== 'standby')) return false
+      robot.reaction.play('sleepy-yawn', { intensity: 0.2 })
+      robot.showBalloon(localize('companion.lowBattery'))
+      noticeBalloon = true
+      if (noticeTimer) Timer.clear(noticeTimer)
+      noticeTimer = Timer.set(() => {
+        noticeTimer = undefined
+        if (noticeBalloon) robot.hideBalloon()
+        noticeBalloon = false
+      }, 5000)
+      return true
+    },
+  })
+  // Low battery stretches idle gaps and keeps only the calmest reaction.
+  const getIdlePlan = () =>
+    battery?.isLow()
+      ? { gapScale: 3, candidates: ['sleepy-yawn'] as const }
+      : { gapScale: 1, candidates: ['yes', 'thinking', 'sleepy-yawn'] as const }
   const schedule = () => {
     idle = Timer.set(
       () => {
@@ -126,7 +164,9 @@ export const installCompanion: NonNullable<StackchanAppBehavior['onContextCreate
           Date.now() - lastAction >= 30000 &&
           isFree()
         ) {
-          const names = (['yes', 'thinking', 'sleepy-yawn'] as const).filter((name) => name !== lastIdle)
+          const { candidates } = getIdlePlan()
+          const fresh = candidates.filter((name) => name !== lastIdle)
+          const names = fresh.length > 0 ? fresh : candidates
           const name = names[Math.floor(Math.random() * names.length)]
           lastIdle = name
           lastAction = Date.now()
@@ -134,7 +174,7 @@ export const installCompanion: NonNullable<StackchanAppBehavior['onContextCreate
         }
         if (!closed) schedule()
       },
-      30000 + Math.floor(Math.random() * 60000),
+      getIdlePlan().gapScale * (30000 + Math.floor(Math.random() * 60000)),
     )
   }
   schedule()
@@ -142,6 +182,8 @@ export const installCompanion: NonNullable<StackchanAppBehavior['onContextCreate
     closed = true
     Timer.clear(boot)
     if (idle) Timer.clear(idle)
+    battery?.close()
+    if (noticeTimer) Timer.clear(noticeTimer)
     unsubscribe?.()
     removeTouch?.()
     if (controller) controller.onCompanionTap = undefined

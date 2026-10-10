@@ -10,6 +10,29 @@ In Web Preferences, select `conversation.backend`: `none` (default), `gateway`, 
 
 Set `companion.greetingOnBoot` or `companion.idleReactions` to `0` to disable autonomous character actions. A `none` backend needs no network. Dedicated USB diagnostic manifests retain their default backend and auto-start settings when no preference overrides them.
 
+### Low-battery notice
+
+`companion.lowBatteryNotice` (default on; unset means on) makes Companion watch the battery level on devices that can report it. Starting a few seconds after boot, the level is polled every 60 seconds. A single dropped or out-of-range reading is ignored, and a change of state needs two consecutive readings (a first reading that is already low is reported immediately). The hysteresis uses separate enter and recover levels, so a level hovering near the limit does not toggle.
+
+- When the level becomes low, the robot plays one sleepy yawn and shows a short balloon (「電池が少ないよ…充電してね」 / "Battery low... please charge me") for a few seconds, then removes only that balloon. It is not shown again until the level has recovered and dropped again.
+- The notice is only shown when the robot is free (no conversation, audio, MOD, or active reaction/performance). Otherwise it is kept pending and retried on the next poll.
+- While low, idle reactions are spaced three times further apart and limited to the calm yawn. Conversation, menu and touch actions are not restricted.
+- Devices without a battery reader (for example the WASM simulator) do nothing: no timer is created.
+- Setting `companion.lowBatteryNotice` to `0` disables both the notice and the idle reduction, and no polling is performed.
+- Charging state is not detected. Interaction with the planned bedtime mode (#67) is undefined and left for follow-up work.
+
+Caveat for the original M5Stack (IP5306): the chip reports only five coarse levels, and the reader returns `0` for an unknown value. A unit powered only over USB may therefore be reported as low; turn the setting off for such units.
+
+The setting is on by default because it only reduces motion, does nothing where the level is unavailable, and can be switched off.
+
+Real-device confirmation of discharge behavior (record result and date):
+
+| Device | Result |
+| --- | --- |
+| AXP2101 (CoreS3) | not yet verified |
+| Core2 (AXP192/AXP2101) | not yet verified |
+| IP5306 (original M5Stack), on battery and USB-only | not yet verified |
+
 ## Simulator verification
 
 From `firmware/`, run `npm run build:wasm` using the pinned Moddable/Emscripten setup. From `web/`, run `npm run dev` and open `/simulator/`. The Conversation panel applies a Gateway endpoint/token and restarts the firmware. Start, send text, and stop through this panel. The browser transports JSON; session state, tool execution, gestures, and speech run in the same firmware Dock as CoreS3.

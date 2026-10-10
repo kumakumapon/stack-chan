@@ -1,4 +1,5 @@
 {
+  "companion.lowBattery": "Battery low... please charge me",
   "status.notConnected": "Disconnected",
   "status.connected": "Connected",
   "status.connecting": "Connecting",

@@ -1,4 +1,5 @@
 {
+  "companion.lowBattery": "電池が少ないよ…充電してね",
   "status.notConnected": "未接続",
   "status.connected": "接続済み",
   "status.connecting": "接続中",

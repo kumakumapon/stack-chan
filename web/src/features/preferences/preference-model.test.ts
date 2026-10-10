@@ -16,4 +16,9 @@ describe('preference model', () => {
     expect(isPreferenceKey('mcp.token')).toBe(true)
     expect(DEFAULT_PREFERENCES['mcp.token']).toBe('')
   })
+
+  it('accepts the low-battery notice setting and treats it as enabled by default', () => {
+    expect(isPreferenceKey('companion.lowBatteryNotice')).toBe(true)
+    expect(DEFAULT_PREFERENCES['companion.lowBatteryNotice']).not.toBe('0')
+  })
 })
