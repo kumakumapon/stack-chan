@@ -19,7 +19,7 @@ Set `companion.greetingOnBoot` or `companion.idleReactions` to `0` to disable au
 - While low, idle reactions are spaced three times further apart and limited to the calm yawn. Conversation, menu and touch actions are not restricted.
 - Devices without a battery reader (for example the WASM simulator) do nothing: no timer is created.
 - Setting `companion.lowBatteryNotice` to `0` disables both the notice and the idle reduction, and no polling is performed.
-- Charging state is not detected. Interaction with the planned bedtime mode (#67) is undefined and left for follow-up work.
+- Charging state is not detected. When quiet hours (see below) are also active, the quieter setting wins for each aspect: reactions use only the calm yawn at the low quiet-hours intensity, and the idle gap stays stretched while the battery is low.
 
 Caveat for the original M5Stack (IP5306): the chip reports only five coarse levels, and the reader returns `0` for an unknown value. A unit powered only over USB may therefore be reported as low; turn the setting off for such units.
 
@@ -32,6 +32,17 @@ Real-device confirmation of discharge behavior (record result and date):
 | AXP2101 (CoreS3) | not yet verified |
 | Core2 (AXP192/AXP2101) | not yet verified |
 | IP5306 (original M5Stack), on battery and USB-only | not yet verified |
+## Time-aware greeting and quiet hours
+
+Companion reads the wall clock only through the pure helpers in `firmware/host/app/companion-time.ts` (the clock-synced check uses the same threshold as the network service and the status bar). The UTC offset comes from `time.timezone`. It is a fixed offset, so daylight saving time is not applied.
+
+- **Greeting by time of day.** If the clock is synced when the boot greeting fires (800 ms after boot), the greeting intensity varies slightly by local time: morning 05:00-10:00 is the strongest, daytime 10:00-17:00 is moderate, and evening/night is the gentlest. Lines of dialogue are not changed.
+- **Quiet hours.** Set `companion.quietHours` to `1` to enable (unset or any other value means off, the previous behavior). `companion.quietStart` and `companion.quietEnd` are minutes since local midnight (0-1439). Unset or invalid values fall back to 22:00 (1320) and 07:00 (420). The start is inclusive, the end is exclusive, a window that crosses midnight is supported, and equal values disable the window. During quiet hours, idle reactions are limited to `sleepy-yawn` at intensity 0.1, and the boot greeting is a faint reaction instead of a voiced performance. The Web Preferences page offers 30-minute choices.
+- **Not affected.** Taps, drawer buttons, and conversations behave as usual, and idle reactions already do not start during a conversation or touch.
+- **Clock not synced.** Without SNTP sync (no Wi-Fi, or SNTP has not completed), Companion keeps the previous behavior and never guesses a time of day. There is no retry: a device whose clock is still unset 800 ms after a cold boot greets as before, and idle quieting starts working once the clock syncs.
+- **Not covered.** Screen dimming is not implemented. When low battery and quiet hours are both active, idle reactions use only the calm yawn at the low intensity and the idle gap stays stretched (see Low-battery notice). The one-time low-battery notice is still shown when the robot is free.
+
+Real-device verification of the time-of-day greeting and quiet hours on M5StackChan CoreS3 has not been done. It is tracked separately from this implementation; CI and the simulator are not a substitute.
 
 ## Simulator verification
 

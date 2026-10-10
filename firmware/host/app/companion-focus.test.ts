@@ -11,6 +11,8 @@ const compiledHost = resolve(appRoot, '..')
 writeAliasPackage(hostRoot, 'companion-idle', resolve(appRoot, 'companion-idle.js'))
 writeAliasPackage(hostRoot, 'companion-battery', resolve(appRoot, 'companion-battery.js'))
 writeAliasPackage(hostRoot, 'localization', resolve(compiledHost, 'modules/testing/fakes/localization.js'))
+writeAliasPackage(hostRoot, 'companion-time', resolve(appRoot, 'companion-time.js'))
+writeAliasPackage(hostRoot, 'timezone-model', resolve(compiledHost, 'modules/preferences/timezone-model.js'))
 writeAliasPackage(hostRoot, 'modules', resolve(compiledHost, 'modules/testing/fakes/modules.js'), {
   hasDefaultExport: true,
 })
@@ -99,17 +101,21 @@ type LowBatteryOptions = {
   setting?: number | boolean
   remoteState?: string
   busy?: () => boolean
+  startEpoch?: number
+  extraSettings?: Record<string, unknown>
+  timezone?: string
 }
 
 function lowBatteryHarness(options: LowBatteryOptions = {}) {
   Timer.reset()
   const original = { now: Date.now, random: Math.random, trace: globalThis.trace }
-  let now = 0
+  let now = options.startEpoch ?? 0
   Date.now = () => now
   Math.random = () => 0
   globalThis.trace = () => undefined
   resetModules(options.level ? { 'battery-status': options.level } : {})
   const reactions: string[] = []
+  const intensities: (number | undefined)[] = []
   const balloons: string[] = []
   let hides = 0
   let close: (() => void) | undefined
@@ -125,7 +131,13 @@ function lowBatteryHarness(options: LowBatteryOptions = {}) {
         return options.busy?.() ?? false
       },
     },
-    reaction: { status: () => ({}), play: (name: string) => reactions.push(name) },
+    reaction: {
+      status: () => ({}),
+      play: (name: string, playOptions?: { intensity?: number }) => {
+        reactions.push(name)
+        intensities.push(playOptions?.intensity)
+      },
+    },
     performance: { status: () => ({}), play: () => ({ ok: true }) },
     drawer: { addDrawerButton: () => undefined },
     showBalloon: (text: string) => balloons.push(text),
@@ -134,11 +146,15 @@ function lowBatteryHarness(options: LowBatteryOptions = {}) {
     },
     lifecycle: { onClose: (handler: () => void) => (close = handler) },
   }
-  const settings: Record<string, unknown> = { greetingOnBoot: false, idleReactions: true }
+  const settings: Record<string, unknown> = { greetingOnBoot: false, idleReactions: true, ...options.extraSettings }
   if (options.setting !== undefined) settings.lowBatteryNotice = options.setting
-  installCompanion(robot as never, { config: { companion: settings } } as never)
+  installCompanion(
+    robot as never,
+    { config: { companion: settings, time: options.timezone ? { timezone: options.timezone } : undefined } } as never,
+  )
   return {
     reactions,
+    intensities,
     balloons,
     hides: () => hides,
     // The fake Timer fires each rescheduled callback once per call, so step in small increments.
@@ -258,5 +274,192 @@ test('without a battery reader nothing changes and nothing is shown', () => {
     assert.ok(h.reactions.length > 0, 'ordinary idle reactions continue')
   } finally {
     h.restore()
+  }
+})
+
+const SYNCED_MIDNIGHT_UTC = Date.UTC(2026, 9, 11, 0, 0, 0)
+// 14:00 UTC is 23:00 in Tokyo (inside the default quiet window) and 14:00 in London (outside).
+const NIGHT_JST = SYNCED_MIDNIGHT_UTC + 14 * 3600000
+
+type Harness = {
+  reactions: { name: string; intensity?: number }[]
+  performances: string[]
+  advance(ms: number): void
+  close(): void
+}
+
+/** Boots Companion with a stubbed clock; `epoch` is the Date.now() value at install. */
+function boot(epoch: number, settings: Record<string, unknown>, timezone: string | undefined, tts = 'local'): Harness {
+  Timer.reset()
+  let now = epoch
+  const reactions: Harness['reactions'] = []
+  const performances: string[] = []
+  let close: (() => void) | undefined
+  const robot = {
+    ui: { application: { behavior: { companionIdle: true } }, closeDrawer: () => undefined, showFace: () => undefined },
+    conversation: {},
+    audio: { isActive: false },
+    reaction: {
+      status: () => ({}),
+      play: (name: string, options?: { intensity?: number }) => reactions.push({ name, intensity: options?.intensity }),
+    },
+    performance: {
+      status: () => ({}),
+      play: (name: string) => {
+        performances.push(name)
+        return { ok: true }
+      },
+    },
+    drawer: { addDrawerButton: () => undefined },
+    lifecycle: {
+      onClose: (handler: () => void) => {
+        close = handler
+      },
+    },
+  }
+  Date.now = () => now
+  Math.random = () => 0
+  globalThis.trace = () => undefined
+  installCompanion(robot, {
+    config: { companion: settings, time: timezone ? { timezone } : undefined, tts: { type: tts } },
+  })
+  return {
+    reactions,
+    performances,
+    advance(ms) {
+      now += ms
+      Timer.advance(ms)
+    },
+    close: () => close?.(),
+  }
+}
+
+function withClock(run: () => void) {
+  const originalNow = Date.now
+  const originalRandom = Math.random
+  const originalTrace = globalThis.trace
+  try {
+    run()
+  } finally {
+    Date.now = originalNow
+    Math.random = originalRandom
+    globalThis.trace = originalTrace
+  }
+}
+
+test('idle reactions: unsynced clock keeps the legacy candidates and intensity even when quiet hours are on', () => {
+  withClock(() => {
+    const h = boot(0, { greetingOnBoot: false, idleReactions: true, quietHours: 1 }, 'tokyo')
+    h.advance(60000)
+    assert.deepEqual(h.reactions, [{ name: 'yes', intensity: 0.2 }])
+    h.close()
+  })
+})
+
+test('idle reactions: synced quiet hours use only sleepy-yawn at low intensity', () => {
+  withClock(() => {
+    const h = boot(NIGHT_JST, { greetingOnBoot: false, idleReactions: true, quietHours: 1 }, 'tokyo')
+    h.advance(60000)
+    assert.ok(h.reactions.length >= 1)
+    assert.deepEqual(new Set(h.reactions.map((r) => r.name)), new Set(['sleepy-yawn']))
+    assert.ok(h.reactions.every((r) => r.intensity === 0.1))
+    h.close()
+  })
+})
+
+test('idle reactions: outside the window, or with quiet hours unset, behave as before', () => {
+  withClock(() => {
+    const outside = boot(NIGHT_JST, { greetingOnBoot: false, idleReactions: true, quietHours: 1 }, 'london')
+    outside.advance(60000)
+    assert.deepEqual(outside.reactions, [{ name: 'yes', intensity: 0.2 }])
+    outside.close()
+    const off = boot(NIGHT_JST, { greetingOnBoot: false, idleReactions: true }, 'tokyo')
+    off.advance(60000)
+    assert.deepEqual(off.reactions, [{ name: 'yes', intensity: 0.2 }])
+    off.close()
+  })
+})
+
+test('idle reactions: missing timezone falls back to the default zone and a custom window is honored', () => {
+  withClock(() => {
+    const custom = boot(
+      NIGHT_JST,
+      { greetingOnBoot: false, idleReactions: true, quietHours: 1, quietStart: 0, quietEnd: 1410 },
+      undefined,
+    )
+    custom.advance(60000)
+    assert.equal(custom.reactions[0]?.name, 'sleepy-yawn')
+    custom.close()
+  })
+})
+
+test('boot greeting: unsynced clock keeps the legacy path', () => {
+  withClock(() => {
+    const local = boot(0, { idleReactions: false, quietHours: 1 }, 'tokyo')
+    local.advance(800)
+    assert.deepEqual(local.reactions, [{ name: 'greeting', intensity: 0.3 }])
+    local.close()
+    const remote = boot(0, { idleReactions: false, quietHours: 1 }, 'tokyo', 'voicevox')
+    remote.advance(800)
+    assert.deepEqual(remote.performances, ['greeting'])
+    remote.close()
+  })
+})
+
+test('boot greeting: synced quiet hours play only a faint reaction, never a performance', () => {
+  withClock(() => {
+    const h = boot(NIGHT_JST, { idleReactions: false, quietHours: 1 }, 'tokyo', 'voicevox')
+    h.advance(800)
+    assert.deepEqual(h.performances, [])
+    assert.deepEqual(h.reactions, [{ name: 'greeting', intensity: 0.1 }])
+    h.close()
+  })
+})
+
+test('boot greeting: a synced morning greets more strongly than a synced day', () => {
+  withClock(() => {
+    const morning = boot(SYNCED_MIDNIGHT_UTC, { idleReactions: false }, 'tokyo') // 09:00 JST
+    morning.advance(800)
+    const day = boot(SYNCED_MIDNIGHT_UTC + 3 * 3600000, { idleReactions: false }, 'tokyo') // 12:00 JST
+    day.advance(800)
+    assert.equal(morning.reactions[0]?.name, 'greeting')
+    assert.ok((morning.reactions[0]?.intensity ?? 0) > (day.reactions[0]?.intensity ?? 1))
+    morning.close()
+    day.close()
+  })
+})
+
+test('low battery during quiet hours: the quieter setting wins and the notice still appears once', () => {
+  // 14:00 UTC is 23:00 in Tokyo, inside the default quiet window.
+  const night = Date.UTC(2026, 9, 11, 14, 0, 0)
+  const both = lowBatteryHarness({
+    level: () => 5,
+    startEpoch: night,
+    timezone: 'tokyo',
+    extraSettings: { quietHours: 1 },
+  })
+  try {
+    both.advance(20 * 60000)
+    assert.equal(both.balloons.length, 1, 'the one-time notice is still shown')
+    // Reaction 0 is the notice yawn; the rest are idle reactions.
+    const idleNames = both.reactions.slice(1)
+    const idleIntensities = both.intensities.slice(1)
+    assert.ok(idleNames.length > 0)
+    assert.ok(idleNames.every((name) => name === 'sleepy-yawn'))
+    assert.ok(idleIntensities.every((intensity) => intensity === 0.1))
+    const quietOnly = lowBatteryHarness({
+      level: () => 90,
+      startEpoch: night,
+      timezone: 'tokyo',
+      extraSettings: { quietHours: 1 },
+    })
+    try {
+      quietOnly.advance(20 * 60000)
+      assert.ok(idleNames.length < quietOnly.reactions.length, 'low battery still stretches the idle gap')
+    } finally {
+      quietOnly.restore()
+    }
+  } finally {
+    both.restore()
   }
 })

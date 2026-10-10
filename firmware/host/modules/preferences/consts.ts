@@ -43,6 +43,9 @@ export const PREF_KEYS: readonly [keyof typeof DOMAIN, string, StringConstructor
     [DOMAIN.companion, 'greetingOnBoot', Number],
     [DOMAIN.companion, 'idleReactions', Number],
     [DOMAIN.companion, 'lowBatteryNotice', Number],
+    [DOMAIN.companion, 'quietHours', Number],
+    [DOMAIN.companion, 'quietStart', Number],
+    [DOMAIN.companion, 'quietEnd', Number],
   ],
   true,
 )

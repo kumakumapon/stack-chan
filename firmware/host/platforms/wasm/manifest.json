@@ -40,6 +40,7 @@
       "../../app/compose",
       "../../app/companion-battery",
       "../../app/companion-idle",
+      "../../app/companion-time",
       "../../app/focus-timer",
       "../../app/focus-timer-model",
       "../../app/focus-timer-service",

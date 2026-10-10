@@ -20,7 +20,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
-import { type PreferenceKey } from '@/features/preferences/preference-model'
+import { type PreferenceKey, quietTimeOptions } from '@/features/preferences/preference-model'
 import { usePreferences } from '@/features/preferences/use-preferences'
 
 type FieldProps = Omit<ComponentProps<'input'>, 'id' | 'name' | 'value' | 'disabled' | 'onChange'> & {
@@ -267,6 +267,18 @@ export function PreferencesPage() {
                 { value: '0', label: 'オフ' },
                 { value: '1', label: 'オン' },
               ])}
+              {selectField(
+                'companion.quietHours',
+                'おやすみ時間帯',
+                [
+                  { value: '0', label: 'オフ' },
+                  { value: '1', label: 'オン' },
+                ],
+                'オンにすると、時刻同期後のおやすみ時間帯は待機中のリアクションを控えめなあくびだけにします。',
+                true
+              )}
+              {selectField('companion.quietStart', 'おやすみ開始', quietTimeOptions())}
+              {selectField('companion.quietEnd', 'おやすみ終了', quietTimeOptions())}
             </>
           )}
           {section(
