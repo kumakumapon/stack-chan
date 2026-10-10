@@ -10,6 +10,18 @@ In Web Preferences, select `conversation.backend`: `none` (default), `gateway`, 
 
 Set `companion.greetingOnBoot` or `companion.idleReactions` to `0` to disable autonomous character actions. A `none` backend needs no network. Dedicated USB diagnostic manifests retain their default backend and auto-start settings when no preference overrides them.
 
+## Time-aware greeting and quiet hours
+
+Companion reads the wall clock only through the pure helpers in `firmware/host/app/companion-time.ts` (the clock-synced check uses the same threshold as the network service and the status bar). The UTC offset comes from `time.timezone`. It is a fixed offset, so daylight saving time is not applied.
+
+- **Greeting by time of day.** If the clock is synced when the boot greeting fires (800 ms after boot), the greeting intensity varies slightly by local time: morning 05:00-10:00 is the strongest, daytime 10:00-17:00 is moderate, and evening/night is the gentlest. Lines of dialogue are not changed.
+- **Quiet hours.** Set `companion.quietHours` to `1` to enable (unset or any other value means off, the previous behavior). `companion.quietStart` and `companion.quietEnd` are minutes since local midnight (0-1439). Unset or invalid values fall back to 22:00 (1320) and 07:00 (420). The start is inclusive, the end is exclusive, a window that crosses midnight is supported, and equal values disable the window. During quiet hours, idle reactions are limited to `sleepy-yawn` at intensity 0.1, and the boot greeting is a faint reaction instead of a voiced performance. The Web Preferences page offers 30-minute choices.
+- **Not affected.** Taps, drawer buttons, and conversations behave as usual, and idle reactions already do not start during a conversation or touch.
+- **Clock not synced.** Without SNTP sync (no Wi-Fi, or SNTP has not completed), Companion keeps the previous behavior and never guesses a time of day. There is no retry: a device whose clock is still unset 800 ms after a cold boot greets as before, and idle quieting starts working once the clock syncs.
+- **Not covered.** Screen dimming is not implemented. Priority relative to low-battery behavior (Issue #68) is undefined and is follow-up work.
+
+Real-device verification of the time-of-day greeting and quiet hours on M5StackChan CoreS3 has not been done. It is tracked separately from this implementation; CI and the simulator are not a substitute.
+
 ## Simulator verification
 
 From `firmware/`, run `npm run build:wasm` using the pinned Moddable/Emscripten setup. From `web/`, run `npm run dev` and open `/simulator/`. The Conversation panel applies a Gateway endpoint/token and restarts the firmware. Start, send text, and stop through this panel. The browser transports JSON; session state, tool execution, gestures, and speech run in the same firmware Dock as CoreS3.

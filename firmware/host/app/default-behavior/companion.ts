@@ -1,7 +1,16 @@
 import type { StackchanAppBehavior } from 'app-behavior'
 import { isCompanionIdleSuppressed } from 'companion-idle'
+import {
+  DEFAULT_QUIET_END_MINUTE,
+  DEFAULT_QUIET_START_MINUTE,
+  dayPeriod,
+  isClockSynced,
+  isQuietHours,
+  normalizeQuietMinute,
+} from 'companion-time'
 import Modules from 'modules'
 import Timer from 'timer'
+import { getTimezonePreset } from 'timezone-model'
 
 /** Low-frequency character actions; the head panel remains dedicated to petting. */
 export const installCompanion: NonNullable<StackchanAppBehavior['onContextCreated']> = (robot, options) => {
@@ -17,6 +26,20 @@ export const installCompanion: NonNullable<StackchanAppBehavior['onContextCreate
         }
       | undefined
   )?.behavior
+  const timeContext = () => {
+    const epochMs = Date.now()
+    if (!isClockSynced(epochMs)) return undefined
+    const utcOffsetMinutes = getTimezonePreset(options?.config?.time?.timezone).offsetMinutes
+    const quiet =
+      (settings.quietHours === 1 || settings.quietHours === true) &&
+      isQuietHours({
+        epochMs,
+        utcOffsetMinutes,
+        startMinute: normalizeQuietMinute(settings.quietStart, DEFAULT_QUIET_START_MINUTE),
+        endMinute: normalizeQuietMinute(settings.quietEnd, DEFAULT_QUIET_END_MINUTE),
+      })
+    return { period: dayPeriod(epochMs, utcOffsetMinutes), quiet }
+  }
   let closed = false
   let lastAction = Date.now()
   let lastIdle = ''
@@ -106,6 +129,18 @@ export const installCompanion: NonNullable<StackchanAppBehavior['onContextCreate
   })
   const boot = Timer.set(() => {
     if (settings.greetingOnBoot !== 0 && settings.greetingOnBoot !== false && isFree()) {
+      // Without a synced clock keep the original greeting path (no retry).
+      const time = timeContext()
+      if (time?.quiet) {
+        robot.reaction.play('greeting', { intensity: 0.1 })
+        return
+      }
+      if (time) {
+        const intensity = time.period === 'morning' ? 0.4 : time.period === 'day' ? 0.3 : 0.2
+        if ((options?.config?.tts?.type ?? 'local') === 'local') robot.reaction.play('greeting', { intensity })
+        else play('greeting')
+        return
+      }
       // Legacy local TTS accepts resource keys, not arbitrary Japanese text.
       // Targets without a synthesizer still greet visibly without missing-resource errors.
       if ((options?.config?.tts?.type ?? 'local') === 'local') robot.reaction.play('greeting', { intensity: 0.3 })
@@ -126,11 +161,14 @@ export const installCompanion: NonNullable<StackchanAppBehavior['onContextCreate
           Date.now() - lastAction >= 30000 &&
           isFree()
         ) {
-          const names = (['yes', 'thinking', 'sleepy-yawn'] as const).filter((name) => name !== lastIdle)
+          const quiet = timeContext()?.quiet === true
+          const names = quiet
+            ? (['sleepy-yawn'] as const)
+            : (['yes', 'thinking', 'sleepy-yawn'] as const).filter((name) => name !== lastIdle)
           const name = names[Math.floor(Math.random() * names.length)]
           lastIdle = name
           lastAction = Date.now()
-          robot.reaction.play(name, { intensity: 0.2 })
+          robot.reaction.play(name, { intensity: quiet ? 0.1 : 0.2 })
         }
         if (!closed) schedule()
       },

@@ -8,6 +8,9 @@ export const PREFERENCE_KEYS = [
   'gateway.microphone',
   'companion.greetingOnBoot',
   'companion.idleReactions',
+  'companion.quietHours',
+  'companion.quietStart',
+  'companion.quietEnd',
   'wifi.ssid',
   'wifi.password',
   'driver.type',
@@ -39,6 +42,9 @@ export const DEFAULT_PREFERENCES: PreferenceValues = {
   'gateway.microphone': '0',
   'companion.greetingOnBoot': '1',
   'companion.idleReactions': '1',
+  'companion.quietHours': '0',
+  'companion.quietStart': '1320',
+  'companion.quietEnd': '420',
   'wifi.ssid': '',
   'wifi.password': '',
   'driver.type': 'm5stackchan',
@@ -56,6 +62,15 @@ export const DEFAULT_PREFERENCES: PreferenceValues = {
   'ai.context': '',
   'mcp.token': '',
 }
+
+/** Half-hour choices for quiet hours; values are minutes since midnight (0-1439), the only form the device accepts. */
+export const quietTimeOptions = (): { value: string; label: string; translate: false }[] =>
+  Array.from({ length: 48 }, (_, index) => {
+    const minutes = index * 30
+    const hh = String(Math.floor(minutes / 60)).padStart(2, '0')
+    const mm = String(minutes % 60).padStart(2, '0')
+    return { value: String(minutes), label: `${hh}:${mm}`, translate: false }
+  })
 
 export const isPreferenceKey = (value: string): value is PreferenceKey =>
   (PREFERENCE_KEYS as readonly string[]).includes(value)

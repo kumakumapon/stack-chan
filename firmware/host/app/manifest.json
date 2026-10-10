@@ -38,6 +38,7 @@
       "./boot-services",
       "./compose",
       "./companion-idle",
+      "./companion-time",
       "./focus-timer",
       "./focus-timer-model",
       "./focus-timer-service",
