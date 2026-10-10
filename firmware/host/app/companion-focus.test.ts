@@ -9,6 +9,8 @@ const appRoot = dirname(fileURLToPath(import.meta.url))
 const hostRoot = resolve(process.cwd(), 'host')
 const compiledHost = resolve(appRoot, '..')
 writeAliasPackage(hostRoot, 'companion-idle', resolve(appRoot, 'companion-idle.js'))
+writeAliasPackage(hostRoot, 'companion-battery', resolve(appRoot, 'companion-battery.js'))
+writeAliasPackage(hostRoot, 'localization', resolve(compiledHost, 'modules/testing/fakes/localization.js'))
 writeAliasPackage(hostRoot, 'companion-time', resolve(appRoot, 'companion-time.js'))
 writeAliasPackage(hostRoot, 'timezone-model', resolve(compiledHost, 'modules/preferences/timezone-model.js'))
 writeAliasPackage(hostRoot, 'modules', resolve(compiledHost, 'modules/testing/fakes/modules.js'), {
@@ -18,6 +20,7 @@ writeAliasPackage(hostRoot, 'timer', resolve(compiledHost, 'modules/testing/fake
   hasDefaultExport: true,
 })
 const { default: Timer } = await import('../modules/testing/fakes/timer.js')
+const { resetModules } = await import('../modules/testing/fakes/modules.js')
 // Load this platform boundary through Node's TS stripping. The unit build's
 // deliberately opaque StackchanContext fake cannot typecheck the full MOD API.
 const { installCompanion } = (await import(
@@ -90,6 +93,187 @@ test('real Companion idle checks respect temporary suppression and user settings
     Date.now = originalNow
     Math.random = originalRandom
     globalThis.trace = originalTrace
+  }
+})
+
+type LowBatteryOptions = {
+  level?: () => number | undefined
+  setting?: number | boolean
+  remoteState?: string
+  busy?: () => boolean
+  startEpoch?: number
+  extraSettings?: Record<string, unknown>
+  timezone?: string
+}
+
+function lowBatteryHarness(options: LowBatteryOptions = {}) {
+  Timer.reset()
+  const original = { now: Date.now, random: Math.random, trace: globalThis.trace }
+  let now = options.startEpoch ?? 0
+  Date.now = () => now
+  Math.random = () => 0
+  globalThis.trace = () => undefined
+  resetModules(options.level ? { 'battery-status': options.level } : {})
+  const reactions: string[] = []
+  const intensities: (number | undefined)[] = []
+  const balloons: string[] = []
+  let hides = 0
+  let close: (() => void) | undefined
+  const remote =
+    options.remoteState === undefined
+      ? undefined
+      : { state: options.remoteState, activationState: 'inactive', subscribe: () => () => undefined }
+  const robot = {
+    ui: { application: { behavior: { companionIdle: true } }, closeDrawer: () => undefined, showFace: () => undefined },
+    conversation: { remoteSession: remote },
+    audio: {
+      get isActive() {
+        return options.busy?.() ?? false
+      },
+    },
+    reaction: {
+      status: () => ({}),
+      play: (name: string, playOptions?: { intensity?: number }) => {
+        reactions.push(name)
+        intensities.push(playOptions?.intensity)
+      },
+    },
+    performance: { status: () => ({}), play: () => ({ ok: true }) },
+    drawer: { addDrawerButton: () => undefined },
+    showBalloon: (text: string) => balloons.push(text),
+    hideBalloon: () => {
+      hides += 1
+    },
+    lifecycle: { onClose: (handler: () => void) => (close = handler) },
+  }
+  const settings: Record<string, unknown> = { greetingOnBoot: false, idleReactions: true, ...options.extraSettings }
+  if (options.setting !== undefined) settings.lowBatteryNotice = options.setting
+  installCompanion(
+    robot as never,
+    { config: { companion: settings, time: options.timezone ? { timezone: options.timezone } : undefined } } as never,
+  )
+  return {
+    reactions,
+    intensities,
+    balloons,
+    hides: () => hides,
+    // The fake Timer fires each rescheduled callback once per call, so step in small increments.
+    advance(ms: number) {
+      for (let elapsed = 0; elapsed < ms; elapsed += 1000) {
+        now += 1000
+        Timer.advance(1000)
+      }
+    },
+    close: () => close?.(),
+    restore() {
+      Date.now = original.now
+      Math.random = original.random
+      globalThis.trace = original.trace
+      resetModules()
+    },
+  }
+}
+
+test('low battery shows one notice, then hides only its own balloon', () => {
+  const h = lowBatteryHarness({ level: () => 5 })
+  try {
+    h.advance(6000)
+    assert.equal(h.balloons.length, 1)
+    assert.equal(h.hides(), 0, 'balloon is visible right after the notice')
+    h.advance(10000)
+    assert.equal(h.hides(), 1, 'the notice balloon disappears on its own')
+    h.advance(10 * 60000)
+    assert.equal(h.balloons.length, 1, 'the notice is not repeated while the battery stays low')
+  } finally {
+    h.restore()
+  }
+})
+
+test('the notice timer does not hide a balloon it did not show, and close cancels it', () => {
+  let level = 90
+  const h = lowBatteryHarness({ level: () => level })
+  try {
+    h.advance(6000)
+    h.advance(120000)
+    assert.equal(h.balloons.length, 0)
+    assert.equal(h.hides(), 0, 'nothing of ours to hide')
+    level = 5
+    h.advance(120000)
+    assert.equal(h.balloons.length, 1)
+    h.close()
+    h.advance(60000)
+    assert.equal(h.hides(), 0, 'closing cancels the pending hide')
+  } finally {
+    h.restore()
+  }
+})
+
+test('while busy the notice is deferred without being consumed, then shown once free', () => {
+  let busy = true
+  const h = lowBatteryHarness({ level: () => 5, busy: () => busy })
+  try {
+    h.advance(3 * 60000)
+    assert.equal(h.balloons.length, 0)
+    busy = false
+    h.advance(2 * 60000)
+    assert.equal(h.balloons.length, 1)
+  } finally {
+    h.restore()
+  }
+})
+
+test('an active conversation defers the notice', () => {
+  const h = lowBatteryHarness({ level: () => 5, remoteState: 'listening' })
+  try {
+    h.advance(3 * 60000)
+    assert.equal(h.balloons.length, 0)
+  } finally {
+    h.restore()
+  }
+})
+
+test('setting lowBatteryNotice to 0 disables both notice and idle reduction', () => {
+  for (const setting of [0, false]) {
+    const h = lowBatteryHarness({ level: () => 5, setting })
+    try {
+      h.advance(10 * 60000)
+      assert.equal(h.balloons.length, 0)
+      assert.ok(new Set(h.reactions).size > 1, 'ordinary idle variety is kept')
+    } finally {
+      h.restore()
+    }
+  }
+})
+
+test('low battery stretches idle gaps and narrows the candidates', () => {
+  const normal = lowBatteryHarness({ level: () => 90 })
+  let normalReactions: string[]
+  try {
+    normal.advance(20 * 60000)
+    normalReactions = [...normal.reactions]
+  } finally {
+    normal.restore()
+  }
+  const low = lowBatteryHarness({ level: () => 5 })
+  try {
+    low.advance(20 * 60000)
+    assert.ok(low.reactions.length > 0)
+    assert.ok(low.reactions.length < normalReactions.length, 'fewer idle reactions while low')
+    assert.deepEqual(new Set(low.reactions), new Set(['sleepy-yawn']), 'only the calm reaction is used')
+    assert.ok(new Set(normalReactions).size > 1, 'normal mode keeps its variety')
+  } finally {
+    low.restore()
+  }
+})
+
+test('without a battery reader nothing changes and nothing is shown', () => {
+  const h = lowBatteryHarness()
+  try {
+    h.advance(20 * 60000)
+    assert.equal(h.balloons.length, 0)
+    assert.ok(h.reactions.length > 0, 'ordinary idle reactions continue')
+  } finally {
+    h.restore()
   }
 })
 
@@ -243,4 +427,39 @@ test('boot greeting: a synced morning greets more strongly than a synced day', (
     morning.close()
     day.close()
   })
+})
+
+test('low battery during quiet hours: the quieter setting wins and the notice still appears once', () => {
+  // 14:00 UTC is 23:00 in Tokyo, inside the default quiet window.
+  const night = Date.UTC(2026, 9, 11, 14, 0, 0)
+  const both = lowBatteryHarness({
+    level: () => 5,
+    startEpoch: night,
+    timezone: 'tokyo',
+    extraSettings: { quietHours: 1 },
+  })
+  try {
+    both.advance(20 * 60000)
+    assert.equal(both.balloons.length, 1, 'the one-time notice is still shown')
+    // Reaction 0 is the notice yawn; the rest are idle reactions.
+    const idleNames = both.reactions.slice(1)
+    const idleIntensities = both.intensities.slice(1)
+    assert.ok(idleNames.length > 0)
+    assert.ok(idleNames.every((name) => name === 'sleepy-yawn'))
+    assert.ok(idleIntensities.every((intensity) => intensity === 0.1))
+    const quietOnly = lowBatteryHarness({
+      level: () => 90,
+      startEpoch: night,
+      timezone: 'tokyo',
+      extraSettings: { quietHours: 1 },
+    })
+    try {
+      quietOnly.advance(20 * 60000)
+      assert.ok(idleNames.length < quietOnly.reactions.length, 'low battery still stretches the idle gap')
+    } finally {
+      quietOnly.restore()
+    }
+  } finally {
+    both.restore()
+  }
 })

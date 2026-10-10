@@ -10,6 +10,28 @@ In Web Preferences, select `conversation.backend`: `none` (default), `gateway`, 
 
 Set `companion.greetingOnBoot` or `companion.idleReactions` to `0` to disable autonomous character actions. A `none` backend needs no network. Dedicated USB diagnostic manifests retain their default backend and auto-start settings when no preference overrides them.
 
+### Low-battery notice
+
+`companion.lowBatteryNotice` (default on; unset means on) makes Companion watch the battery level on devices that can report it. Starting a few seconds after boot, the level is polled every 60 seconds. A single dropped or out-of-range reading is ignored, and a change of state needs two consecutive readings (a first reading that is already low is reported immediately). The hysteresis uses separate enter and recover levels, so a level hovering near the limit does not toggle.
+
+- When the level becomes low, the robot plays one sleepy yawn and shows a short balloon (「電池が少ないよ…充電してね」 / "Battery low... please charge me") for a few seconds, then removes only that balloon. It is not shown again until the level has recovered and dropped again.
+- The notice is only shown when the robot is free (no conversation, audio, MOD, or active reaction/performance). Otherwise it is kept pending and retried on the next poll.
+- While low, idle reactions are spaced three times further apart and limited to the calm yawn. Conversation, menu and touch actions are not restricted.
+- Devices without a battery reader (for example the WASM simulator) do nothing: no timer is created.
+- Setting `companion.lowBatteryNotice` to `0` disables both the notice and the idle reduction, and no polling is performed.
+- Charging state is not detected. When quiet hours (see below) are also active, the quieter setting wins for each aspect: reactions use only the calm yawn at the low quiet-hours intensity, and the idle gap stays stretched while the battery is low.
+
+Caveat for the original M5Stack (IP5306): the chip reports only five coarse levels, and the reader returns `0` for an unknown value. A unit powered only over USB may therefore be reported as low; turn the setting off for such units.
+
+The setting is on by default because it only reduces motion, does nothing where the level is unavailable, and can be switched off.
+
+Real-device confirmation of discharge behavior (record result and date):
+
+| Device | Result |
+| --- | --- |
+| AXP2101 (CoreS3) | not yet verified |
+| Core2 (AXP192/AXP2101) | not yet verified |
+| IP5306 (original M5Stack), on battery and USB-only | not yet verified |
 ## Time-aware greeting and quiet hours
 
 Companion reads the wall clock only through the pure helpers in `firmware/host/app/companion-time.ts` (the clock-synced check uses the same threshold as the network service and the status bar). The UTC offset comes from `time.timezone`. It is a fixed offset, so daylight saving time is not applied.
@@ -18,7 +40,7 @@ Companion reads the wall clock only through the pure helpers in `firmware/host/a
 - **Quiet hours.** Set `companion.quietHours` to `1` to enable (unset or any other value means off, the previous behavior). `companion.quietStart` and `companion.quietEnd` are minutes since local midnight (0-1439). Unset or invalid values fall back to 22:00 (1320) and 07:00 (420). The start is inclusive, the end is exclusive, a window that crosses midnight is supported, and equal values disable the window. During quiet hours, idle reactions are limited to `sleepy-yawn` at intensity 0.1, and the boot greeting is a faint reaction instead of a voiced performance. The Web Preferences page offers 30-minute choices.
 - **Not affected.** Taps, drawer buttons, and conversations behave as usual, and idle reactions already do not start during a conversation or touch.
 - **Clock not synced.** Without SNTP sync (no Wi-Fi, or SNTP has not completed), Companion keeps the previous behavior and never guesses a time of day. There is no retry: a device whose clock is still unset 800 ms after a cold boot greets as before, and idle quieting starts working once the clock syncs.
-- **Not covered.** Screen dimming is not implemented. Priority relative to low-battery behavior (Issue #68) is undefined and is follow-up work.
+- **Not covered.** Screen dimming is not implemented. When low battery and quiet hours are both active, idle reactions use only the calm yawn at the low intensity and the idle gap stays stretched (see Low-battery notice). The one-time low-battery notice is still shown when the robot is free.
 
 Real-device verification of the time-of-day greeting and quiet hours on M5StackChan CoreS3 has not been done. It is tracked separately from this implementation; CI and the simulator are not a substitute.
 

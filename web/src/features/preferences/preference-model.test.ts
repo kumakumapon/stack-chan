@@ -22,6 +22,11 @@ describe('preference model', () => {
     expect(DEFAULT_PREFERENCES['mcp.token']).toBe('')
   })
 
+  it('accepts the low-battery notice setting and treats it as enabled by default', () => {
+    expect(isPreferenceKey('companion.lowBatteryNotice')).toBe(true)
+    expect(DEFAULT_PREFERENCES['companion.lowBatteryNotice']).not.toBe('0')
+  })
+
   it('keeps quiet hours off by default and defaults to a window the device accepts', () => {
     expect(DEFAULT_PREFERENCES['companion.quietHours']).toBe('0')
     const minutes = quietTimeOptions().map((option) => Number(option.value))

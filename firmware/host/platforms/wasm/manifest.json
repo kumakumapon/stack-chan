@@ -38,6 +38,7 @@
       "../../app/boot-network-recovery",
       "../../app/boot-services",
       "../../app/compose",
+      "../../app/companion-battery",
       "../../app/companion-idle",
       "../../app/companion-time",
       "../../app/focus-timer",

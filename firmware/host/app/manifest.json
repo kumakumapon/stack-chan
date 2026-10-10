@@ -37,6 +37,7 @@
       "./boot-network-recovery",
       "./boot-services",
       "./compose",
+      "./companion-battery",
       "./companion-idle",
       "./companion-time",
       "./focus-timer",

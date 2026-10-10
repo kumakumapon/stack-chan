@@ -263,6 +263,10 @@ export function PreferencesPage() {
                 { value: '0', label: 'オフ' },
                 { value: '1', label: 'オン' },
               ])}
+              {selectField('companion.lowBatteryNotice', '低電池のお知らせ', [
+                { value: '0', label: 'オフ' },
+                { value: '1', label: 'オン' },
+              ])}
               {selectField(
                 'companion.quietHours',
                 'おやすみ時間帯',

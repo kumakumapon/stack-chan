@@ -11,6 +11,7 @@
     "app-behavior": "./app-behavior-stub",
     "app-default-behavior/on-context-created": "../../on-context-created",
     "app-default-behavior/companion": "../../companion",
+    "companion-battery": "../../../companion-battery",
     "companion-idle": "../../../companion-idle",
     "companion-time": "../../../companion-time",
     "modules": "$(MODULES)/base/modules/modules",
