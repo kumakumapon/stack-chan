@@ -15,6 +15,7 @@
     "build": "tsc --project tsconfig.json",
     "clean": "rm -rf dist",
     "start": "node dist/main.js",
+    "start:desktop": "node dist/desktop/main.js --open",
     "lint": "biome lint src",
     "lint:fix": "biome lint --write src",
     "format": "biome format src",

@@ -168,7 +168,7 @@ test('sends session.hello on socket ready, and stays disconnected until session.
   assert.equal(hello.protocolVersion, 1)
   assert.equal(hello.deviceId, 'device-1')
   assert.equal(hello.clientId, 'client-1')
-  assert.deepEqual(hello.capabilities, capabilities)
+  assert.deepEqual(hello.capabilities, { ...capabilities, conversationControl: true })
   assert.equal(bridge.transportState, 'disconnected')
 })
 

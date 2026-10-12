@@ -46,6 +46,10 @@ See [implementation status (Japanese)](../docs/IMPLEMENTATION_STATUS_ja.md) for 
 
 ## Quick start
 
+For the Windows browser app with Codex CLI, Claude Code, Lemonade, LM Studio,
+local Japanese speech and saved conversations, see [Windows setup (Japanese)](./DESKTOP_ja.md).
+Double-click `Start-Gateway.cmd` after completing the initial speech setup.
+
 The dedicated Hermes Desktop bridge has been removed. See the
 [retirement notice](./HERMES_DESKTOP.md) for migration. The `hermes` backend
 below uses a separate HTTP/NDJSON protocol; it does not connect to Hermes Desktop.

@@ -185,7 +185,7 @@ export function createGatewayBridge(options: GatewayBridgeOptions): GatewayBridg
       deviceId: options.deviceId,
       clientId: options.clientId,
       token: options.token,
-      capabilities: options.capabilities,
+      capabilities: { ...options.capabilities, conversationControl: true },
     })
     const result = writeToSocket(JSON.stringify(hello))
     if (result !== 'queued') {

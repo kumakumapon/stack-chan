@@ -7,8 +7,8 @@
  * byte-compatible with the Android USB Dock.
  *
  * Device-hosted tool calls are NOT part of this schema; they ride the existing
- * realtime control plane (see `realtime-control.ts`). `robot.directive` is the
- * fire-and-forget variant for directives that expect no result.
+ * realtime control plane (see `realtime-control.ts`). `robot.directive` is
+ * reserved and ignored. Dashboard commands require conversationControl.
  */
 
 export const STACKCHAN_GATEWAY_SCHEMA = 'stackchan.gateway.v1'
@@ -33,6 +33,8 @@ export type GatewayDeviceCapabilities = {
   embodiment: string[]
   /** Whether the device can present `approval.request` and answer it. */
   approval: boolean
+  /** Optional extension: PC controls activate the device's own conversation facade. */
+  conversationControl?: boolean
 }
 
 export type GatewaySessionFeatures = {
@@ -97,7 +99,27 @@ export type ResponseCancelled = {
   type: 'response.cancelled'
   requestId: string
 }
-export type GatewayDeviceMessage = SessionHello | AudioInput | AudioInputEnd | TextInput | ResponseCancel
+export type ConversationCommand = {
+  schema: typeof STACKCHAN_GATEWAY_SCHEMA
+  type: 'conversation.command'
+  requestId: string
+  action: 'start' | 'stop' | 'interrupt' | 'text'
+  text?: string
+}
+export type ConversationCommandResult = {
+  schema: typeof STACKCHAN_GATEWAY_SCHEMA
+  type: 'conversation.command.result'
+  requestId: string
+  success: boolean
+  error?: string
+}
+export type GatewayDeviceMessage =
+  | SessionHello
+  | AudioInput
+  | AudioInputEnd
+  | TextInput
+  | ResponseCancel
+  | ConversationCommandResult
 
 // ---------------------------------------------------------------------------
 // Gateway -> Device
@@ -169,6 +191,7 @@ export type RobotDirective = {
 
 export type GatewayServerMessage =
   | SessionReady
+  | ConversationCommand
   | ResponseCancelled
   | TranscriptInput
   | TranscriptOutput
@@ -189,6 +212,17 @@ export function isGatewayEnvelope(value: unknown): value is Record<string, unkno
 export function parseGatewayDeviceMessage(value: unknown): GatewayDeviceMessage | undefined {
   if (!isGatewayEnvelope(value) || typeof value.type !== 'string') return
   switch (value.type) {
+    case 'conversation.command.result':
+      if (!isNonEmptyString(value.requestId) || value.requestId.length > 128 || typeof value.success !== 'boolean')
+        return
+      if (value.error !== undefined && (typeof value.error !== 'string' || value.error.length > 500)) return
+      return {
+        schema: STACKCHAN_GATEWAY_SCHEMA,
+        type: 'conversation.command.result',
+        requestId: value.requestId,
+        success: value.success,
+        ...(typeof value.error === 'string' ? { error: value.error } : {}),
+      }
     case 'response.cancel':
       if (!isNonEmptyString(value.requestId)) return
       return { schema: STACKCHAN_GATEWAY_SCHEMA, type: 'response.cancel', requestId: value.requestId }
@@ -231,6 +265,18 @@ export function parseGatewayDeviceMessage(value: unknown): GatewayDeviceMessage 
 export function parseGatewayServerMessage(value: unknown): GatewayServerMessage | undefined {
   if (!isGatewayEnvelope(value) || typeof value.type !== 'string') return
   switch (value.type) {
+    case 'conversation.command':
+      if (!isNonEmptyString(value.requestId) || value.requestId.length > 128) return
+      if (!['start', 'stop', 'interrupt', 'text'].includes(value.action as string)) return
+      if (value.action === 'text' && (typeof value.text !== 'string' || !value.text.trim() || value.text.length > 4000))
+        return
+      return {
+        schema: STACKCHAN_GATEWAY_SCHEMA,
+        type: 'conversation.command',
+        requestId: value.requestId,
+        action: value.action as ConversationCommand['action'],
+        ...(value.action === 'text' ? { text: value.text as string } : {}),
+      }
     case 'response.cancelled':
       if (!isNonEmptyString(value.requestId)) return
       return { schema: STACKCHAN_GATEWAY_SCHEMA, type: 'response.cancelled', requestId: value.requestId }
@@ -382,7 +428,14 @@ function parseCapabilities(value: unknown): GatewayDeviceCapabilities | undefine
   if (!audioInput || !audioOutput) return
   if (!Array.isArray(value.embodiment) || !value.embodiment.every((name) => typeof name === 'string')) return
   if (typeof value.approval !== 'boolean') return
-  return { audioInput, audioOutput, embodiment: [...(value.embodiment as string[])], approval: value.approval }
+  if (value.conversationControl !== undefined && typeof value.conversationControl !== 'boolean') return
+  return {
+    audioInput,
+    audioOutput,
+    embodiment: [...(value.embodiment as string[])],
+    approval: value.approval,
+    ...(value.conversationControl === undefined ? {} : { conversationControl: value.conversationControl }),
+  }
 }
 
 function parseAudioFormatList(value: unknown): GatewayAudioFormat[] | undefined {

@@ -27,6 +27,7 @@ export type GatewayServerOptions = {
   logger?(message: string): void
   /** Log only frame counts and audio levels, never credentials or transcripts. */
   diagnostics?: boolean
+  onMessage?(deviceId: string, message: Record<string, unknown>): void
 }
 
 export type GatewayServer = {
@@ -75,6 +76,7 @@ export function createGatewayServer(options: GatewayServerOptions): GatewayServe
       : { maxUtteranceSeconds: config.audio.maxUtteranceSeconds }),
     logTranscripts: config.diagnostics.logTranscripts,
     logger,
+    onMessage: options.onMessage,
   })
 
   let http: Server | undefined

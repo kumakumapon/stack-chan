@@ -102,6 +102,50 @@ export function createGatewayDockRuntime(
   let contextAttached = false
   let closed = false
   const facade = createRemoteConversationSessionFacade(createActiveBinding)
+  let presentationHandler: ((message: GatewayServerMessage) => void) | undefined
+  let lastReady: GatewayServerMessage | undefined
+  const setPresentationHandler = (handler?: (message: GatewayServerMessage) => void) => {
+    presentationHandler = handler
+    if (handler && lastReady && bridge.transportState === 'ready') handler(lastReady)
+  }
+  // Keep control reachable while presentation/microphone resources are deactivated.
+  bridge.setSidebandHandler((message) => {
+    if (closed) return
+    if (message.type === 'session.ready') lastReady = message
+    if (message.type !== 'conversation.command') {
+      presentationHandler?.(message)
+      return
+    }
+    let error: string | undefined
+    try {
+      if (!contextAttached) throw new Error('Stack-chan is not ready')
+      if (message.action === 'start') {
+        facade.remoteSession.activate()
+        facade.remoteSession.requestStart()
+      } else if (message.action === 'stop') {
+        facade.remoteSession.deactivate()
+      } else if (message.action === 'interrupt') {
+        interruptActive?.()
+      } else {
+        if (facade.remoteSession.activationState !== 'active' || facade.remoteSession.state !== 'listening')
+          throw new Error('Start the conversation and wait for listening')
+        if (
+          bridge.sendGatewayMessage({ schema: 'stackchan.gateway.v1', type: 'text.input', text: message.text }) !==
+          'queued'
+        )
+          throw new Error('Gateway is not ready')
+      }
+    } catch (failure) {
+      error = errorMessage(failure).slice(0, 500)
+    }
+    bridge.sendGatewayMessage({
+      schema: 'stackchan.gateway.v1',
+      type: 'conversation.command.result',
+      requestId: message.requestId,
+      success: error === undefined,
+      ...(error ? { error } : {}),
+    })
+  })
 
   function createActiveBinding(): RemoteConversationSessionBinding {
     if (!contextAttached || !context) {
@@ -256,7 +300,7 @@ export function createGatewayDockRuntime(
         }
       })
       tick()
-      bridge.setSidebandHandler((message) => {
+      setPresentationHandler((message) => {
         if (message.type === 'response.cancelled') {
           if (cancelRequest !== message.requestId) return
           cancelRequest = undefined
@@ -352,7 +396,7 @@ export function createGatewayDockRuntime(
       tryClose(() => microphone?.stop())
       tryClose(() => removeState?.())
       tryClose(() => removeTransport?.())
-      tryClose(() => bridge.setSidebandHandler(undefined))
+      tryClose(() => setPresentationHandler(undefined))
       tryClose(() => presentation?.close())
       tryClose(() => activation.close())
       throw error
@@ -380,7 +424,7 @@ export function createGatewayDockRuntime(
         attempt(() => microphone?.stop())
         attempt(() => removeState?.())
         attempt(() => removeTransport?.())
-        attempt(() => bridge.setSidebandHandler(undefined))
+        attempt(() => setPresentationHandler(undefined))
         attempt(() => activePresentation?.close())
         attempt(() => activation.close())
         if (firstError !== undefined) throw firstError
@@ -430,6 +474,7 @@ export function createGatewayDockRuntime(
         }
       }
       attempt(() => facade.close())
+      attempt(() => bridge.setSidebandHandler(undefined))
       attempt(() => remoteRuntime.close())
       attempt(() => bridge.close())
       if (firstError !== undefined) throw firstError

@@ -13,11 +13,13 @@ import type { TtsAdapter } from '../audio/tts.ts'
 import type { VadOptions } from '../audio/vad.ts'
 import { type ConversationSession, createConversationSession } from '../conversation/conversation-session.ts'
 import { parseRealtimeDeviceControlEvent, sessionCreated } from '../protocol/realtime-control.ts'
+import type { RemoteConversationState } from '../protocol/stackchan-event-v1.ts'
 import {
   isStackchanEventEnvelope,
   parseStackchanDeviceEvent,
   type StackchanGatewayEvent,
 } from '../protocol/stackchan-event-v1.ts'
+import type { ConversationCommand } from '../protocol/stackchan-gateway-v1.ts'
 import {
   agentError,
   DEFAULT_INPUT_AUDIO_FORMAT,
@@ -60,6 +62,7 @@ export type DeviceSessionOptions = {
   /** Forwarded to each conversation session. See `config.ts`'s `diagnostics.logTranscripts`. */
   logTranscripts?: boolean
   logger?(message: string): void
+  onMessage?(deviceId: string, message: Record<string, unknown>): void
   createSessionId?(): string
   scheduler?: { set(callback: () => void, milliseconds: number): unknown; clear(handle: unknown): void }
 }
@@ -68,6 +71,9 @@ export type DeviceSession = {
   readonly deviceId?: string
   readonly sessionId?: string
   readonly ready: boolean
+  readonly state?: RemoteConversationState
+  readonly controlSupported?: boolean
+  requestCommand?(command: Omit<ConversationCommand, 'schema' | 'type' | 'requestId'>): Promise<void>
   handleFrame(payload: string): Promise<void>
   close(): Promise<void>
 }
@@ -82,11 +88,19 @@ export function createDeviceSession(options: DeviceSessionOptions): DeviceSessio
   let sessionId: string | undefined
   let conversation: ConversationSession | undefined
   let closed = false
+  let controlSupported = false
+  let commandSequence = 0
+  const pendingCommands = new Map<
+    string,
+    { resolve(): void; reject(error: Error): void; timer: ReturnType<typeof setTimeout> }
+  >()
 
   const send = (message: unknown) => {
     if (closed) return
     try {
       options.transport.send(JSON.stringify(message))
+      if (deviceId && message && typeof message === 'object')
+        options.onMessage?.(deviceId, message as Record<string, unknown>)
     } catch (error) {
       logger(`[gateway] send failed: ${errorMessage(error)}`)
     }
@@ -130,6 +144,7 @@ export function createDeviceSession(options: DeviceSessionOptions): DeviceSessio
     }
 
     deviceId = hello.deviceId
+    controlSupported = hello.capabilities.conversationControl === true
     sessionId = createSessionId()
     const registry = createToolRegistry()
     if (options.gatewayTools) registry.registerAll(options.gatewayTools)
@@ -186,6 +201,27 @@ export function createDeviceSession(options: DeviceSessionOptions): DeviceSessio
     get ready() {
       return conversation !== undefined
     },
+    get state() {
+      return conversation?.state
+    },
+    get controlSupported() {
+      return controlSupported
+    },
+    requestCommand(command) {
+      if (closed || !conversation) return Promise.reject(new Error('本体が接続されていません'))
+      if (!controlSupported)
+        return Promise.reject(new Error('本体のファームウェア更新が必要です。顔タップは引き続き利用できます'))
+      if (pendingCommands.size >= 4) return Promise.reject(new Error('本体への操作が処理中です'))
+      const requestId = `${sessionId}-command-${++commandSequence}`
+      return new Promise<void>((resolve, reject) => {
+        const timer = setTimeout(() => {
+          pendingCommands.delete(requestId)
+          reject(new Error('本体から操作の確認がありません。接続とファームウェアを確認してください'))
+        }, 6000)
+        pendingCommands.set(requestId, { resolve, reject, timer })
+        sendGateway({ schema: 'stackchan.gateway.v1', type: 'conversation.command', requestId, ...command })
+      })
+    },
     async handleFrame(payload) {
       if (closed) return
       let value: unknown
@@ -200,6 +236,15 @@ export function createDeviceSession(options: DeviceSessionOptions): DeviceSessio
         const message = parseGatewayDeviceMessage(value)
         if (!message) {
           logger('[gateway] dropped a malformed stackchan.gateway.v1 frame')
+          return
+        }
+        if (message.type === 'conversation.command.result') {
+          const pending = pendingCommands.get(message.requestId)
+          if (!pending) return
+          pendingCommands.delete(message.requestId)
+          clearTimeout(pending.timer)
+          if (message.success) pending.resolve()
+          else pending.reject(new Error(message.error ?? '本体が操作を実行できませんでした'))
           return
         }
         if (message.type === 'session.hello') {
@@ -246,6 +291,11 @@ export function createDeviceSession(options: DeviceSessionOptions): DeviceSessio
     async close() {
       if (closed) return
       closed = true
+      for (const pending of pendingCommands.values()) {
+        clearTimeout(pending.timer)
+        pending.reject(new Error('本体との接続が切れました'))
+      }
+      pendingCommands.clear()
       approval.close()
       await conversation?.close()
       conversation = undefined
