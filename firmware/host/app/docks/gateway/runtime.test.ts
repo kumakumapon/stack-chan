@@ -235,6 +235,61 @@ function harness(
 
 const context = {} as StackchanContext
 
+test('management commands activate a dormant Dock, send text, interrupt playback, and release microphone resources', () => {
+  const dock = harness({ microphone: true })
+  dock.runtime.onContextCreated(context)
+  const command = (requestId: string, action: 'start' | 'text' | 'interrupt' | 'stop', text?: string) =>
+    dock.emit({
+      schema: STACKCHAN_GATEWAY_SCHEMA,
+      type: 'conversation.command',
+      requestId,
+      action,
+      ...(text ? { text } : {}),
+    })
+  command('start-command', 'start')
+  assert.equal(dock.runtime.remoteConversationSession?.activationState, 'active')
+  enableAudio(dock)
+  assert.equal(dock.microphoneRunning, true)
+  command('text-command', 'text', 'こんにちは')
+  assert.ok(dock.sent.some((value) => (value as { type?: string }).type === 'text.input'))
+  command('interrupt-command', 'interrupt')
+  assert.equal(dock.microphoneRunning, false)
+  assert.ok(dock.presented.includes('interrupt'))
+  command('stop-command', 'stop')
+  assert.equal(dock.runtime.remoteConversationSession?.activationState, 'inactive')
+  assert.equal(dock.microphoneRunning, false)
+  const results = dock.sent.filter(
+    (value) => (value as { type?: string }).type === 'conversation.command.result',
+  ) as Array<{ requestId: string; success: boolean }>
+  assert.deepEqual(
+    results.map((result) => [result.requestId, result.success]),
+    [
+      ['start-command', true],
+      ['text-command', true],
+      ['interrupt-command', true],
+      ['stop-command', true],
+    ],
+  )
+  dock.runtime.close()
+})
+
+test('management text commands cannot start a dormant microphone or send text before activation', () => {
+  const dock = harness({ microphone: true })
+  dock.runtime.onContextCreated(context)
+  dock.emit({
+    schema: STACKCHAN_GATEWAY_SCHEMA,
+    type: 'conversation.command',
+    requestId: 'text-command',
+    action: 'text',
+    text: 'こんにちは',
+  })
+  assert.equal(dock.runtime.remoteConversationSession?.activationState, 'inactive')
+  assert.equal(dock.microphoneRunning, false)
+  const result = dock.sent.at(-1) as { success: boolean }
+  assert.equal(result.success, false)
+  dock.runtime.close()
+})
+
 test('microphone pauses for capacity and retries one frame before resuming', () => {
   const dock = harness({ microphone: true })
   dock.runtime.onContextCreated(context)
@@ -422,17 +477,18 @@ test('activation cannot happen before the context is attached', () => {
   dock.runtime.close()
 })
 
-test('activation binds the sideband and deactivation releases it', () => {
+test('deactivation releases presentation but keeps management controls until close', () => {
   const dock: Harness = harness()
   dock.runtime.onContextCreated(context)
-  assert.equal(dock.sidebandBound, false)
+  assert.equal(dock.sidebandBound, true)
   dock.runtime.remoteConversationSession?.activate()
   assert.equal(dock.sidebandBound, true)
   dock.runtime.remoteConversationSession?.deactivate()
-  assert.equal(dock.sidebandBound, false)
+  assert.equal(dock.sidebandBound, true)
   assert.ok(dock.closed.includes('presentation'))
   assert.ok(dock.closed.includes('activation'))
   dock.runtime.close()
+  assert.equal(dock.sidebandBound, false)
 })
 
 test('sideband messages update the conversation state and reach the presentation', async () => {

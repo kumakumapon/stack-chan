@@ -32,6 +32,8 @@ export type GatewayDeviceCapabilities = {
   embodiment: string[]
   /** Whether the device can present `approval.request` and answer it. */
   approval: boolean
+  /** Optional extension: PC controls activate the device's own conversation facade. */
+  conversationControl?: boolean
 }
 
 export type GatewaySessionFeatures = {
@@ -96,7 +98,27 @@ export type ResponseCancelled = {
   type: 'response.cancelled'
   requestId: string
 }
-export type GatewayDeviceMessage = SessionHello | AudioInput | AudioInputEnd | TextInput | ResponseCancel
+export type ConversationCommand = {
+  schema: typeof STACKCHAN_GATEWAY_SCHEMA
+  type: 'conversation.command'
+  requestId: string
+  action: 'start' | 'stop' | 'interrupt' | 'text'
+  text?: string
+}
+export type ConversationCommandResult = {
+  schema: typeof STACKCHAN_GATEWAY_SCHEMA
+  type: 'conversation.command.result'
+  requestId: string
+  success: boolean
+  error?: string
+}
+export type GatewayDeviceMessage =
+  | SessionHello
+  | AudioInput
+  | AudioInputEnd
+  | TextInput
+  | ResponseCancel
+  | ConversationCommandResult
 
 // ---------------------------------------------------------------------------
 // Gateway -> Device
@@ -168,6 +190,7 @@ export type RobotDirective = {
 
 export type GatewayServerMessage =
   | SessionReady
+  | ConversationCommand
   | ResponseCancelled
   | TranscriptInput
   | TranscriptOutput
@@ -188,6 +211,18 @@ export function isGatewayEnvelope(value: unknown): value is Record<string, unkno
 export function parseGatewayServerMessage(value: unknown): GatewayServerMessage | undefined {
   if (!isGatewayEnvelope(value) || typeof value.type !== 'string') return
   switch (value.type) {
+    case 'conversation.command':
+      if (!isNonEmptyString(value.requestId) || value.requestId.length > 128) return
+      if (!['start', 'stop', 'interrupt', 'text'].includes(value.action as string)) return
+      if (value.action === 'text' && (typeof value.text !== 'string' || !value.text.trim() || value.text.length > 4000))
+        return
+      return {
+        schema: STACKCHAN_GATEWAY_SCHEMA,
+        type: 'conversation.command',
+        requestId: value.requestId,
+        action: value.action as ConversationCommand['action'],
+        ...(value.action === 'text' ? { text: value.text as string } : {}),
+      }
     case 'response.cancelled':
       if (!isNonEmptyString(value.requestId)) return
       return { schema: STACKCHAN_GATEWAY_SCHEMA, type: 'response.cancelled', requestId: value.requestId }

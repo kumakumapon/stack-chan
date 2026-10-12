@@ -161,6 +161,34 @@ test('assistant text is synthesized when a TTS adapter is configured', async () 
   await session.close()
 })
 
+test('a model turn.done does not re-enable listening while local synthesis is preparing audio', async () => {
+  const scripted = scriptedBackend(false)
+  let release!: () => void
+  const preparing = new Promise<void>((resolve) => {
+    release = resolve
+  })
+  const tts: TtsAdapter = {
+    name: 'local-speech',
+    sampleRate: 16000,
+    async *synthesize() {
+      await preparing
+      yield { audio: Int16Array.of(1, 2), sampleRate: 16000 }
+    },
+  }
+  const { session, of } = harness(scripted.backend, tts)
+  await session.handleDeviceEvent(START)
+  scripted.emit({ type: 'text', text: 'こんにちは', final: true })
+  scripted.emit({ type: 'turn.done' })
+  assert.equal(session.state, 'speaking')
+  assert.equal(of('audio.started').length, 0)
+  release()
+  for (let attempt = 0; attempt < 100 && !of('audio.completed').length; attempt++)
+    await new Promise((resolve) => setTimeout(resolve, 1))
+  assert.equal(of('audio.completed').length, 1)
+  assert.equal(session.state, 'listening')
+  await session.close()
+})
+
 test('assistant audio prebuffers 200 ms before real-time packet pacing', async () => {
   const scripted = scriptedBackend(false)
   const tts: TtsAdapter = {

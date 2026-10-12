@@ -4,6 +4,19 @@
   "acceptedServerMessages": [
     {
       "schema": "stackchan.gateway.v1",
+      "type": "conversation.command",
+      "requestId": "web-start-1",
+      "action": "start"
+    },
+    {
+      "schema": "stackchan.gateway.v1",
+      "type": "conversation.command",
+      "requestId": "web-text-1",
+      "action": "text",
+      "text": "こんにちは"
+    },
+    {
+      "schema": "stackchan.gateway.v1",
       "type": "response.cancelled",
       "requestId": "cancel-1"
     },
@@ -75,6 +88,19 @@
     }
   ],
   "rejectedServerMessages": [
+    {
+      "schema": "stackchan.gateway.v1",
+      "type": "conversation.command",
+      "requestId": "web-shell-1",
+      "action": "shell"
+    },
+    {
+      "schema": "stackchan.gateway.v1",
+      "type": "conversation.command",
+      "requestId": "web-empty-text-1",
+      "action": "text",
+      "text": ""
+    },
     {
       "schema": "other.v1",
       "type": "session.ready",

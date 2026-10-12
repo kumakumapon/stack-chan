@@ -185,6 +185,12 @@ export function createConversationSession(options: ConversationSessionOptions): 
     if (!text || closed || cancelling) return
     const currentGeneration = generation
     const signal = speechController.signal
+    // Synthesis is part of the reply. A fast model's turn.done must not mark
+    // the session listening while a local engine is still preparing its WAV.
+    if (options.tts.name !== 'null') {
+      speaking = true
+      setState('speaking')
+    }
     const responseId = createId('response')
     let seq = 0
     let started = false
@@ -258,6 +264,7 @@ export function createConversationSession(options: ConversationSessionOptions): 
         )
       }
     }
+    speaking = false
     if (state !== 'blocked' && state !== 'standby') setState('listening')
   }
 
