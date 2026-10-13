@@ -23,6 +23,12 @@ export const MOTION_NAMES = [
   'head-left',
   'head-right',
   'center',
+  'bow',
+  'double-nod',
+  'peek-left',
+  'peek-right',
+  'scan',
+  'stretch',
 ] as const
 
 export type MotionName = (typeof MOTION_NAMES)[number]
@@ -61,7 +67,20 @@ export type PerformanceCue = {
   light?: { r: number; g: number; b: number; durationMs?: number }
 }
 
-export const PERFORMANCE_NAMES = ['greeting', 'happy-dance', 'cheer', 'sing-twinkle'] as const
+export const PERFORMANCE_NAMES = [
+  'greeting',
+  'happy-dance',
+  'cheer',
+  'sing-twinkle',
+  'morning-stretch',
+  'curiosity-tour',
+  'celebrate',
+  'shy-hello',
+  'thinking-hard',
+  'sleepy-bedtime',
+  'thank-you',
+  'goodbye',
+] as const
 
 export type PerformanceName = (typeof PERFORMANCE_NAMES)[number]
 

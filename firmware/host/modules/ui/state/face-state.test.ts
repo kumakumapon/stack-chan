@@ -6,6 +6,7 @@ import {
   copyFaceStateForDistribution,
   createFaceState,
   Emotion,
+  EmotionNames,
   emotionFromName,
   faceStatesEqual,
   quantizeBreathForPixels,
@@ -57,4 +58,19 @@ test('FaceState distribution quantizes breath to rendered pixels', () => {
   copyFaceStateForDistribution(next, nextDistributed, 6)
   assert.equal(quantizeBreathForPixels(next.breath, 6), 1 / 6)
   assert.equal(faceStatesEqual(previousDistributed, nextDistributed), false)
+})
+
+test('every emotion round-trips by name and survives state copies', () => {
+  for (const name of EmotionNames) {
+    const emotion = emotionFromName(name.toLowerCase())
+    assert.notEqual(emotion, undefined)
+    assert.equal(emotion, Emotion[name])
+    assert.equal(toEmotionName(Emotion[name]), name)
+    const src = createFaceState()
+    src.emotion = Emotion[name]
+    const dst = createFaceState()
+    copyFaceState(src, dst)
+    assert.equal(dst.emotion, emotion)
+    assert.equal(faceStatesEqual(src, dst), true)
+  }
 })

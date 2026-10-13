@@ -4,7 +4,7 @@ import { DogFace, ImageFace, SimpleFace } from 'behaviors/face'
 import type { CameraImageType } from 'camera'
 import { type CameraPreviewFrame, createCameraPreviewDialog, prepareCameraPreviewFrame } from 'camera-preview'
 import { Emoticon, type EmoticonKey } from 'effects/emoticon'
-import { Emotion } from 'face-state'
+import { Emotion, EmotionNames } from 'face-state'
 import { type HandAnimationName, isHandAnimationName } from 'hands'
 import type { MotionType } from 'imu'
 import { localize } from 'localization'
@@ -65,15 +65,11 @@ export const onContextCreated: NonNullable<StackchanAppBehavior['onContextCreate
       ...button,
       group: button.key === 'toggleFace' || button.key === 'toggleColor' ? '設定' : '診断',
     })
-  const emotions: Emotion[] = [Emotion.HAPPY, Emotion.ANGRY, Emotion.SAD, Emotion.HOT, Emotion.SLEEPY, Emotion.NEUTRAL]
-  const emotionOptions = [
-    { value: String(Emotion.NEUTRAL), label: localize('drawer.emotion.neutral') },
-    { value: String(Emotion.HAPPY), label: localize('drawer.emotion.happy') },
-    { value: String(Emotion.ANGRY), label: localize('drawer.emotion.angry') },
-    { value: String(Emotion.SAD), label: localize('drawer.emotion.sad') },
-    { value: String(Emotion.HOT), label: localize('drawer.emotion.hot') },
-    { value: String(Emotion.SLEEPY), label: localize('drawer.emotion.sleepy') },
-  ]
+  const emotions: Emotion[] = EmotionNames.map((name) => Emotion[name])
+  const emotionOptions = EmotionNames.map((name) => ({
+    value: String(Emotion[name]),
+    label: localize(`drawer.emotion.${name.toLowerCase()}`),
+  }))
   let speechVisible = false
   let emoticonEffect: PiuContent | null = null
   let currentEmotion: Emotion = Emotion.NEUTRAL
@@ -93,6 +89,14 @@ export const onContextCreated: NonNullable<StackchanAppBehavior['onContextCreate
     [Emotion.NEUTRAL]: null,
     [Emotion.DOUBTFUL]: null,
     [Emotion.COLD]: null,
+    [Emotion.SURPRISED]: null,
+    [Emotion.CURIOUS]: null,
+    [Emotion.SHY]: 'heart',
+    [Emotion.EXCITED]: 'heart',
+    [Emotion.RELAXED]: null,
+    [Emotion.WORRIED]: 'sweat',
+    [Emotion.CONFIDENT]: null,
+    [Emotion.WINK]: 'heart',
   }
   const setEmotionWithEffect = (target: typeof robot, nextEmotion: Emotion) => {
     currentEmotion = nextEmotion

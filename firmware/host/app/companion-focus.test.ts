@@ -8,6 +8,7 @@ import { isCompanionIdleSuppressed, suppressCompanionIdle } from './companion-id
 const appRoot = dirname(fileURLToPath(import.meta.url))
 const hostRoot = resolve(process.cwd(), 'host')
 const compiledHost = resolve(appRoot, '..')
+writeAliasPackage(hostRoot, 'reaction-types', resolve(compiledHost, 'modules/reaction/reaction-types.js'))
 writeAliasPackage(hostRoot, 'companion-idle', resolve(appRoot, 'companion-idle.js'))
 writeAliasPackage(hostRoot, 'companion-battery', resolve(appRoot, 'companion-battery.js'))
 writeAliasPackage(hostRoot, 'localization', resolve(compiledHost, 'modules/testing/fakes/localization.js'))
@@ -461,5 +462,25 @@ test('low battery during quiet hours: the quieter setting wins and the notice st
     }
   } finally {
     both.restore()
+  }
+})
+
+test('normal idle varies its expanded gestures without repeating the previous reaction', () => {
+  const h = lowBatteryHarness()
+  try {
+    // Alternate deterministic samples to explore beyond the original three gestures.
+    let sample = 0
+    Math.random = () => ((sample++ * 7) % 17) / 17
+    h.advance(30 * 60000)
+    assert.ok(new Set(h.reactions).size > 3, 'normal idle should explore more gestures')
+    for (let index = 1; index < h.reactions.length; index++) {
+      assert.notEqual(h.reactions[index], h.reactions[index - 1], 'adjacent idle gestures should differ')
+    }
+    h.close()
+    const count = h.reactions.length
+    h.advance(120000)
+    assert.equal(h.reactions.length, count, 'close stops idle playback')
+  } finally {
+    h.restore()
   }
 })

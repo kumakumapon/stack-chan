@@ -1,7 +1,7 @@
 import { AppController } from 'app-controller'
 import { DogFace, FaceBase, ImageFace, SimpleFace } from 'behaviors/face'
 import { createFaceSkinPalette } from 'face-skin'
-import { createFaceState, Emotion, type FaceState, setColorRGB } from 'face-state'
+import { createFaceState, Emotion, EmotionNames, type FaceState, setColorRGB } from 'face-state'
 import { Eye } from 'parts/eye'
 import { eyeOpenToVariant, IRIS_SPRITE } from 'parts/image/atlas'
 import { Content, type Content as PiuContent } from 'piu/MC'
@@ -98,6 +98,54 @@ happyFace.emotion = Emotion.HAPPY
 happyFace.eyes.left.open = 0.5
 applyFaceState(simpleFace, happyFace)
 assertChanged(angryEyelid, simpleLeftEyelid.fillOutline, 'standard eyelid should change for happy expression')
+
+// Emotion changes must invalidate the mouth even when audio/open state is unchanged.
+const mouthRenderer = simpleMouth.behavior as {
+  onFaceState(port: unknown, state: FaceState): void
+  onDraw(port: unknown): void
+}
+let invalidations = 0
+const draws: number[][] = []
+const mouthPort = {
+  invalidate: () => {
+    invalidations++
+  },
+  fillColor: (_color: string, x: number, y: number, width: number, height: number) => {
+    draws.push([x, y, width, height])
+  },
+}
+function drawMouth(emotion: FaceState['emotion'], open = 0): number[] {
+  const face = createFaceState()
+  face.emotion = emotion
+  face.mouth.open = open
+  mouthRenderer.onFaceState(mouthPort, face)
+  mouthRenderer.onDraw(mouthPort)
+  return draws[draws.length - 1]
+}
+const neutralMouth = drawMouth(Emotion.NEUTRAL)
+const beforeEmotionChange = invalidations
+const surprisedMouth = drawMouth(Emotion.SURPRISED)
+assert(invalidations > beforeEmotionChange, 'emotion alone should invalidate the mouth')
+assert(surprisedMouth[2] < neutralMouth[2], 'surprise should narrow the mouth')
+assert(surprisedMouth[3] > neutralMouth[3], 'surprise should open the mouth visibly')
+const shyMouth = drawMouth(Emotion.SHY)
+assert(shyMouth[2] < neutralMouth[2], 'shyness should shrink the mouth')
+for (const name of EmotionNames) {
+  for (const open of [0, 0.5, 1]) {
+    const rectangle = drawMouth(Emotion[name], open)
+    assert(rectangle[2] > 0 && rectangle[3] > 0, `${name} mouth should remain visible`)
+    assert(rectangle[0] >= 0 && rectangle[1] >= 0, `${name} mouth should fit its port`)
+    const face = createFaceState()
+    face.emotion = Emotion[name]
+    face.eyes.left.open = open
+    face.eyes.right.open = open
+    applyFaceState(simpleFace, face)
+    assert(simpleLeftEyelid.fillOutline, `${name} should have a renderable eyelid`)
+  }
+}
+const restoredMouth = drawMouth(Emotion.NEUTRAL)
+equal(restoredMouth[2], neutralMouth[2], 'restoring neutral should restore mouth width')
+equal(restoredMouth[3], neutralMouth[3], 'restoring neutral should restore mouth height')
 
 const themedFace = createFaceState()
 setColorRGB(themedFace.theme.primary, 0x12, 0x34, 0x56)

@@ -8,6 +8,8 @@
     "*": ["../../../strings/*"]
   },
   "modules": {
+    "performance-types": "../../../../modules/performance/performance-types",
+    "reaction-types": "../../../../modules/reaction/reaction-types",
     "app-behavior": "./app-behavior-stub",
     "app-default-behavior/on-context-created": "../../on-context-created",
     "app-default-behavior/companion": "../../companion",

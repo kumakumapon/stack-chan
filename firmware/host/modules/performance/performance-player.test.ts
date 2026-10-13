@@ -315,3 +315,35 @@ test('restore: false leaves the stage but releases the head after a motion', () 
   assert.equal(stage.log.includes('emotion NEUTRAL'), false)
   assert.equal(stage.log.at(-1), 'release')
 })
+
+const { PERFORMANCE_CATALOG } = await import('./performance-catalog.js')
+const { REACTION_CATALOG } = await import('../reaction/reaction-catalog.js')
+const { MOTION_CATALOG } = await import('./motion-catalog.js')
+test('every catalog performance plays and restores on completion or cancellation', () => {
+  for (const entry of Object.values(PERFORMANCE_CATALOG)) {
+    for (const cancel of [false, true]) {
+      Timer.reset()
+      const stage = createStage()
+      const baseline = stage.snapshot()
+      const traced: string[] = []
+      const player = new PerformancePlayer({
+        stage,
+        reactions: (name) => REACTION_CATALOG[name],
+        motions: (name) => MOTION_CATALOG[name],
+        trace: (message) => traced.push(message),
+      })
+      assert.equal(player.play(entry).ok, true, entry.name)
+      const until = cancel ? entry.durationMs / 2 : entry.durationMs + 50
+      for (let elapsed = 0; elapsed < until; elapsed += 25) stage.tick(25)
+      if (cancel) player.cancel()
+      assert.equal(player.status().active, null, entry.name)
+      assert.deepEqual(stage.state, baseline, `${entry.name} restores its baseline`)
+      assert.deepEqual(traced, [], entry.name)
+      const restore = stage.headMoves[stage.headMoves.length - 1]
+      if (restore) {
+        restore.done(true)
+        assert.ok(stage.log.includes('release'))
+      }
+    }
+  }
+})

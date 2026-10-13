@@ -101,3 +101,5 @@ xsbugの書き込み経路を使わないため、ホストはデバッグビル
 - [オフライン集中タイマー](docs/focus-timer_ja.md)
 - [v1.1.0リリースノート](../docs/release-notes/v1.1.0.md)
 - [v1.0.0リリースノート](../docs/release-notes/v1.0.0.md)
+
+表情・リアクション・演技の種類と操作方法は[表情と行動パターン](docs/behavior-patterns.md)を参照してください。

@@ -11,6 +11,8 @@ import {
 } from 'companion-time'
 import { localize } from 'localization'
 import Modules from 'modules'
+import type { PerformanceName } from 'performance-types'
+import { isReactionName, REACTION_NAMES, type ReactionName } from 'reaction-types'
 import Timer from 'timer'
 import { getTimezonePreset } from 'timezone-model'
 
@@ -54,7 +56,7 @@ export const installCompanion: NonNullable<StackchanAppBehavior['onContextCreate
     !robot.reaction.status().active &&
     !robot.performance.status().active &&
     (!remote || remote.state === 'standby' || remote.state === 'blocked')
-  const play = (name: 'greeting' | 'sing-twinkle' | 'happy-dance' | 'cheer') => {
+  const play = (name: PerformanceName) => {
     lastAction = Date.now()
     if (remote?.activationState === 'active') remote.deactivate()
     robot.ui.closeDrawer()
@@ -67,8 +69,59 @@ export const installCompanion: NonNullable<StackchanAppBehavior['onContextCreate
     ['sing-twinkle', '歌う'],
     ['happy-dance', '踊る'],
     ['cheer', '応援'],
+    ['morning-stretch', '朝の体操'],
+    ['curiosity-tour', '探検'],
+    ['celebrate', 'お祝い'],
+    ['shy-hello', '照れながら挨拶'],
+    ['thinking-hard', 'ひらめき'],
+    ['sleepy-bedtime', 'おやすみ'],
+    ['thank-you', 'ありがとう'],
+    ['goodbye', 'またね'],
   ] as const)
     robot.drawer.addDrawerButton({ key: `companion-${name}`, label, group: '遊ぶ', callback: () => play(name) })
+  const reactionLabels: Record<ReactionName, string> = {
+    yes: 'うん',
+    no: 'いやいや',
+    greeting: '挨拶',
+    thinking: '考える',
+    delighted: '大喜び',
+    'sleepy-yawn': 'あくび',
+    success: '成功',
+    failure: 'しょんぼり',
+    surprised: 'びっくり',
+    curious: '好奇心',
+    shy: '照れる',
+    laugh: '笑う',
+    wink: 'ウインク',
+    love: '大好き',
+    proud: '得意げ',
+    worried: '心配',
+    apologize: 'ごめんね',
+    relieved: 'ほっとする',
+    listening: '耳を傾ける',
+    'look-around': 'きょろきょろ',
+    stretch: '伸び',
+    doze: 'うとうと',
+    'wake-up': '目覚める',
+    goodbye: 'またね',
+  }
+  robot.drawer.addDrawerButton({
+    key: 'companion-reaction',
+    label: 'リアクション',
+    group: '遊ぶ',
+    kind: 'choice',
+    value: 'greeting',
+    options: REACTION_NAMES.map((name) => ({ value: name, label: reactionLabels[name] })),
+    callback: (_target, value) => {
+      if (!isReactionName(value)) return
+      lastAction = Date.now()
+      if (remote?.activationState === 'active') remote.deactivate()
+      robot.performance.cancel()
+      robot.ui.closeDrawer()
+      robot.ui.showFace()
+      robot.reaction.play(value)
+    },
+  })
   robot.drawer.addDrawerButton({
     key: 'companion-janken',
     label: 'じゃんけん',
@@ -188,7 +241,22 @@ export const installCompanion: NonNullable<StackchanAppBehavior['onContextCreate
   const getIdlePlan = () =>
     battery?.isLow()
       ? { gapScale: 3, candidates: ['sleepy-yawn'] as const }
-      : { gapScale: 1, candidates: ['yes', 'thinking', 'sleepy-yawn'] as const }
+      : {
+          gapScale: 1,
+          candidates: [
+            'yes',
+            'thinking',
+            'sleepy-yawn',
+            'curious',
+            'shy',
+            'wink',
+            'relieved',
+            'listening',
+            'look-around',
+            'stretch',
+            'doze',
+          ] as const,
+        }
   const schedule = () => {
     idle = Timer.set(
       () => {

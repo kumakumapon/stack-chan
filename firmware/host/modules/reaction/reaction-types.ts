@@ -16,6 +16,22 @@ export const REACTION_NAMES = [
   'sleepy-yawn',
   'success',
   'failure',
+  'surprised',
+  'curious',
+  'shy',
+  'laugh',
+  'wink',
+  'love',
+  'proud',
+  'worried',
+  'apologize',
+  'relieved',
+  'listening',
+  'look-around',
+  'stretch',
+  'doze',
+  'wake-up',
+  'goodbye',
 ] as const
 
 export type ReactionName = (typeof REACTION_NAMES)[number]

@@ -115,6 +115,42 @@ function getEyelidFillOutline(
       path.closePath()
       break
     }
+    case Emotion.CURIOUS:
+    case Emotion.DOUBTFUL:
+      path.rect(x, y, w, closedH + (side === 'left' ? h * 0.35 * open : 0))
+      break
+    case Emotion.SHY:
+      path.rect(x, y, w, h * 0.25 + closedH * 0.75)
+      path.rect(x, y + h * 0.85, w, h * 0.15)
+      break
+    case Emotion.SURPRISED:
+      path.rect(x, y, w, closedH * 0.7)
+      break
+    case Emotion.WINK:
+      path.rect(x, y, w, side === 'left' ? h * 0.9 + closedH * 0.1 : closedH)
+      break
+    case Emotion.CONFIDENT:
+      path.moveTo(x, y)
+      path.lineTo(x, closedH + h * (side === 'left' ? 0.15 : 0.3) * open)
+      path.lineTo(x + w, closedH + h * (side === 'left' ? 0.3 : 0.15) * open)
+      path.lineTo(x + w, y)
+      path.closePath()
+      break
+    case Emotion.WORRIED:
+      path.moveTo(x, y)
+      path.lineTo(x, closedH + h * (side === 'left' ? 0.45 : 0.1) * open)
+      path.quadraticCurveTo(w / 2, closedH + h * 0.1 * open, w, closedH + h * (side === 'left' ? 0.1 : 0.45) * open)
+      path.lineTo(w, y)
+      path.closePath()
+      break
+    case Emotion.RELAXED:
+      path.rect(x, y, w, h * 0.35 + closedH * 0.65)
+      path.rect(x, y + h * 0.8, w, h * 0.2)
+      break
+    case Emotion.EXCITED:
+      path.rect(x, y, w, closedH * 0.5)
+      path.rect(x, y + h * 0.5, w, h * 0.5)
+      break
     case Emotion.SLEEPY:
       path.rect(x, y, w, h * 0.5 + closedH * 0.5)
       break

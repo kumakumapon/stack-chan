@@ -122,6 +122,151 @@ const FAILURE: ReactionTimeline = timeline(
   850,
 )
 
+const SURPRISED = timeline(
+  'surprised',
+  [
+    { at: 0, emotion: 'SURPRISED', mouth: { open: 0.7 }, head: { pitch: -0.18, durationMs: 200 } },
+    { at: 600, mouth: { open: 0.3 } },
+    { at: 1000, head: { pitch: 0, durationMs: 250 } },
+  ],
+  1400,
+)
+const CURIOUS = timeline(
+  'curious',
+  [
+    { at: 0, emotion: 'CURIOUS', hand: 'thinking', head: { yaw: 0.22, pitch: -0.08, durationMs: 350 } },
+    { at: 800, head: { yaw: -0.15, pitch: -0.08, durationMs: 400 } },
+    { at: 1400, head: { yaw: 0, pitch: 0, durationMs: 350 } },
+  ],
+  2000,
+)
+const SHY = timeline(
+  'shy',
+  [
+    { at: 0, emotion: 'SHY', effect: 'heart', head: { yaw: -0.16, pitch: 0.14, durationMs: 400 } },
+    { at: 900, head: { yaw: 0.12, pitch: 0.1, durationMs: 400 } },
+    { at: 1500, effect: null },
+  ],
+  1900,
+)
+const LAUGH = timeline(
+  'laugh',
+  [
+    { at: 0, emotion: 'EXCITED', hand: 'clap', mouth: { open: 0.6 }, head: { pitch: -0.08, durationMs: 200 } },
+    { at: 250, mouth: { open: 0.2 }, head: { pitch: 0.1, durationMs: 200 } },
+    { at: 500, mouth: { open: 0.65 }, head: { pitch: -0.08, durationMs: 200 } },
+    { at: 750, mouth: { open: 0.2 }, head: { pitch: 0.08, durationMs: 200 } },
+    { at: 1000, mouth: { open: 0 }, head: { pitch: 0, durationMs: 200 } },
+  ],
+  1400,
+)
+const WINK = timeline(
+  'wink',
+  [
+    { at: 0, emotion: 'WINK', effect: 'heart', head: { yaw: 0.1, durationMs: 250 } },
+    { at: 800, emotion: 'HAPPY', effect: null, head: { yaw: 0, durationMs: 250 } },
+  ],
+  1200,
+)
+const LOVE = timeline(
+  'love',
+  [
+    { at: 0, emotion: 'SHY', hand: 'cheer', effect: 'heart', light: { r: 255, g: 100, b: 170, durationMs: 600 } },
+    { at: 500, emotion: 'HAPPY', head: { pitch: -0.12, durationMs: 300 } },
+    { at: 1100, head: { pitch: 0, durationMs: 300 } },
+  ],
+  1800,
+)
+const PROUD = timeline(
+  'proud',
+  [
+    { at: 0, emotion: 'CONFIDENT', hand: 'cheer', head: { pitch: -0.2, durationMs: 400 } },
+    { at: 1000, head: { pitch: 0, durationMs: 300 } },
+  ],
+  1600,
+)
+const WORRIED = timeline(
+  'worried',
+  [
+    { at: 0, emotion: 'WORRIED', hand: 'thinking', effect: 'sweat', head: { yaw: -0.12, pitch: 0.1, durationMs: 350 } },
+    { at: 700, head: { yaw: 0.12, pitch: 0.1, durationMs: 350 } },
+    { at: 1400, head: { yaw: 0, pitch: 0, durationMs: 350 } },
+  ],
+  2000,
+)
+const APOLOGIZE = timeline(
+  'apologize',
+  [
+    { at: 0, emotion: 'SAD', hand: 'none', head: { yaw: 0, pitch: 0.3, durationMs: 500 } },
+    { at: 1000, head: { pitch: 0.1, durationMs: 500 } },
+    { at: 1700, head: { pitch: 0, durationMs: 350 } },
+  ],
+  2300,
+)
+const RELIEVED = timeline(
+  'relieved',
+  [
+    { at: 0, emotion: 'WORRIED', mouth: { open: 0.25 } },
+    { at: 500, emotion: 'RELAXED', mouth: { open: 0 }, head: { pitch: 0.08, durationMs: 500 } },
+    { at: 1200, head: { pitch: 0, durationMs: 400 } },
+  ],
+  1900,
+)
+const LISTENING = timeline(
+  'listening',
+  [
+    { at: 0, emotion: 'CURIOUS', head: { yaw: 0.12, pitch: -0.05, durationMs: 400 } },
+    { at: 900, head: { yaw: 0, pitch: 0.12, durationMs: 300 } },
+    { at: 1200, head: { pitch: 0, durationMs: 300 } },
+  ],
+  1800,
+)
+const LOOK_AROUND = timeline(
+  'look-around',
+  [
+    { at: 0, emotion: 'CURIOUS', head: { yaw: -0.28, durationMs: 500 } },
+    { at: 1000, head: { yaw: 0.28, durationMs: 600 } },
+    { at: 2100, head: { yaw: 0, durationMs: 500 } },
+  ],
+  2900,
+)
+const STRETCH = timeline(
+  'stretch',
+  [
+    { at: 0, emotion: 'RELAXED', hand: 'cheer', head: { pitch: -0.24, durationMs: 650 } },
+    { at: 1100, head: { pitch: 0.16, durationMs: 600 } },
+    { at: 1900, hand: 'none', head: { pitch: 0, durationMs: 500 } },
+  ],
+  2700,
+)
+const DOZE = timeline(
+  'doze',
+  [
+    { at: 0, emotion: 'SLEEPY', eyes: { leftOpen: 0.5, rightOpen: 0.5 }, head: { pitch: 0.12, durationMs: 600 } },
+    { at: 900, eyes: { leftOpen: 0.15, rightOpen: 0.15 }, effect: 'sleepy', head: { pitch: 0.22, durationMs: 600 } },
+    { at: 2100, eyes: { leftOpen: 0, rightOpen: 0 } },
+  ],
+  3000,
+)
+const WAKE_UP = timeline(
+  'wake-up',
+  [
+    { at: 0, emotion: 'SLEEPY', eyes: { leftOpen: 0.2, rightOpen: 0.2 }, head: { pitch: 0.15, durationMs: 400 } },
+    { at: 700, emotion: 'SURPRISED', eyes: { leftOpen: 1, rightOpen: 1 }, head: { pitch: -0.15, durationMs: 300 } },
+    { at: 1300, emotion: 'HAPPY', head: { pitch: 0, durationMs: 300 } },
+  ],
+  1900,
+)
+const GOODBYE = timeline(
+  'goodbye',
+  [
+    { at: 0, emotion: 'HAPPY', hand: 'wave', head: { yaw: -0.15, durationMs: 350 } },
+    { at: 700, head: { yaw: 0.15, durationMs: 350 } },
+    { at: 1400, emotion: 'WINK', head: { yaw: 0, durationMs: 350 } },
+  ],
+  2100,
+)
+
 export const REACTION_CATALOG: Readonly<Record<ReactionName, ReactionTimeline>> = Object.freeze({
   yes: YES,
   no: NO,
@@ -131,6 +276,22 @@ export const REACTION_CATALOG: Readonly<Record<ReactionName, ReactionTimeline>> 
   'sleepy-yawn': SLEEPY_YAWN,
   success: SUCCESS,
   failure: FAILURE,
+  surprised: SURPRISED,
+  curious: CURIOUS,
+  shy: SHY,
+  laugh: LAUGH,
+  wink: WINK,
+  love: LOVE,
+  proud: PROUD,
+  worried: WORRIED,
+  apologize: APOLOGIZE,
+  relieved: RELIEVED,
+  listening: LISTENING,
+  'look-around': LOOK_AROUND,
+  stretch: STRETCH,
+  doze: DOZE,
+  'wake-up': WAKE_UP,
+  goodbye: GOODBYE,
 })
 
 export function reactionTimeline(name: ReactionName): ReactionTimeline {

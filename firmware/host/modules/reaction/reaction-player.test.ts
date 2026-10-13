@@ -272,3 +272,32 @@ test('a slow frame does not delay the frames after it', () => {
   tick(20)
   assert.deepEqual(stage.log, ['effect heart', 'effect sweat'])
 })
+
+const { REACTION_CATALOG } = await import('./reaction-catalog.js')
+test('every catalog reaction completes, cancels and respects audio mouth ownership', () => {
+  for (const entry of Object.values(REACTION_CATALOG)) {
+    for (const audioActive of [false, true]) {
+      for (const cancel of [false, true]) {
+        const { stage, player, ended, traced } = setup()
+        stage.audioActive = audioActive
+        const baseline = stage.snapshot()
+        assert.equal(player.play(entry).ok, true, entry.name)
+        const until = cancel ? entry.durationMs / 2 : entry.durationMs + 50
+        for (let elapsed = 0; elapsed < until; elapsed += 25) advance(stage, 25)
+        if (cancel) player.cancel()
+        assert.equal(player.status().active, null, entry.name)
+        assert.deepEqual(stage.state, baseline, `${entry.name} restores emotion and hand`)
+        assert.ok(ended.includes(`${entry.name} ${cancel ? 'cancelled' : 'completed'}`))
+        assert.deepEqual(traced, [], entry.name)
+        if (audioActive) assert.ok(!stage.log.some((line) => line.startsWith('mouth ')), entry.name)
+        const restoredHead = stage.headMoves[stage.headMoves.length - 1]
+        if (restoredHead) {
+          assert.equal(restoredHead.yaw, baseline.head.yaw)
+          assert.equal(restoredHead.pitch, baseline.head.pitch)
+          restoredHead.done(true)
+          assert.ok(stage.log.includes('release'), `${entry.name} releases torque after restoring`)
+        }
+      }
+    }
+  }
+})
