@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises'
 import { chromium } from 'playwright-core'
 
 import { resolveChromium, startPreview } from './test-preview-server.mjs'
+import { captureScreenshot } from './test-browser-screenshot.mjs'
 
 const port = Number(process.env.STACKCHAN_I18N_TEST_PORT ?? 8099)
 const executablePath = resolveChromium()
@@ -40,7 +41,7 @@ try {
     assert.equal((await page.locator('h1').first().innerText()).trim(), expectedText[locale].heading)
     const galleryCard = page.getByRole('link', { name: /MOD Gallery/ })
     assert.equal((await galleryCard.locator('small').innerText()).trim(), expectedText[locale].galleryDescription)
-    await page.screenshot({ path: `/tmp/stackchan-i18n-${locale}.png`, fullPage: true })
+    await captureScreenshot(page, { path: `/tmp/stackchan-i18n-${locale}.png`, fullPage: true })
   }
 } finally {
   await browser?.close()
