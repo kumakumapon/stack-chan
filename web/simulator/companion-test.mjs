@@ -54,13 +54,39 @@ const backend = {
   },
 }
 let streamAudio = false
+let holdNextStreamedReply = false
+let finishStreamedReply
 const syntheticTts = {
   get name() { return streamAudio ? 'synthetic' : 'null' },
   sampleRate: 16000,
   async *synthesize(text, signal) {
     if (!streamAudio) return
     const audio = Int16Array.from({ length: text === 'long' ? 128000 : 8000 }, (_, i) => Math.round(Math.sin(i * 0.1) * 1000))
-    if (!signal?.aborted) yield { audio, sampleRate: 16000 }
+    // Hold completion until the browser observes playback. A short response
+    // otherwise finishes between Playwright polls on a busy CI runner.
+    const hold = holdNextStreamedReply
+    holdNextStreamedReply = false
+    let release
+    const observed = hold
+      ? new Promise((resolve) => {
+          release = resolve
+        })
+      : undefined
+    const abort = () => release?.()
+    if (hold) {
+      finishStreamedReply = release
+      signal?.addEventListener('abort', abort, { once: true })
+    }
+    try {
+      if (signal?.aborted) return
+      yield { audio, sampleRate: 16000 }
+      if (observed && !signal?.aborted) await observed
+    } finally {
+      if (hold) {
+        signal?.removeEventListener('abort', abort)
+        finishStreamedReply = undefined
+      }
+    }
   },
 }
 const gateway = createGatewayServer({
@@ -167,13 +193,23 @@ try {
   assert.equal(await page.evaluate(() => globalThis.gatewayFrames.some((frame) => frame.type === 'audio.completed')), false)
   await page.getByRole('button', { name: '応答を中断', exact: true }).click()
   await status.filter({ hasText: 'listening' }).waitFor({ timeout: 10000 })
+  // The local UI can become ready before the Gateway acknowledges cancellation.
+  await page.waitForFunction(
+    () => globalThis.gatewayFrames.some((frame) => frame.type === 'response.cancelled'),
+    null,
+    { timeout: 10000 }
+  )
   assert.ok(await page.evaluate(() => globalThis.gatewayFrames.some((frame) => frame.type === 'response.cancelled')))
   const interruptedCount = await page.evaluate(() => globalThis.playedBuffers.length)
   await page.waitForTimeout(300)
   assert.equal(await page.evaluate(() => globalThis.playedBuffers.length), interruptedCount)
+  holdNextStreamedReply = true
   await page.getByRole('textbox', { name: 'Conversation text' }).fill('again')
   await page.getByRole('button', { name: '送信', exact: true }).click()
   await status.filter({ hasText: 'speaking' }).waitFor({ timeout: 10000 })
+  await page.waitForFunction((count) => globalThis.playedBuffers.length > count, interruptedCount, { timeout: 10000 })
+  assert.equal(typeof finishStreamedReply, 'function', 'the resumed reply should still be streaming')
+  finishStreamedReply()
   await status.filter({ hasText: 'listening' }).waitFor({ timeout: 10000 })
   assert.ok(await page.evaluate(() => globalThis.gatewayFrames.some((frame) => frame.type === 'audio.completed')))
   await page.getByRole('button', { name: '会話を停止', exact: true }).click()
@@ -221,6 +257,7 @@ try {
   }
   throw error
 } finally {
+  finishStreamedReply?.()
   await browser?.close()
   server?.kill()
   await gateway.close()
