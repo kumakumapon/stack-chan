@@ -105,11 +105,107 @@ const SING_TWINKLE: PerformanceTimeline = timeline(
   20000,
 )
 
+const MORNING_STRETCH = timeline(
+  'morning-stretch',
+  [
+    { at: 0, reaction: 'wake-up' },
+    { at: 2200, emotion: 'RELAXED', hand: 'cheer', motion: 'stretch' },
+    { at: 5100, reaction: 'delighted' },
+    { at: 6300, motion: 'center', hand: 'none', effect: null },
+  ],
+  6800,
+)
+const CURIOSITY_TOUR = timeline(
+  'curiosity-tour',
+  [
+    { at: 0, reaction: 'curious' },
+    { at: 2300, motion: 'peek-left', emotion: 'CURIOUS' },
+    { at: 3800, motion: 'peek-right' },
+    { at: 5300, reaction: 'surprised' },
+    { at: 7000, reaction: 'yes' },
+    { at: 8100, motion: 'center', hand: 'none' },
+  ],
+  8700,
+)
+const CELEBRATE = timeline(
+  'celebrate',
+  [
+    { at: 0, reaction: 'success' },
+    { at: 1100, emotion: 'EXCITED', hand: 'cheer', motion: 'bounce', effect: 'heart' },
+    { at: 1800, motion: 'sway-left' },
+    { at: 2500, motion: 'sway-right' },
+    { at: 3200, reaction: 'laugh' },
+    { at: 4900, reaction: 'proud' },
+    { at: 6800, motion: 'center', hand: 'none', effect: null },
+  ],
+  7400,
+)
+const SHY_HELLO = timeline(
+  'shy-hello',
+  [
+    { at: 0, reaction: 'shy' },
+    { at: 2200, emotion: 'SHY', hand: 'wave', motion: 'peek-right' },
+    { at: 3700, reaction: 'wink' },
+    { at: 5200, motion: 'bow', hand: 'none', effect: null },
+  ],
+  7000,
+)
+const THINKING_HARD = timeline(
+  'thinking-hard',
+  [
+    { at: 0, reaction: 'thinking' },
+    { at: 2100, emotion: 'DOUBTFUL', hand: 'thinking', motion: 'scan' },
+    { at: 5100, reaction: 'worried' },
+    { at: 7400, reaction: 'surprised' },
+    { at: 9100, reaction: 'proud' },
+    { at: 11000, motion: 'center', hand: 'none', effect: null },
+  ],
+  11600,
+)
+const SLEEPY_BEDTIME = timeline(
+  'sleepy-bedtime',
+  [
+    { at: 0, reaction: 'sleepy-yawn' },
+    { at: 2800, reaction: 'stretch' },
+    { at: 5800, reaction: 'doze' },
+    { at: 9100, emotion: 'RELAXED', motion: 'center', hand: 'none', effect: null },
+  ],
+  10000,
+)
+const THANK_YOU = timeline(
+  'thank-you',
+  [
+    { at: 0, reaction: 'love' },
+    { at: 2100, emotion: 'HAPPY', motion: 'bow', hand: 'none' },
+    { at: 3800, reaction: 'wink' },
+    { at: 5300, motion: 'center', effect: null },
+  ],
+  5900,
+)
+const GOODBYE = timeline(
+  'goodbye',
+  [
+    { at: 0, reaction: 'goodbye' },
+    { at: 2400, emotion: 'HAPPY', motion: 'bow', hand: 'none' },
+    { at: 4100, reaction: 'love' },
+    { at: 6200, motion: 'center', hand: 'none', effect: null },
+  ],
+  6900,
+)
+
 export const PERFORMANCE_CATALOG: Readonly<Record<PerformanceName, PerformanceTimeline>> = Object.freeze({
   greeting: GREETING,
   'happy-dance': HAPPY_DANCE,
   cheer: CHEER,
   'sing-twinkle': SING_TWINKLE,
+  'morning-stretch': MORNING_STRETCH,
+  'curiosity-tour': CURIOSITY_TOUR,
+  celebrate: CELEBRATE,
+  'shy-hello': SHY_HELLO,
+  'thinking-hard': THINKING_HARD,
+  'sleepy-bedtime': SLEEPY_BEDTIME,
+  'thank-you': THANK_YOU,
+  goodbye: GOODBYE,
 })
 
 export function performanceTimeline(name: PerformanceName): PerformanceTimeline {

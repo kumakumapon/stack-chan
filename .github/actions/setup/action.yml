@@ -6,9 +6,9 @@ outputs:
     value: ${{ steps.resolve_moddable.outputs.cache-key }}
 inputs:
   target-branch:
-    description: "Target branch or tag to setup environment"
+    description: "Moddable branch or tag (defaults to the SDK used by release and WASM builds)"
     required: false
-    default: ""
+    default: "9.0.0"
   install-emscripten:
     description: "Install Emscripten for WASM builds"
     required: false

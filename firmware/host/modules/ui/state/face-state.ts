@@ -7,11 +7,36 @@ export const Emotion = Object.freeze({
   DOUBTFUL: 5,
   COLD: 6,
   HOT: 7,
+  SURPRISED: 8,
+  CURIOUS: 9,
+  SHY: 10,
+  EXCITED: 11,
+  RELAXED: 12,
+  WORRIED: 13,
+  CONFIDENT: 14,
+  WINK: 15,
 } as const)
 
 export type Emotion = (typeof Emotion)[keyof typeof Emotion]
 
-const emotionNames = Object.freeze(['NEUTRAL', 'ANGRY', 'SAD', 'HAPPY', 'SLEEPY', 'DOUBTFUL', 'COLD', 'HOT'] as const)
+const emotionNames = Object.freeze([
+  'NEUTRAL',
+  'ANGRY',
+  'SAD',
+  'HAPPY',
+  'SLEEPY',
+  'DOUBTFUL',
+  'COLD',
+  'HOT',
+  'SURPRISED',
+  'CURIOUS',
+  'SHY',
+  'EXCITED',
+  'RELAXED',
+  'WORRIED',
+  'CONFIDENT',
+  'WINK',
+] as const)
 export type EmotionName = (typeof emotionNames)[number]
 export const EmotionNames: readonly EmotionName[] = emotionNames
 
@@ -24,6 +49,14 @@ const EmotionByName: Record<string, Emotion> = Object.freeze({
   DOUBTFUL: Emotion.DOUBTFUL,
   COLD: Emotion.COLD,
   HOT: Emotion.HOT,
+  SURPRISED: Emotion.SURPRISED,
+  CURIOUS: Emotion.CURIOUS,
+  SHY: Emotion.SHY,
+  EXCITED: Emotion.EXCITED,
+  RELAXED: Emotion.RELAXED,
+  WORRIED: Emotion.WORRIED,
+  CONFIDENT: Emotion.CONFIDENT,
+  WINK: Emotion.WINK,
 })
 
 const HEX_DIGITS = '0123456789abcdef'

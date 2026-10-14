@@ -26,6 +26,9 @@
       "@/*": [
         "./src/*"
       ],
+      "reaction-types": [
+        "../firmware/host/modules/reaction/reaction-types.ts"
+      ],
       "quiz": [
         "../firmware/host/app/quiz.ts"
       ]

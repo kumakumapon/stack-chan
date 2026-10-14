@@ -1,5 +1,7 @@
 import { onContextCreated } from 'app-default-behavior/on-context-created'
-import { Emotion } from 'face-state'
+import { Emotion, EmotionNames } from 'face-state'
+import { PERFORMANCE_NAMES } from 'performance-types'
+import { REACTION_NAMES } from 'reaction-types'
 import { assert, equal } from 'testing/assert'
 
 trace('=== default-mod face init test ===\n')
@@ -15,6 +17,8 @@ type RegisteredButton = {
 }
 
 const buttons: RegisteredButton[] = []
+const playedReactions: string[] = []
+const playedPerformances: string[] = []
 const drawerStates: [string, boolean][] = []
 const events: [string, unknown][] = []
 const emotions: unknown[] = []
@@ -47,8 +51,22 @@ const touchPanel: {
 
 const robot = {
   conversation: {},
-  reaction: { status: () => ({ active: null }), play: () => ({ ok: true }) },
-  performance: { status: () => ({ active: null }), play: () => ({ ok: true }) },
+  reaction: {
+    status: () => ({ active: null }),
+    cancel: () => true,
+    play: (name: string) => {
+      playedReactions.push(name)
+      return { ok: true }
+    },
+  },
+  performance: {
+    status: () => ({ active: null }),
+    cancel: () => true,
+    play: (name: string) => {
+      playedPerformances.push(name)
+      return { ok: true }
+    },
+  },
   lifecycle: {},
   audio: {
     say: (text: string) => {
@@ -80,6 +98,7 @@ const robot = {
     setHandAnimation: (animation: string) => {
       selectedHandAnimations.push(animation)
     },
+    showFace: () => {},
     closeDrawer: () => {
       drawerCloseCount += 1
     },
@@ -148,6 +167,15 @@ equal(faceButton?.options?.length, 3, 'face selection should expose every mode')
 equal(drawerStates.length, 0, 'choice controls should not masquerade as binary toggles')
 equal(events[0]?.[0], 'onFaceMode', 'initial face mode should be distributed')
 equal(events[0]?.[1], 'simple', 'initial face mode should be simple')
+const emotionButton = buttons.find((button) => button.key === 'cycleEmotion')
+equal(emotionButton?.options?.length, EmotionNames.length, 'every emotion should be selectable on the device')
+for (const name of EmotionNames) {
+  emotionButton?.callback?.(robot, String(Emotion[name]))
+  equal(emotions[emotions.length - 1], Emotion[name], `${name} should reach the face context`)
+}
+const beforeInvalidEmotion = emotions.length
+emotionButton?.callback?.(robot, '999')
+equal(emotions.length, beforeInvalidEmotion, 'unknown emotions should be ignored')
 const handsButton = buttons.find((button) => button.key === 'handAnimation')
 equal(handsButton?.kind, 'choice', 'hands should be exposed as a hierarchical option menu')
 equal(handsButton?.value, 'none', 'hands should start with no animation')
@@ -173,6 +201,22 @@ const selectionCountBeforeInvalidAnimation = selectedHandAnimations.length
 handsButton?.callback?.(robot, 'moonwalk')
 equal(selectedHandAnimations.length, selectionCountBeforeInvalidAnimation, 'unknown hand animations should be ignored')
 equal(drawerStates.length, 0, 'hand choices should not masquerade as binary toggles')
+
+const reactionButton = buttons.find((button) => button.key === 'companion-reaction')
+equal(reactionButton?.options?.length, REACTION_NAMES.length, 'all reactions should be selectable')
+for (const name of REACTION_NAMES) {
+  reactionButton?.callback?.(robot, name)
+  equal(playedReactions[playedReactions.length - 1], name, 'reaction choice should dispatch its name')
+}
+const reactionCount = playedReactions.length
+reactionButton?.callback?.(robot, 'unknown')
+equal(playedReactions.length, reactionCount, 'invalid reaction choices must be ignored')
+for (const name of PERFORMANCE_NAMES) {
+  const button = buttons.find((button) => button.key === `companion-${name}`)
+  assert(button, `${name} should have a play button`)
+  button?.callback?.(robot)
+  equal(playedPerformances[playedPerformances.length - 1], name, 'play button should dispatch its name')
+}
 buttons.find((button) => button.key === 'toggleFace')?.callback?.(robot, 'dog')
 equal(faces.length, 1, 'face choice should replace the rendered face')
 equal(events[events.length - 1]?.[1], 'dog', 'face choice should distribute the selected face mode')

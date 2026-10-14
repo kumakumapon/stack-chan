@@ -1,5 +1,5 @@
 import type { FaceSkinPalette } from 'face-skin'
-import { DEFAULT_FACE_PRIMARY_COLOR, type FaceState, toPiuColorNumber, toPiuColorString } from 'face-state'
+import { DEFAULT_FACE_PRIMARY_COLOR, Emotion, type FaceState, toPiuColorNumber, toPiuColorString } from 'face-state'
 import { type Port as PiuPort, Port } from 'piu/MC'
 
 export type MouthOptions = {
@@ -30,6 +30,7 @@ class MouthBehavior extends Behavior {
   #maxHeight = 58
   #open = 0
   #lastOpen = -1
+  #emotion: FaceState['emotion'] = Emotion.NEUTRAL
   #primary = DEFAULT_FACE_PRIMARY_COLOR
   #hasPalette = false
 
@@ -59,7 +60,8 @@ class MouthBehavior extends Behavior {
         needsDraw = true
       }
     }
-    if (open === this.#lastOpen && !needsDraw) return
+    if (open === this.#lastOpen && face.emotion === this.#emotion && !needsDraw) return
+    this.#emotion = face.emotion
     this.#lastOpen = open
     this.#open = open
     port.invalidate()
@@ -67,8 +69,36 @@ class MouthBehavior extends Behavior {
 
   onDraw(port: PiuPort) {
     port.fillColor(CLEAR_COLOR, 0, 0, this.#maxWidth, this.#maxHeight)
-    const h = this.#minHeight + (this.#maxHeight - this.#minHeight) * this.#open
-    const w = this.#minWidth + (this.#maxWidth - this.#minWidth) * (1 - this.#open)
+    let h = this.#minHeight + (this.#maxHeight - this.#minHeight) * this.#open
+    let w = this.#minWidth + (this.#maxWidth - this.#minWidth) * (1 - this.#open)
+    switch (this.#emotion) {
+      case Emotion.SURPRISED:
+        w = this.#minWidth * 0.7
+        h = Math.max(h, this.#maxHeight * 0.65)
+        break
+      case Emotion.SHY:
+        w *= 0.55
+        break
+      case Emotion.CURIOUS:
+        w *= 0.7
+        break
+      case Emotion.EXCITED:
+        h = Math.max(h, this.#maxHeight * 0.4)
+        break
+      case Emotion.RELAXED:
+        w *= 0.8
+        break
+      case Emotion.WORRIED:
+        w *= 0.6
+        h = Math.max(h, this.#minHeight * 1.5)
+        break
+      case Emotion.CONFIDENT:
+        w *= 0.9
+        break
+      case Emotion.WINK:
+        w *= 0.75
+        break
+    }
     port.fillColor(
       colorString(this.#primary),
       Math.round((this.#maxWidth - w) / 2),

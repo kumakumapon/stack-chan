@@ -74,6 +74,59 @@ const HEAD_RIGHT: MotionDefinition = motion('head-right', [{ at: 0, yaw: 0.45, p
 
 const CENTER: MotionDefinition = motion('center', [{ at: 0, yaw: 0, pitch: 0, durationMs: 200 }], 200)
 
+const BOW = motion(
+  'bow',
+  [
+    { at: 0, yaw: 0, pitch: 0.3, durationMs: 500 },
+    { at: 900, yaw: 0, pitch: 0, durationMs: 450 },
+  ],
+  1350,
+)
+const DOUBLE_NOD = motion(
+  'double-nod',
+  [
+    { at: 0, yaw: 0, pitch: 0.2, durationMs: 220 },
+    { at: 220, yaw: 0, pitch: -0.05, durationMs: 220 },
+    { at: 440, yaw: 0, pitch: 0.2, durationMs: 220 },
+    { at: 660, yaw: 0, pitch: 0, durationMs: 220 },
+  ],
+  880,
+)
+const PEEK_LEFT = motion(
+  'peek-left',
+  [
+    { at: 0, yaw: -0.32, pitch: -0.1, durationMs: 400 },
+    { at: 800, yaw: 0, pitch: 0, durationMs: 400 },
+  ],
+  1200,
+)
+const PEEK_RIGHT = motion(
+  'peek-right',
+  [
+    { at: 0, yaw: 0.32, pitch: -0.1, durationMs: 400 },
+    { at: 800, yaw: 0, pitch: 0, durationMs: 400 },
+  ],
+  1200,
+)
+const SCAN = motion(
+  'scan',
+  [
+    { at: 0, yaw: -0.4, pitch: 0, durationMs: 500 },
+    { at: 1000, yaw: 0.4, pitch: 0, durationMs: 700 },
+    { at: 2200, yaw: 0, pitch: 0, durationMs: 500 },
+  ],
+  2700,
+)
+const STRETCH = motion(
+  'stretch',
+  [
+    { at: 0, yaw: 0, pitch: -0.28, durationMs: 700 },
+    { at: 1200, yaw: 0, pitch: 0.2, durationMs: 600 },
+    { at: 2100, yaw: 0, pitch: 0, durationMs: 500 },
+  ],
+  2600,
+)
+
 export const MOTION_CATALOG: Readonly<Record<MotionName, MotionDefinition>> = Object.freeze({
   nod: NOD,
   shake: SHAKE,
@@ -85,6 +138,12 @@ export const MOTION_CATALOG: Readonly<Record<MotionName, MotionDefinition>> = Ob
   'head-left': HEAD_LEFT,
   'head-right': HEAD_RIGHT,
   center: CENTER,
+  bow: BOW,
+  'double-nod': DOUBLE_NOD,
+  'peek-left': PEEK_LEFT,
+  'peek-right': PEEK_RIGHT,
+  scan: SCAN,
+  stretch: STRETCH,
 })
 
 export function motionDefinition(name: MotionName): MotionDefinition {

@@ -54,8 +54,46 @@ const IMU_ORIENTATIONS: { name: ImuOrientation; label: string }[] = [
 // list is kept in sync by hand; an unknown name is simply rejected by
 // performance-command.ts on the firmware side and traced, never sent to a
 // servo, so drift here fails safe.
-const REACTION_NAMES = ['yes', 'no', 'greeting', 'thinking', 'delighted', 'sleepy-yawn', 'success', 'failure'] as const
-const PERFORMANCE_NAMES = ['greeting', 'happy-dance', 'cheer', 'sing-twinkle'] as const
+const REACTION_NAMES = [
+  'yes',
+  'no',
+  'greeting',
+  'thinking',
+  'delighted',
+  'sleepy-yawn',
+  'success',
+  'failure',
+  'surprised',
+  'curious',
+  'shy',
+  'laugh',
+  'wink',
+  'love',
+  'proud',
+  'worried',
+  'apologize',
+  'relieved',
+  'listening',
+  'look-around',
+  'stretch',
+  'doze',
+  'wake-up',
+  'goodbye',
+] as const
+const PERFORMANCE_NAMES = [
+  'greeting',
+  'happy-dance',
+  'cheer',
+  'sing-twinkle',
+  'morning-stretch',
+  'curiosity-tour',
+  'celebrate',
+  'shy-hello',
+  'thinking-hard',
+  'sleepy-bedtime',
+  'thank-you',
+  'goodbye',
+] as const
 
 const HEAD_TOUCH_POSITIONS: { position: number; label: string }[] = [
   { position: -100, label: '左端' },

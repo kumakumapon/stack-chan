@@ -8,10 +8,14 @@ import { writeAliasPackage } from '../testing/node-alias-package.js'
 const modulesRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 writeAliasPackage(modulesRoot, 'performance-types', resolve(modulesRoot, 'performance/performance-types.js'))
 writeAliasPackage(modulesRoot, 'motion-catalog', resolve(modulesRoot, 'performance/motion-catalog.js'))
+writeAliasPackage(modulesRoot, 'reaction-limits', resolve(modulesRoot, 'reaction/reaction-limits.js'))
 writeAliasPackage(modulesRoot, 'reaction-types', resolve(modulesRoot, 'reaction/reaction-types.js'))
 
 const { PERFORMANCE_NAMES, PERFORMANCE_LIMITS } = await import('./performance-types.js')
 const { MOTION_CATALOG } = await import('./motion-catalog.js')
+const { REACTION_CATALOG } = await import('../reaction/reaction-catalog.js')
+const { EmotionNames } = await import('../ui/state/face-state.js')
+const { REACTION_LIMITS } = await import('../reaction/reaction-limits.js')
 const { REACTION_NAMES } = await import('../reaction/reaction-types.js')
 const { PERFORMANCE_CATALOG, performanceTimeline } = await import('./performance-catalog.js')
 
@@ -101,6 +105,26 @@ test('every motion cue names a MOTION_NAMES entry', () => {
     for (const cue of PERFORMANCE_CATALOG[name].cues) {
       if (cue.motion === undefined) continue
       assert.ok(cue.motion in MOTION_CATALOG, `${name} references unknown motion ${cue.motion}`)
+    }
+  }
+})
+
+test('performance cues wait for nested reactions and their restore movement', () => {
+  for (const name of PERFORMANCE_NAMES) {
+    const { cues, durationMs } = PERFORMANCE_CATALOG[name]
+    for (let index = 0; index < cues.length; index++) {
+      const cue = cues[index]
+      if (!cue.reaction) continue
+      const reaction = REACTION_CATALOG[cue.reaction]
+      const next = cues.slice(index + 1).find((entry) => entry.reaction || entry.motion || entry.head)
+      const end =
+        cue.at +
+        reaction.durationMs +
+        (reaction.frames.some((frame) => frame.head) ? REACTION_LIMITS.defaultHeadDurationMs : 0)
+      assert.ok((next?.at ?? durationMs) >= end, `${name} interrupts ${cue.reaction} before it restores`)
+    }
+    for (const cue of cues) {
+      if (cue.emotion) assert.ok((EmotionNames as readonly string[]).includes(cue.emotion))
     }
   }
 })

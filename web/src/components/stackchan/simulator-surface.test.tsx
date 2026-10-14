@@ -1,3 +1,5 @@
+import { REACTION_NAMES } from '../../../../firmware/host/modules/reaction/reaction-types'
+import { PERFORMANCE_NAMES } from '../../../../firmware/host/modules/performance/performance-types'
 import { createRef } from 'react'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -7,9 +9,7 @@ import { I18nProvider } from '@/app/i18n-provider'
 import { SimulatorSurface, type SimulatorSurfaceController } from '@/components/stackchan/simulator-surface'
 import { resolveDeviceProfile } from '../../../simulator/device-profile.mjs'
 
-function createController(
-  overrides: Partial<SimulatorSurfaceController> = {}
-): SimulatorSurfaceController {
+function createController(overrides: Partial<SimulatorSurfaceController> = {}): SimulatorSurfaceController {
   return {
     viewportRef: createRef<HTMLCanvasElement>(),
     screenRef: createRef<HTMLCanvasElement>(),
@@ -161,4 +161,24 @@ describe('SimulatorSurface device profile controls', () => {
 
     expect(screen.getByText(/再生中/)).toHaveTextContent('yes')
   })
+})
+
+it('renders and dispatches every firmware reaction and performance', async () => {
+  const user = userEvent.setup()
+  const controller = createController()
+  render(
+    <I18nProvider>
+      <SimulatorSurface controller={controller} />
+    </I18nProvider>
+  )
+  for (const name of REACTION_NAMES) {
+    // greeting and goodbye appear in both menus, reaction buttons are first.
+    await user.click(screen.getAllByRole('button', { name })[0])
+    expect(controller.playReaction).toHaveBeenLastCalledWith(name)
+  }
+  for (const name of PERFORMANCE_NAMES) {
+    const matches = screen.getAllByRole('button', { name })
+    await user.click(matches[matches.length - 1])
+    expect(controller.playPerformance).toHaveBeenLastCalledWith(name)
+  }
 })

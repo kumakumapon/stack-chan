@@ -10,11 +10,11 @@ writeAliasPackage(modulesRoot, 'reaction-types', resolve(modulesRoot, 'reaction/
 writeAliasPackage(modulesRoot, 'reaction-limits', resolve(modulesRoot, 'reaction/reaction-limits.js'))
 
 const { REACTION_NAMES } = await import('./reaction-types.js')
-const { validateTimeline } = await import('./reaction-limits.js')
+const { REACTION_LIMITS, validateTimeline } = await import('./reaction-limits.js')
 const { REACTION_CATALOG, reactionTimeline } = await import('./reaction-catalog.js')
 
 const HAND_ANIMATION_NAMES = ['none', 'rock-paper-scissors', 'clap', 'thinking', 'wave', 'cheer'] as const
-const EMOTION_NAMES = ['NEUTRAL', 'ANGRY', 'SAD', 'HAPPY', 'SLEEPY', 'DOUBTFUL', 'COLD', 'HOT'] as const
+const { EmotionNames: EMOTION_NAMES } = await import('../ui/state/face-state.js')
 const EMOTICON_KEYS = ['heart', 'angry', 'sweat', 'tear', 'sleepy'] as const
 
 test('every REACTION_NAMES entry has a catalog timeline whose name matches', () => {
@@ -86,5 +86,21 @@ test('no frame is scheduled after the timeline ends', () => {
   for (const name of REACTION_NAMES) {
     const { frames, durationMs } = REACTION_CATALOG[name]
     for (const frame of frames) assert.ok(frame.at <= durationMs, `${name} has a frame after its duration`)
+  }
+})
+
+test('catalog head moves stay within limits and finish before the next head move or restore', () => {
+  for (const entry of Object.values(REACTION_CATALOG)) {
+    const moving = entry.frames.filter((frame) => frame.head)
+    for (let index = 0; index < moving.length; index++) {
+      const frame = moving[index]
+      const head = frame.head
+      assert.ok(head)
+      if (head.yaw !== undefined) assert.ok(Math.abs(head.yaw) <= REACTION_LIMITS.yawRad, entry.name)
+      if (head.pitch !== undefined) assert.ok(Math.abs(head.pitch) <= REACTION_LIMITS.pitchRad, entry.name)
+      const duration = head.durationMs ?? REACTION_LIMITS.defaultHeadDurationMs
+      assert.ok(duration >= REACTION_LIMITS.minHeadDurationMs && duration <= REACTION_LIMITS.maxHeadDurationMs)
+      assert.ok((moving[index + 1]?.at ?? entry.durationMs) >= frame.at + duration, entry.name)
+    }
   }
 })

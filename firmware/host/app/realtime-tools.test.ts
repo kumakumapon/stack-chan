@@ -13,7 +13,9 @@ writeAliasPackage(hostRoot, 'face-state', resolve(hostRoot, 'modules/ui/state/fa
 writeAliasPackage(hostRoot, 'reaction-types', resolve(hostRoot, 'modules/reaction/reaction-types.js'))
 writeAliasPackage(hostRoot, 'performance-types', resolve(hostRoot, 'modules/performance/performance-types.js'))
 
-const { Emotion } = await import('face-state')
+const { Emotion, EmotionNames } = await import('face-state')
+const { REACTION_NAMES } = await import('reaction-types')
+const { PERFORMANCE_NAMES } = await import('performance-types')
 const { default: createRealtimeToolProvider } = await import('./realtime-tools.js')
 
 const TOOL_NAMES = [
@@ -420,14 +422,7 @@ test('stackchan.react declares every reaction name and plays the requested one',
   })
   const tool = findTool(context, 'stackchan.react')
   assert.deepEqual((tool.parameters as { properties: { name: { enum: string[] } } }).properties.name.enum, [
-    'yes',
-    'no',
-    'greeting',
-    'thinking',
-    'delighted',
-    'sleepy-yawn',
-    'success',
-    'failure',
+    ...REACTION_NAMES,
   ])
   const result = await tool.execute({ name: 'greeting', intensity: 0.5 })
   assert.deepEqual(result, { ok: true })
@@ -489,10 +484,7 @@ test('stackchan.perform declares every performance name and plays the requested 
   })
   const tool = findTool(context, 'stackchan.perform')
   assert.deepEqual((tool.parameters as { properties: { name: { enum: string[] } } }).properties.name.enum, [
-    'greeting',
-    'happy-dance',
-    'cheer',
-    'sing-twinkle',
+    ...PERFORMANCE_NAMES,
   ])
   const result = await tool.execute({ name: 'cheer' })
   assert.deepEqual(result, { ok: true })
@@ -529,4 +521,37 @@ test('stackchan.perform turns a thrown capability error into ok:false instead of
   const tool = findTool(context, 'stackchan.perform')
   const result = await tool.execute({ name: 'cheer' })
   assert.deepEqual(result, { ok: false, error: 'stage unavailable' })
+})
+
+test('conversation tools accept every registered emotion, reaction and performance', async () => {
+  const seen: { emotions: unknown[]; reactions: unknown[]; performances: unknown[] } = {
+    emotions: [],
+    reactions: [],
+    performances: [],
+  }
+  const context = fullContext({
+    setEmotion: (value) => {
+      seen.emotions.push(value)
+    },
+    reactionPlay: (name) => {
+      seen.reactions.push(name)
+      return { ok: true }
+    },
+    performancePlay: (name) => {
+      seen.performances.push(name)
+      return { ok: true }
+    },
+  })
+  const emotion = findTool(context, 'stackchan.face.setEmotion')
+  for (const name of EmotionNames) assert.deepEqual(await emotion.execute({ emotion: name }), { ok: true })
+  for (const name of REACTION_NAMES)
+    assert.deepEqual(await findTool(context, 'stackchan.react').execute({ name }), { ok: true })
+  for (const name of PERFORMANCE_NAMES)
+    assert.deepEqual(await findTool(context, 'stackchan.perform').execute({ name }), { ok: true })
+  assert.deepEqual(
+    seen.emotions,
+    EmotionNames.map((name) => Emotion[name]),
+  )
+  assert.deepEqual(seen.reactions, [...REACTION_NAMES])
+  assert.deepEqual(seen.performances, [...PERFORMANCE_NAMES])
 })
