@@ -3,6 +3,7 @@ import { existsSync } from 'node:fs'
 import { chromium } from 'playwright-core'
 
 import { resolveChromium, startPreview } from '../test-preview-server.mjs'
+import { captureScreenshot } from '../test-browser-screenshot.mjs'
 
 if (!existsSync('simulator/mc.js') || !existsSync('simulator/mc.wasm')) {
   console.log('WASM simulator visual test skipped: run firmware npm run build:wasm first')
@@ -210,7 +211,7 @@ async function runMobileSimulatorPass({ browser, baseUrl, name, viewport, screen
 
     assert.deepEqual(errors, [], `${name}: must not raise uncaught errors`)
 
-    await page.screenshot({ path: screenshotPath, fullPage: true })
+    await captureScreenshot(page, { path: screenshotPath, fullPage: true })
     // A green job should say which layouts it actually exercised. This test exits 0 when the
     // WASM build is missing, so without a line per pass "web-visual passed" cannot be told
     // apart from "web-visual skipped everything".
@@ -227,7 +228,7 @@ try {
   browser = await chromium.launch({
     executablePath,
     headless: true,
-    args: ['--no-sandbox', '--use-gl=swiftshader'],
+    args: ['--no-sandbox', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'],
   })
   const context = await browser.newContext({ viewport: { width: 1280, height: 800 } })
   await context.addInitScript(() => localStorage.setItem('stackchan.locale', 'ja'))
@@ -241,7 +242,7 @@ try {
   assert.equal(await page.locator('canvas[aria-label="ｽﾀｯｸﾁｬﾝ3Dシミュレーター"]').count(), 1)
   assert.equal(await page.getByRole('button', { name: 'カメラを接続' }).count(), 1)
   assert.deepEqual(errors, [])
-  await page.screenshot({ path: '/tmp/stackchan-simulator-runtime.png', fullPage: true })
+  await captureScreenshot(page, { path: '/tmp/stackchan-simulator-runtime.png', fullPage: true })
   console.log('WASM simulator visual test: desktop pass ok (1280x800)')
 
   await runMobileSimulatorPass({

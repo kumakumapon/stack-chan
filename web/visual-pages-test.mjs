@@ -3,6 +3,7 @@ import { chromium } from 'playwright-core'
 import { dragLcd } from './simulator/lcd-test-helpers.mjs'
 
 import { resolveChromium, startPreview } from './test-preview-server.mjs'
+import { captureScreenshot } from './test-browser-screenshot.mjs'
 
 const port = Number(process.env.STACKCHAN_PAGES_TEST_PORT ?? 8097)
 const executablePath = resolveChromium()
@@ -33,7 +34,7 @@ try {
   browser = await chromium.launch({
     executablePath,
     headless: true,
-    args: ['--no-sandbox', '--use-gl=swiftshader'],
+    args: ['--no-sandbox', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'],
   })
   const context = await browser.newContext()
   await context.addInitScript(() => {
@@ -90,7 +91,7 @@ try {
         [],
         `${pageName}/${viewportName} must not raise uncaught errors`
       )
-      await page.screenshot({
+      await captureScreenshot(page, {
         path: `/tmp/stackchan-${pageName}-${viewportName}.png`,
         fullPage: pageName !== 'editor',
       })
@@ -219,7 +220,7 @@ try {
   const closeToolMenu = toolMenu.getByRole('button', { name: '閉じる' })
   assert.equal(await closeToolMenu.count(), 1, 'the shared menu close button must use the active locale')
   assert.equal(await toolMenu.getByRole('link', { name: /MediaPipe BLE追従/ }).count(), 1)
-  await page.screenshot({ path: '/tmp/stackchan-navigation-open.png', fullPage: true })
+  await captureScreenshot(page, { path: '/tmp/stackchan-navigation-open.png', fullPage: true })
   await closeToolMenu.click()
   await toolMenu.waitFor({ state: 'hidden' })
 
@@ -396,7 +397,7 @@ try {
   await page.evaluate(() => localStorage.setItem('stackchan.theme', 'dark'))
   await page.reload({ waitUntil: 'networkidle' })
   assert.equal(await page.locator('html.dark').count(), 1, 'saved dark theme must apply before app interaction')
-  await page.screenshot({ path: '/tmp/stackchan-editor-dark.png', fullPage: false })
+  await captureScreenshot(page, { path: '/tmp/stackchan-editor-dark.png', fullPage: false })
 } finally {
   await browser?.close()
   server?.kill('SIGTERM')
