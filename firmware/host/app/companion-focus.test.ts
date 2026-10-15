@@ -10,6 +10,8 @@ const hostRoot = resolve(process.cwd(), 'host')
 const compiledHost = resolve(appRoot, '..')
 writeAliasPackage(hostRoot, 'reaction-types', resolve(compiledHost, 'modules/reaction/reaction-types.js'))
 writeAliasPackage(hostRoot, 'companion-idle', resolve(appRoot, 'companion-idle.js'))
+writeAliasPackage(hostRoot, 'companion-interaction', resolve(appRoot, 'companion-interaction.js'))
+writeAliasPackage(hostRoot, 'time', resolve(compiledHost, 'modules/testing/fakes/time.js'), { hasDefaultExport: true })
 writeAliasPackage(hostRoot, 'companion-battery', resolve(appRoot, 'companion-battery.js'))
 writeAliasPackage(hostRoot, 'localization', resolve(compiledHost, 'modules/testing/fakes/localization.js'))
 writeAliasPackage(hostRoot, 'companion-time', resolve(appRoot, 'companion-time.js'))
@@ -482,5 +484,113 @@ test('normal idle varies its expanded gestures without repeating the previous re
     assert.equal(h.reactions.length, count, 'close stops idle playback')
   } finally {
     h.restore()
+  }
+})
+
+test('touch wiring yields to conversation, apps, audio, MODs and idle suppression, and cleans up on close', async () => {
+  Timer.reset()
+  const { default: Time } = await import('../modules/testing/fakes/time.js')
+  Time.reset()
+  const originalTrace = globalThis.trace
+  globalThis.trace = () => undefined
+  const controller = { companionIdle: true } as {
+    companionIdle: boolean
+    onCompanionTap?: () => void
+    onCompanionPetting?: () => boolean
+    onCompanionMotion?: () => boolean
+  }
+  const played: string[] = []
+  let active: string | null = null
+  let close: (() => void) | undefined
+  let touch: ((event: { gesture: string; tap?: object; ticks: number }) => void) | undefined
+  let removed = false
+  const remote = { state: 'standby', activationState: 'inactive', subscribe: () => () => undefined }
+  const robot = {
+    ui: { application: { behavior: controller } },
+    conversation: { remoteSession: remote },
+    audio: { isActive: false },
+    performance: { status: () => ({ active: null }) },
+    reaction: {
+      status: () => ({ active }),
+      play: () => undefined,
+      playOwned: (name: string) => {
+        played.push(name)
+        active = name
+        return {
+          ok: true,
+          cancel: () => {
+            active = null
+            return true
+          },
+        }
+      },
+    },
+    touchPanel: {
+      subscribe: (callback: typeof touch) => {
+        touch = callback
+        return () => {
+          removed = true
+        }
+      },
+    },
+    drawer: { addDrawerButton: () => undefined },
+    lifecycle: {
+      onClose: (handler: () => void) => {
+        close = handler
+      },
+    },
+  }
+  let now = 0
+  const advance = (ms: number) => {
+    now += ms
+    Time.setTicks(now)
+    Timer.advance(ms)
+  }
+  const tap = () => {
+    touch?.({ gesture: 'press', ticks: ++now })
+    advance(100)
+    touch?.({ gesture: 'release', tap: {}, ticks: ++now })
+    advance(400)
+  }
+  try {
+    resetModules()
+    installCompanion(robot, {
+      config: { companion: { greetingOnBoot: false, idleReactions: false, lowBatteryNotice: false } },
+    })
+    tap()
+    assert.deepEqual(played, ['head-hello'])
+    remote.activationState = 'active'
+    advance(100)
+    assert.equal(active, null, 'arming conversation cancels our reaction')
+    tap()
+    remote.activationState = 'inactive'
+    remote.state = 'listening'
+    tap()
+    remote.state = 'standby'
+    controller.companionIdle = false
+    tap()
+    controller.companionIdle = true
+    robot.audio.isActive = true
+    tap()
+    robot.audio.isActive = false
+    const release = suppressCompanionIdle(robot)
+    tap()
+    release()
+    resetModules({ mod: {} })
+    tap()
+    resetModules()
+    assert.deepEqual(played, ['head-hello'], 'busy inputs are dropped')
+    tap()
+    assert.deepEqual(played, ['head-hello', 'nose-boop'])
+    close?.()
+    assert.equal(active, null)
+    assert.equal(removed, true)
+    assert.equal(controller.onCompanionTap, undefined)
+    assert.equal(controller.onCompanionPetting, undefined)
+    assert.equal(controller.onCompanionMotion, undefined)
+  } finally {
+    globalThis.trace = originalTrace
+    resetModules()
+    Time.reset()
   }
 })

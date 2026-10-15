@@ -274,6 +274,24 @@ test('snapshot/restore round trip: setting emotion, hand, effect and head change
   assert.deepEqual(fakes.effects, [])
 })
 
+test('short reactions restore the currently selected face, including changes made outside the stage', () => {
+  const fakes = createFakes()
+  let selected = 16 // LOVE selected through the face menu.
+  fakes.deps.readEmotion = () => selected
+  fakes.deps.face.setEmotion = (emotion) => {
+    selected = emotion
+  }
+  const runtime = createReactionRuntime(fakes.deps)
+  assert.equal(runtime.reaction.play('nose-boop').ok, true)
+  assert.notEqual(selected, 16)
+  fakes.tick(2000)
+  assert.equal(selected, 16)
+  selected = 27 // ELECTRIC chosen after the previous reaction completed.
+  assert.equal(runtime.reaction.play('tickled').ok, true)
+  fakes.tick(2000)
+  assert.equal(selected, 27)
+})
+
 test('reaction.play refuses an unknown name', () => {
   const runtime = createReactionRuntime(createFakes().deps)
   const result = runtime.reaction.play('not-a-reaction' as never)

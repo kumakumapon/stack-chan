@@ -29,6 +29,7 @@ function createController(overrides: Partial<SimulatorSurfaceController> = {}): 
     connectCamera: vi.fn(async () => {}),
     pushButton: vi.fn(),
     headSwipe: vi.fn(),
+    headTouch: vi.fn(),
     setHeadTouchPosition: vi.fn(),
     releaseHeadTouch: vi.fn(),
     setImuOrientation: vi.fn(),
@@ -88,6 +89,15 @@ describe('SimulatorSurface device profile controls', () => {
         <SimulatorSurface controller={controller} />
       </I18nProvider>
     )
+
+    for (const [name, action] of [
+      ['頭をタップ', 'tap'],
+      ['連続タップ', 'double-tap'],
+      ['頭を長押し', 'hold'],
+    ]) {
+      await user.click(screen.getByRole('button', { name }))
+      expect(controller.headTouch).toHaveBeenLastCalledWith(action)
+    }
 
     await user.click(screen.getByRole('button', { name: '前方スワイプ' }))
     expect(controller.headSwipe).toHaveBeenCalledWith('forward')

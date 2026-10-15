@@ -576,6 +576,7 @@ export class StackchanRuntimeContext implements StackchanContext {
     const context = this
     return createReactionRuntime({
       now: monotonicNow,
+      readEmotion: () => this.#uiRuntime.emotion,
       face: this.#faceCapability,
       ui: this.#uiCapability,
       motion: this.#motionCapability,

@@ -57,7 +57,8 @@ export type DeviceProfile = {
 
 export type HeadSwipeDirection = 'forward' | 'backward'
 
-export type ImuOrientation = 'upright' | 'upsideDown' | 'fallenForward' | 'fallenBackward' | 'fallenLeft' | 'fallenRight'
+export type ImuOrientation =
+  'upright' | 'upsideDown' | 'fallenForward' | 'fallenBackward' | 'fallenLeft' | 'fallenRight'
 
 export type PerformanceMode = 'desktop' | 'mobile'
 
@@ -128,7 +129,13 @@ export class ViewportControlsGate {
 }
 
 export class SimulatorEngine {
-  configureConversation(config: { endpoint: string; token: string; deviceId: string; clientId: string; microphone: boolean }): Promise<void>
+  configureConversation(config: {
+    endpoint: string
+    token: string
+    deviceId: string
+    clientId: string
+    microphone: boolean
+  }): Promise<void>
   conversationCommand(command: { action: string; text?: string }): void
   readonly conversationStatus: { state: string; transport: string; activation: string; error?: string }
   constructor(options: {
@@ -161,6 +168,7 @@ export class SimulatorEngine {
   setImuAccelerometer(vector: ImuAcceleration): void
   pushButton(name: 'a' | 'b' | 'c'): void
   headSwipe(direction: HeadSwipeDirection): void
+  headTouch(action: 'tap' | 'double-tap' | 'hold'): void
   setHeadTouchPosition(position: number): void
   releaseHeadTouch(): void
   setImuOrientation(name: ImuOrientation): void

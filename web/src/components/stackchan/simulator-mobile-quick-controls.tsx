@@ -26,6 +26,16 @@ export function SimulatorMobileQuickControls({
             size="sm"
             variant="outline"
             onClick={() => {
+              controller.headTouch('tap')
+              onInput(t('頭をタップ'))
+            }}
+          >
+            {t('頭をタップ')}
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => {
               controller.headSwipe('forward')
               onInput(t('前方スワイプ'))
             }}

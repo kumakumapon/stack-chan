@@ -118,6 +118,7 @@ export function createHostTouchPanelBridge({
   const state = new Array(channels).fill(0)
   let pendingTimers = []
   let swiping = false
+  let finishScript
 
   const clampPosition = (position) => Math.max(-100, Math.min(100, position))
 
@@ -144,6 +145,8 @@ export function createHostTouchPanelBridge({
   const clearPendingTimers = () => {
     for (const timer of pendingTimers) clearTimeoutFn(timer)
     pendingTimers = []
+    finishScript?.()
+    finishScript = undefined
   }
 
   return {
@@ -155,10 +158,42 @@ export function createHostTouchPanelBridge({
       return [...state]
     },
     setPosition(position) {
+      clearPendingTimers()
+      swiping = false
       applyPosition(position)
     },
     release() {
+      clearPendingTimers()
+      swiping = false
       clearState()
+    },
+    touch(action) {
+      if (!['tap', 'double-tap', 'hold'].includes(action)) throw new TypeError('Unknown head touch action')
+      clearPendingTimers()
+      swiping = true
+      const count = action === 'double-tap' ? 2 : 1
+      const holdMs = action === 'hold' ? 1300 : 120
+      logger(`[bridge] Host.TouchPanel ${action}`)
+      applyPosition(0)
+      return new Promise((resolve) => {
+        finishScript = resolve
+        for (let index = 0; index < count; index++) {
+          const start = index * (holdMs + 120)
+          if (index > 0) pendingTimers.push(setTimeoutFn(() => applyPosition(0), start))
+          pendingTimers.push(setTimeoutFn(clearState, start + holdMs))
+        }
+        pendingTimers.push(
+          setTimeoutFn(
+            () => {
+              clearState()
+              swiping = false
+              finishScript = undefined
+              resolve()
+            },
+            count * (holdMs + 120)
+          )
+        )
+      })
     },
     // Scripts press -> swipeSteps interpolated positions -> release, each held swipeStepMs.
     // Forward runs -80 -> +80 and backward +80 -> -80, both clearing the 60-point swipeThreshold
@@ -172,16 +207,21 @@ export function createHostTouchPanelBridge({
       logger(`[bridge] Host.TouchPanel swipe ${direction}`)
       applyPosition(start)
       return new Promise((resolve) => {
+        finishScript = resolve
         for (let step = 1; step <= swipeSteps; step += 1) {
           const position = start + ((end - start) * step) / swipeSteps
           pendingTimers.push(setTimeoutFn(() => applyPosition(position), step * swipeStepMs))
         }
         pendingTimers.push(
-          setTimeoutFn(() => {
-            clearState()
-            swiping = false
-            resolve()
-          }, (swipeSteps + 1) * swipeStepMs)
+          setTimeoutFn(
+            () => {
+              clearState()
+              swiping = false
+              finishScript = undefined
+              resolve()
+            },
+            (swipeSteps + 1) * swipeStepMs
+          )
         )
       })
     },
@@ -351,7 +391,9 @@ export function createHostPerformanceBridge({ logger = () => {}, onStatus } = {}
     enqueue(command) {
       if (!command || typeof command !== 'object' || !command.target || !command.action) return
       queue.push(command)
-      const label = command.name ? `${command.target}.${command.action} ${command.name}` : `${command.target}.${command.action}`
+      const label = command.name
+        ? `${command.target}.${command.action} ${command.name}`
+        : `${command.target}.${command.action}`
       logger(`[bridge] Host.Performance enqueue ${label}`)
     },
     // Called by the firmware bridge; JSON so it crosses the XS/WebAssembly string boundary

@@ -80,6 +80,14 @@ export const onContextCreated: NonNullable<StackchanAppBehavior['onContextCreate
   let pettingHoldTimer: ReturnType<typeof Timer.set> | undefined
   let motionDetectRestoreTimer: ReturnType<typeof Timer.set> | undefined
   let motionDetectPreviousEmotion: Emotion | undefined
+  let pettingCount = 0
+  const interactionController = (
+    robot.ui.application as
+      | {
+          behavior?: { onCompanionPetting?: () => boolean; onCompanionMotion?: () => boolean }
+        }
+      | undefined
+  )?.behavior
   const emotionKeyMap: Record<Emotion, EmoticonKey | null> = {
     [Emotion.HAPPY]: 'heart',
     [Emotion.ANGRY]: 'angry',
@@ -606,15 +614,16 @@ export const onContextCreated: NonNullable<StackchanAppBehavior['onContextCreate
 
   if (robot.imu != null) {
     const motionEmotionMap: Record<MotionType, Emotion> = {
-      upsideDown: Emotion.SAD,
-      fallenForward: Emotion.ANGRY,
-      fallenBackward: Emotion.ANGRY,
-      fallenLeft: Emotion.ANGRY,
-      fallenRight: Emotion.ANGRY,
-      shake: Emotion.HOT,
+      upsideDown: Emotion.SURPRISED,
+      fallenForward: Emotion.WORRIED,
+      fallenBackward: Emotion.WORRIED,
+      fallenLeft: Emotion.CURIOUS,
+      fallenRight: Emotion.CURIOUS,
+      shake: Emotion.DIZZY,
     }
     robot.imu.start()
     robot.imu.onEvent = (event) => {
+      if (interactionController?.onCompanionMotion?.() === false) return
       const type = event.motion
       trace(`[IMU] motion detected: ${type}\n`)
       if (motionDetectPreviousEmotion === undefined) motionDetectPreviousEmotion = currentEmotion
@@ -677,7 +686,12 @@ export const onContextCreated: NonNullable<StackchanAppBehavior['onContextCreate
       const hasRecentBackwardSwipe =
         lastBackwardSwipeTicks !== undefined && event.ticks - lastBackwardSwipeTicks <= TOUCH_PANEL_PETTING_WINDOW_MS
       if (hasRecentForwardSwipe && hasRecentBackwardSwipe) {
-        trace('[TouchPanel] petting detected: set emotion HAPPY with heart effect\n')
+        if (interactionController?.onCompanionPetting?.() === false) {
+          lastForwardSwipeTicks = lastBackwardSwipeTicks = undefined
+          return
+        }
+        const pettingEmotion = [Emotion.HAPPY, Emotion.LOVE, Emotion.SPARKLING][pettingCount++ % 3]
+        trace(`[TouchPanel] petting detected: set emotion ${pettingEmotion} with heart effect\n`)
         if (pettingPreviousEmotion === undefined) pettingPreviousEmotion = currentEmotion
         if (pettingPreviousRotation === undefined) pettingPreviousRotation = { ...robot.pose.body.rotation }
         if (pettingRestoreTimer) Timer.clear(pettingRestoreTimer)
@@ -685,7 +699,7 @@ export const onContextCreated: NonNullable<StackchanAppBehavior['onContextCreate
           Timer.clear(pettingHoldTimer)
           pettingHoldTimer = undefined
         }
-        setEmotionWithEffect(robot, Emotion.HAPPY)
+        setEmotionWithEffect(robot, pettingEmotion)
         if (!pettingMotionActive) {
           pettingMotionActive = true
           const baseRotation = pettingPreviousRotation

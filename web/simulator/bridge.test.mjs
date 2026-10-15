@@ -976,6 +976,53 @@ describe('MOD archive bridge', () => {
 })
 
 describe('Host.TouchPanel bridge', () => {
+  it('scripts distinct taps and a continuous hold without moving the touch centroid', async () => {
+    for (const [action, pressed] of [
+      ['tap', [false, false]],
+      ['double-tap', [false, true, false, false]],
+      ['hold', [false, false]],
+    ]) {
+      const timers = createFakeTimers()
+      const bridge = createHostTouchPanelBridge({
+        setTimeoutFn: timers.setTimeoutFn,
+        clearTimeoutFn: timers.clearTimeoutFn,
+      })
+      const done = bridge.touch(action)
+      assert.equal(getPosition(bridge.sample()), 0)
+      assert.ok(bridge.sample().some(Boolean))
+      if (action === 'hold')
+        assert.ok(timers.scheduled[0].delay >= 900, 'hold must cover the firmware recognition window')
+      for (const [index, timer] of timers.scheduled.entries()) {
+        timer.callback()
+        assert.equal(bridge.sample().some(Boolean), pressed[index])
+        if (pressed[index]) assert.equal(getPosition(bridge.sample()), 0)
+      }
+      await done
+      assert.equal(bridge.isSwiping(), false)
+    }
+  })
+
+  it('settles superseded scripts and lets manual touch take over without late releases', async () => {
+    const timers = createFakeTimers()
+    const bridge = createHostTouchPanelBridge({
+      setTimeoutFn: timers.setTimeoutFn,
+      clearTimeoutFn: timers.clearTimeoutFn,
+    })
+    const first = bridge.swipe('forward')
+    const second = bridge.touch('hold')
+    await first
+    bridge.setPosition(100)
+    await second
+    timers.runAll()
+    assert.equal(getPosition(bridge.sample()), 100)
+    const third = bridge.touch('double-tap')
+    bridge.cancel()
+    await third
+    timers.runAll()
+    assert.deepEqual(bridge.sample(), [0, 0, 0])
+    assert.throws(() => bridge.touch('unknown'), TypeError)
+  })
+
   it('round-trips setPosition() against the real GestureRecognizer centroid formula', () => {
     const bridge = createHostTouchPanelBridge()
 
@@ -998,19 +1045,28 @@ describe('Host.TouchPanel bridge', () => {
 
   it('scripts a forward swipe as touch, then a swipe past the threshold, then release', () => {
     const timers = createFakeTimers()
-    const bridge = createHostTouchPanelBridge({ setTimeoutFn: timers.setTimeoutFn, clearTimeoutFn: timers.clearTimeoutFn })
+    const bridge = createHostTouchPanelBridge({
+      setTimeoutFn: timers.setTimeoutFn,
+      clearTimeoutFn: timers.clearTimeoutFn,
+    })
 
     bridge.swipe('forward')
     const initialSample = bridge.sample()
     const initialPosition = getPosition(initialSample)
-    assert.ok(initialSample.some((intensity) => intensity > 0), 'initial sample should be touched')
+    assert.ok(
+      initialSample.some((intensity) => intensity > 0),
+      'initial sample should be touched'
+    )
     assert.equal(bridge.isSwiping(), true)
 
     // Run enough interpolated steps to clear the firmware's 60-point swipeThreshold.
     for (const timer of timers.scheduled.slice(0, 4)) timer.callback()
     const movedSample = bridge.sample()
     assert.ok(Math.abs(getPosition(movedSample) - initialPosition) > 60)
-    assert.ok(movedSample.some((intensity) => intensity > 0), 'mid-swipe sample should still be touched')
+    assert.ok(
+      movedSample.some((intensity) => intensity > 0),
+      'mid-swipe sample should still be touched'
+    )
 
     for (const timer of timers.scheduled.slice(4)) timer.callback()
     assert.deepEqual(bridge.sample(), [0, 0, 0])
@@ -1019,7 +1075,10 @@ describe('Host.TouchPanel bridge', () => {
 
   it('scripts a backward swipe from the opposite end', () => {
     const timers = createFakeTimers()
-    const bridge = createHostTouchPanelBridge({ setTimeoutFn: timers.setTimeoutFn, clearTimeoutFn: timers.clearTimeoutFn })
+    const bridge = createHostTouchPanelBridge({
+      setTimeoutFn: timers.setTimeoutFn,
+      clearTimeoutFn: timers.clearTimeoutFn,
+    })
 
     bridge.swipe('backward')
     const initialPosition = getPosition(bridge.sample())
@@ -1031,21 +1090,28 @@ describe('Host.TouchPanel bridge', () => {
 
   it('replaces an in-flight swipe when a new one starts', () => {
     const timers = createFakeTimers()
-    const bridge = createHostTouchPanelBridge({ setTimeoutFn: timers.setTimeoutFn, clearTimeoutFn: timers.clearTimeoutFn })
+    const bridge = createHostTouchPanelBridge({
+      setTimeoutFn: timers.setTimeoutFn,
+      clearTimeoutFn: timers.clearTimeoutFn,
+    })
 
     bridge.swipe('forward')
     const firstRoundTimerIds = timers.scheduled.map((timer) => timer.id)
     assert.ok(getPosition(bridge.sample()) < 0)
 
     bridge.swipe('backward')
-    for (const id of firstRoundTimerIds) assert.ok(timers.cleared.has(id), `timer ${id} from the replaced swipe should be cleared`)
+    for (const id of firstRoundTimerIds)
+      assert.ok(timers.cleared.has(id), `timer ${id} from the replaced swipe should be cleared`)
     assert.ok(getPosition(bridge.sample()) > 0, 'the new swipe should have re-pressed at the opposite end')
     assert.equal(bridge.isSwiping(), true)
   })
 
   it('cancel() clears pending timers and releases immediately', () => {
     const timers = createFakeTimers()
-    const bridge = createHostTouchPanelBridge({ setTimeoutFn: timers.setTimeoutFn, clearTimeoutFn: timers.clearTimeoutFn })
+    const bridge = createHostTouchPanelBridge({
+      setTimeoutFn: timers.setTimeoutFn,
+      clearTimeoutFn: timers.clearTimeoutFn,
+    })
 
     bridge.swipe('forward')
     bridge.cancel()
@@ -1205,7 +1271,10 @@ describe('Host.Performance bridge', () => {
 
   it('round-trips a status snapshot through setStatus()/getStatus()', () => {
     const bridge = createHostPerformanceBridge()
-    const status = { reaction: { active: 'yes', startedAt: 100 }, performance: { active: null, startedAt: null, nextCue: 0 } }
+    const status = {
+      reaction: { active: 'yes', startedAt: 100 },
+      performance: { active: null, startedAt: null, nextCue: 0 },
+    }
 
     bridge.setStatus(JSON.stringify(status))
 
@@ -1215,7 +1284,10 @@ describe('Host.Performance bridge', () => {
   it('notifies the constructor onStatus callback on every setStatus() call', () => {
     const seen = []
     const bridge = createHostPerformanceBridge({ onStatus: (status) => seen.push(status) })
-    const status = { reaction: { active: null, startedAt: null }, performance: { active: 'greeting', startedAt: 5, nextCue: 1 } }
+    const status = {
+      reaction: { active: null, startedAt: null },
+      performance: { active: 'greeting', startedAt: 5, nextCue: 1 },
+    }
 
     bridge.setStatus(JSON.stringify(status))
 
@@ -1226,8 +1298,14 @@ describe('Host.Performance bridge', () => {
     const seen = []
     const bridge = createHostPerformanceBridge()
     const listener = (status) => seen.push(status)
-    const statusA = { reaction: { active: 'yes', startedAt: 0 }, performance: { active: null, startedAt: null, nextCue: 0 } }
-    const statusB = { reaction: { active: null, startedAt: null }, performance: { active: null, startedAt: null, nextCue: 0 } }
+    const statusA = {
+      reaction: { active: 'yes', startedAt: 0 },
+      performance: { active: null, startedAt: null, nextCue: 0 },
+    }
+    const statusB = {
+      reaction: { active: null, startedAt: null },
+      performance: { active: null, startedAt: null, nextCue: 0 },
+    }
 
     bridge.addEventListener('status', listener)
     bridge.setStatus(JSON.stringify(statusA))
@@ -1240,7 +1318,10 @@ describe('Host.Performance bridge', () => {
   it('ignores a setStatus() call with invalid JSON and keeps the last-known-good status', () => {
     const events = []
     const bridge = createHostPerformanceBridge({ logger: (message) => events.push(message) })
-    const status = { reaction: { active: 'yes', startedAt: 0 }, performance: { active: null, startedAt: null, nextCue: 0 } }
+    const status = {
+      reaction: { active: 'yes', startedAt: 0 },
+      performance: { active: null, startedAt: null, nextCue: 0 },
+    }
 
     bridge.setStatus(JSON.stringify(status))
     bridge.setStatus('{not json')

@@ -1147,6 +1147,11 @@ export class SimulatorEngine {
     this.touchPanelBridge.swipe(direction)
   }
 
+  headTouch(action) {
+    if (!this.profile.inputs.headTouch) return
+    this.touchPanelBridge.touch(action)
+  }
+
   setHeadTouchPosition(position) {
     if (!this.profile.inputs.headTouch) {
       this.onTrace(
@@ -1186,7 +1191,9 @@ export class SimulatorEngine {
     return this.performanceBridge.getStatus()
   }
 
-  workshopCommand(command) { return this.workshopBridge.command(command) }
+  workshopCommand(command) {
+    return this.workshopBridge.command(command)
+  }
 
   playReaction(name, options) {
     this.performanceBridge.enqueue({ target: 'reaction', action: 'play', name, options })

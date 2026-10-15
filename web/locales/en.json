@@ -638,7 +638,6 @@
   "互換仮想ボタン (A/B/C)": "Compatibility virtual buttons (A/B/C)",
   "CoreS3には物理的なA・B・Cボタンは存在しません。旧M5Stack機種向けや、ボタン操作に対応したMODの検証用に残しています。": "CoreS3 has no physical A, B, or C buttons. These are kept for older M5Stack targets and for testing button-aware MODs.",
   "ヘッドタッチパネル": "Head TouchPanel",
-  "頭部のタッチスワイプを模擬します。前方スワイプを繰り返すと撫でる操作として認識されます。": "Simulates swipes on the head touch panel. Repeating a forward swipe is recognized as petting.",
   "前方スワイプ": "Swipe forward",
   "後方スワイプ": "Swipe backward",
   "タッチ位置": "Touch position",
@@ -740,5 +739,9 @@
   "studio.delighted": "Delighted",
   "studio.sleepy-yawn": "Yawn",
   "studio.success": "Celebrate success",
-  "studio.failure": "Try again"
+  "studio.failure": "Try again",
+  "タップ・連続タップ・長押しで遊べます。前方と後方のスワイプを続けるとなでる操作になります。": "Play with taps, repeated taps and holds. Swipe forward and backward in succession to pet the head.",
+  "頭をタップ": "Tap head",
+  "連続タップ": "Repeated taps",
+  "頭を長押し": "Hold head"
 }
