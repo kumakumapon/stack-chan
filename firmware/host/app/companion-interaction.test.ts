@@ -218,6 +218,30 @@ test('manual reactions take priority before the first touch as well', () => {
   assert.equal(h.active(), 'greeting')
 })
 
+test('touches during manual playback are dropped even if it ends before release or the tap delay', () => {
+  for (const replacedOwn of [false, true]) {
+    for (const endBeforeRelease of [false, true]) {
+      const h = harness()
+      if (replacedOwn) {
+        h.interaction.faceTap()
+        h.advance(2000)
+      }
+      h.userReaction('head-hello')
+      h.send('press')
+      h.advance(100)
+      if (endBeforeRelease) h.finish()
+      h.send('release', true)
+      if (!endBeforeRelease) h.finish()
+      h.advance(2000)
+      assert.deepEqual(h.names(), replacedOwn ? ['head-hello'] : [])
+      assert.equal(h.cancellations(), 0, 'do not cancel the manual owner')
+      h.tap()
+      h.advance(500)
+      assert.equal(h.names().length, replacedOwn ? 2 : 1, 'a fresh gesture still works')
+    }
+  }
+})
+
 test('cooldown bounds rapid face taps and quiet mode passes zero head intensity', () => {
   const h = harness()
   h.quiet()

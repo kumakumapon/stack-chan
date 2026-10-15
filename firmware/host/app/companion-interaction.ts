@@ -49,6 +49,13 @@ export class CompanionInteraction {
       return
     }
     if (this.#deps.now() < this.#blockedUntil) return
+    if (this.#deps.reaction.status().active && (event.gesture === 'press' || !this.#owner)) {
+      // Decide at the input edge: a manual reaction ending before our tap/hold
+      // delay must not turn a previously ignored gesture into a queued action.
+      const owned = this.#owner?.cancel() === true
+      this.cancel()
+      if (!owned) return
+    }
     if (event.gesture === 'press') {
       this.#pressed = true
       this.#swiped = false
@@ -60,9 +67,10 @@ export class CompanionInteraction {
         this.#held = this.#alternate('hold', ['head-cuddle', 'bashful'])
       })
     } else if (event.gesture === 'release') {
+      const pressed = this.#pressed
       this.#pressed = false
       this.#clear('hold')
-      if (this.#swiped || this.#held || !event.tap) return
+      if (!pressed || this.#swiped || this.#held || !event.tap) return
       this.#taps = Math.min(3, this.#taps + 1)
       this.#schedule('taps', 350, () => {
         const taps = this.#taps
