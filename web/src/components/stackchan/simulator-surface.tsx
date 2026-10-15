@@ -79,6 +79,14 @@ const REACTION_NAMES = [
   'doze',
   'wake-up',
   'goodbye',
+  'head-hello',
+  'nose-boop',
+  'tickled',
+  'head-cuddle',
+  'look-touch-left',
+  'look-touch-right',
+  'happy-sparkle',
+  'bashful',
 ] as const
 const PERFORMANCE_NAMES = [
   'greeting',
@@ -125,6 +133,7 @@ export type SimulatorSurfaceController = {
   connectCamera: (options?: { facingMode?: 'user' | 'environment' }) => Promise<void>
   pushButton: (name: 'a' | 'b' | 'c') => void
   headSwipe: (direction: 'forward' | 'backward') => void
+  headTouch: (action: 'tap' | 'double-tap' | 'hold') => void
   setHeadTouchPosition: (position: number) => void
   releaseHeadTouch: () => void
   setImuOrientation: (orientation: ImuOrientation) => void
@@ -337,10 +346,21 @@ export function HeadTouchCard({ controller }: { controller: SimulatorSurfaceCont
       <CardHeader>
         <CardTitle>{t('ヘッドタッチパネル')}</CardTitle>
         <CardDescription>
-          {t('頭部のタッチスワイプを模擬します。前方スワイプを繰り返すと撫でる操作として認識されます。')}
+          {t('タップ・連続タップ・長押しで遊べます。前方と後方のスワイプを続けるとなでる操作になります。')}
         </CardDescription>
       </CardHeader>
       <CardContent className="grid gap-3">
+        <div className="grid grid-cols-3 gap-2">
+          <Button variant="outline" onClick={() => controller.headTouch('tap')}>
+            {t('頭をタップ')}
+          </Button>
+          <Button variant="outline" onClick={() => controller.headTouch('double-tap')}>
+            {t('連続タップ')}
+          </Button>
+          <Button variant="outline" onClick={() => controller.headTouch('hold')}>
+            {t('頭を長押し')}
+          </Button>
+        </div>
         <div className="grid grid-cols-2 gap-2">
           <Button variant="outline" onClick={() => controller.headSwipe('forward')}>
             {t('前方スワイプ')}

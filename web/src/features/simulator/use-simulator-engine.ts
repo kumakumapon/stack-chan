@@ -203,13 +203,15 @@ export function useSimulatorEngine({
       }),
     pushButton: (name: 'a' | 'b' | 'c') => engineRef.current?.pushButton(name),
     headSwipe: (direction: 'forward' | 'backward') => engineRef.current?.headSwipe(direction),
+    headTouch: (action: 'tap' | 'double-tap' | 'hold') => engineRef.current?.headTouch(action),
     setHeadTouchPosition: (position: number) => engineRef.current?.setHeadTouchPosition(position),
     releaseHeadTouch: () => engineRef.current?.releaseHeadTouch(),
     setImuOrientation: (orientation: ImuOrientation) => engineRef.current?.setImuOrientation(orientation),
     shakeImu: () => engineRef.current?.shakeImu(),
     setImuAccelerometer: (vector: { x: number; y: number; z: number }) =>
       engineRef.current?.setImuAccelerometer(vector),
-    workshopCommand: (command: { action: string; value?: unknown }) => engineRef.current?.workshopCommand(command) ?? Promise.reject(new Error('Simulator unavailable')),
+    workshopCommand: (command: { action: string; value?: unknown }) =>
+      engineRef.current?.workshopCommand(command) ?? Promise.reject(new Error('Simulator unavailable')),
     performanceStatus,
     playReaction: (name: string, options?: PerformanceBridgeCommandOptions) =>
       engineRef.current?.playReaction(name, options),

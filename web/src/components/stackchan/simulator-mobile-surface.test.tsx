@@ -34,6 +34,7 @@ function createController(overrides: Partial<SimulatorSurfaceController> = {}): 
     connectCamera: vi.fn(async () => {}),
     pushButton: vi.fn(),
     headSwipe: vi.fn(),
+    headTouch: vi.fn(),
     setHeadTouchPosition: vi.fn(),
     releaseHeadTouch: vi.fn(),
     setImuOrientation: vi.fn(),
@@ -122,6 +123,9 @@ describe('SimulatorMobileSurface', () => {
     const user = userEvent.setup()
     const controller = createController({ deviceProfile: resolveDeviceProfile('m5stackchan-cores3') })
     renderSurface(controller)
+
+    await user.click(screen.getByRole('button', { name: '頭をタップ' }))
+    expect(controller.headTouch).toHaveBeenCalledWith('tap')
 
     await user.click(screen.getByRole('button', { name: '前方スワイプ' }))
     expect(controller.headSwipe).toHaveBeenCalledWith('forward')
@@ -238,7 +242,9 @@ describe('SimulatorMobileSurface', () => {
 
     await openTab(user, 'センサー')
 
-    expect(screen.getByText('このブラウザでは端末センサーを利用できません。IMUのボタンで手動操作してください。')).toBeVisible()
+    expect(
+      screen.getByText('このブラウザでは端末センサーを利用できません。IMUのボタンで手動操作してください。')
+    ).toBeVisible()
     expect(screen.getByRole('button', { name: '端末センサーを使用' })).toBeDisabled()
   })
 

@@ -152,7 +152,7 @@ const SHY = timeline(
 const LAUGH = timeline(
   'laugh',
   [
-    { at: 0, emotion: 'EXCITED', hand: 'clap', mouth: { open: 0.6 }, head: { pitch: -0.08, durationMs: 200 } },
+    { at: 0, emotion: 'LAUGHING', hand: 'clap', mouth: { open: 0.6 }, head: { pitch: -0.08, durationMs: 200 } },
     { at: 250, mouth: { open: 0.2 }, head: { pitch: 0.1, durationMs: 200 } },
     { at: 500, mouth: { open: 0.65 }, head: { pitch: -0.08, durationMs: 200 } },
     { at: 750, mouth: { open: 0.2 }, head: { pitch: 0.08, durationMs: 200 } },
@@ -172,7 +172,7 @@ const LOVE = timeline(
   'love',
   [
     { at: 0, emotion: 'SHY', hand: 'cheer', effect: 'heart', light: { r: 255, g: 100, b: 170, durationMs: 600 } },
-    { at: 500, emotion: 'HAPPY', head: { pitch: -0.12, durationMs: 300 } },
+    { at: 500, emotion: 'LOVE', head: { pitch: -0.12, durationMs: 300 } },
     { at: 1100, head: { pitch: 0, durationMs: 300 } },
   ],
   1800,
@@ -267,6 +267,77 @@ const GOODBYE = timeline(
   2100,
 )
 
+const HEAD_HELLO = timeline(
+  'head-hello',
+  [
+    { at: 0, emotion: 'CURIOUS', head: { pitch: -0.08, durationMs: 250 } },
+    { at: 400, emotion: 'WINK', head: { pitch: 0, durationMs: 250 } },
+  ],
+  1100,
+)
+const NOSE_BOOP = timeline(
+  'nose-boop',
+  [
+    { at: 0, emotion: 'SURPRISED', mouth: { open: 0.35 } },
+    { at: 350, emotion: 'MISCHIEVOUS', mouth: { open: 0 } },
+  ],
+  1100,
+)
+const TICKLED = timeline(
+  'tickled',
+  [
+    { at: 0, emotion: 'LAUGHING', mouth: { open: 0.6 }, hand: 'cheer' },
+    { at: 250, mouth: { open: 0.15 } },
+    { at: 500, mouth: { open: 0.65 } },
+    { at: 850, emotion: 'SPARKLING', mouth: { open: 0 } },
+  ],
+  1500,
+)
+const HEAD_CUDDLE = timeline(
+  'head-cuddle',
+  [
+    { at: 0, emotion: 'RELAXED', eyes: { leftOpen: 0.7, rightOpen: 0.7 } },
+    { at: 450, emotion: 'LOVE', eyes: { leftOpen: 1, rightOpen: 1 }, effect: 'heart' },
+    { at: 1300, effect: null },
+  ],
+  1800,
+)
+const LOOK_TOUCH_LEFT = timeline(
+  'look-touch-left',
+  [
+    { at: 0, emotion: 'FOCUSED', head: { yaw: -0.24, pitch: -0.05, durationMs: 350 } },
+    { at: 500, emotion: 'CURIOUS' },
+    { at: 900, head: { yaw: 0, pitch: 0, durationMs: 350 } },
+  ],
+  1500,
+)
+const LOOK_TOUCH_RIGHT = timeline(
+  'look-touch-right',
+  [
+    { at: 0, emotion: 'FOCUSED', head: { yaw: 0.24, pitch: -0.05, durationMs: 350 } },
+    { at: 500, emotion: 'CURIOUS' },
+    { at: 900, head: { yaw: 0, pitch: 0, durationMs: 350 } },
+  ],
+  1500,
+)
+const HAPPY_SPARKLE = timeline(
+  'happy-sparkle',
+  [
+    { at: 0, emotion: 'STARSTRUCK', hand: 'cheer' },
+    { at: 450, emotion: 'SPARKLING', mouth: { open: 0.3 } },
+    { at: 900, mouth: { open: 0 } },
+  ],
+  1500,
+)
+const BASHFUL = timeline(
+  'bashful',
+  [
+    { at: 0, emotion: 'SHY', eyes: { leftOpen: 0.75, rightOpen: 0.75 } },
+    { at: 500, emotion: 'LOVE', eyes: { leftOpen: 1, rightOpen: 1 } },
+  ],
+  1600,
+)
+
 export const REACTION_CATALOG: Readonly<Record<ReactionName, ReactionTimeline>> = Object.freeze({
   yes: YES,
   no: NO,
@@ -292,6 +363,14 @@ export const REACTION_CATALOG: Readonly<Record<ReactionName, ReactionTimeline>> 
   doze: DOZE,
   'wake-up': WAKE_UP,
   goodbye: GOODBYE,
+  'head-hello': HEAD_HELLO,
+  'nose-boop': NOSE_BOOP,
+  tickled: TICKLED,
+  'head-cuddle': HEAD_CUDDLE,
+  'look-touch-left': LOOK_TOUCH_LEFT,
+  'look-touch-right': LOOK_TOUCH_RIGHT,
+  'happy-sparkle': HAPPY_SPARKLE,
+  bashful: BASHFUL,
 })
 
 export function reactionTimeline(name: ReactionName): ReactionTimeline {

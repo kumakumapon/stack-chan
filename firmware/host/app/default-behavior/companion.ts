@@ -1,6 +1,7 @@
 import type { StackchanAppBehavior } from 'app-behavior'
 import { createCompanionBattery } from 'companion-battery'
 import { isCompanionIdleSuppressed } from 'companion-idle'
+import { CompanionInteraction } from 'companion-interaction'
 import {
   DEFAULT_QUIET_END_MINUTE,
   DEFAULT_QUIET_START_MINUTE,
@@ -13,10 +14,11 @@ import { localize } from 'localization'
 import Modules from 'modules'
 import type { PerformanceName } from 'performance-types'
 import { isReactionName, REACTION_NAMES, type ReactionName } from 'reaction-types'
+import Time from 'time'
 import Timer from 'timer'
 import { getTimezonePreset } from 'timezone-model'
 
-/** Low-frequency character actions; the head panel remains dedicated to petting. */
+/** Character actions and touch play, coordinated with conversation and legacy petting. */
 export const installCompanion: NonNullable<StackchanAppBehavior['onContextCreated']> = (robot, options) => {
   const settings = options?.config?.companion ?? {}
   const remote = robot.conversation.remoteSession
@@ -26,6 +28,8 @@ export const installCompanion: NonNullable<StackchanAppBehavior['onContextCreate
           behavior?: {
             readonly companionIdle?: boolean
             onCompanionTap?: () => void
+            onCompanionPetting?: () => boolean
+            onCompanionMotion?: () => boolean
           }
         }
       | undefined
@@ -48,12 +52,13 @@ export const installCompanion: NonNullable<StackchanAppBehavior['onContextCreate
   let lastAction = Date.now()
   let lastIdle = ''
   let noticeBalloon = false // true only while our own low-battery balloon is on screen
-  const isFree = () =>
+  let interaction: CompanionInteraction | undefined
+  const isFree = (allowReaction = false) =>
     !closed &&
     controller?.companionIdle !== false &&
     !Modules.has('mod') &&
     !robot.audio.isActive &&
-    !robot.reaction.status().active &&
+    (allowReaction || !robot.reaction.status().active) &&
     !robot.performance.status().active &&
     (!remote || remote.state === 'standby' || remote.state === 'blocked')
   const play = (name: PerformanceName) => {
@@ -104,6 +109,14 @@ export const installCompanion: NonNullable<StackchanAppBehavior['onContextCreate
     doze: 'うとうと',
     'wake-up': '目覚める',
     goodbye: 'またね',
+    'head-hello': '気づいたよ',
+    'nose-boop': 'つんつん',
+    tickled: 'くすぐったい',
+    'head-cuddle': '甘える',
+    'look-touch-left': '左を気にする',
+    'look-touch-right': '右を気にする',
+    'happy-sparkle': 'きらきら喜ぶ',
+    bashful: 'はにかむ',
   }
   robot.drawer.addDrawerButton({
     key: 'companion-reaction',
@@ -133,6 +146,7 @@ export const installCompanion: NonNullable<StackchanAppBehavior['onContextCreate
     },
   })
   const start = () => {
+    interaction?.cancel()
     lastAction = Date.now()
     robot.performance.cancel()
     robot.reaction.cancel()
@@ -165,9 +179,10 @@ export const installCompanion: NonNullable<StackchanAppBehavior['onContextCreate
           if (remote.interrupt && (remote.state === 'speaking' || remote.state === 'recognizing')) remote.interrupt()
           else remote.deactivate()
         } else start()
-      } else if (isFree()) play(Math.random() < 0.5 ? 'greeting' : 'cheer')
+      } else interaction?.faceTap()
     }
   const unsubscribe = remote?.subscribe((state, error) => {
+    interaction?.cancel()
     lastAction = Date.now()
     noticeBalloon = false
     if (state === 'standby') {
@@ -205,8 +220,9 @@ export const installCompanion: NonNullable<StackchanAppBehavior['onContextCreate
     }
   }, 800)
   let idle: ReturnType<typeof Timer.set> | undefined
-  const removeTouch = robot.touchPanel?.subscribe(() => {
+  const removeTouch = robot.touchPanel?.subscribe((event) => {
     lastAction = Date.now()
+    interaction?.touch(event)
   })
   const loadBatteryReader = (): (() => number | undefined) | undefined => {
     if (settings.lowBatteryNotice === 0 || settings.lowBatteryNotice === false) return undefined
@@ -237,6 +253,24 @@ export const installCompanion: NonNullable<StackchanAppBehavior['onContextCreate
       return true
     },
   })
+  interaction = new CompanionInteraction({
+    now: () => (Number.isFinite(Time.ticks) ? Time.ticks : Date.now()),
+    available: () =>
+      isFree(true) && !isCompanionIdleSuppressed(robot) && !battery?.isLow() && remote?.activationState !== 'active',
+    intensity: () => (timeContext()?.quiet ? 0 : 0.25),
+    timer: {
+      set: (callback, delay) => Timer.set(callback, delay),
+      clear: (handle) => Timer.clear(handle as ReturnType<typeof Timer.set>),
+    },
+    reaction: robot.reaction,
+    trace: (message) => trace(message),
+  })
+  if (controller) {
+    // Preserve existing MOD-owned petting/IMU behavior. Additional touch play
+    // stays out of MODs, conversations and Mini Apps.
+    controller.onCompanionPetting = controller.onCompanionMotion = () =>
+      Modules.has('mod') || interaction?.reserveLegacy() === true
+  }
   // Low battery stretches idle gaps and keeps only the calmest reaction.
   const getIdlePlan = () =>
     battery?.isLow()
@@ -285,12 +319,17 @@ export const installCompanion: NonNullable<StackchanAppBehavior['onContextCreate
   schedule()
   robot.lifecycle.onClose?.(() => {
     closed = true
+    interaction?.close()
     Timer.clear(boot)
     if (idle) Timer.clear(idle)
     battery?.close()
     if (noticeTimer) Timer.clear(noticeTimer)
     unsubscribe?.()
     removeTouch?.()
-    if (controller) controller.onCompanionTap = undefined
+    if (controller) {
+      controller.onCompanionTap = undefined
+      controller.onCompanionPetting = undefined
+      controller.onCompanionMotion = undefined
+    }
   })
 }

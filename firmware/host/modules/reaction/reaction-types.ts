@@ -32,6 +32,14 @@ export const REACTION_NAMES = [
   'doze',
   'wake-up',
   'goodbye',
+  'head-hello',
+  'nose-boop',
+  'tickled',
+  'head-cuddle',
+  'look-touch-left',
+  'look-touch-right',
+  'happy-sparkle',
+  'bashful',
 ] as const
 
 export type ReactionName = (typeof REACTION_NAMES)[number]

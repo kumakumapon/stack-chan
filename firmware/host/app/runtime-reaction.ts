@@ -89,6 +89,8 @@ export type ReactionRuntimeLightingDeps = {
 }
 
 export type ReactionRuntimeDeps = {
+  /** Read the actual UI emotion, including changes made outside a reaction. */
+  readEmotion?(): number
   face: ReactionRuntimeFaceDeps
   ui: ReactionRuntimeUIDeps
   motion: ReactionRuntimeMotionDeps
@@ -177,7 +179,9 @@ export function createReactionStage(deps: ReactionRuntimeDeps): PerformanceStage
     snapshot() {
       const rotation = deps.motion.pose.body.rotation
       return {
-        emotion: lastEmotion,
+        emotion: deps.readEmotion
+          ? toEmotionName(deps.readEmotion() as Parameters<typeof toEmotionName>[0])
+          : lastEmotion,
         hand: lastHand,
         effect: lastEffectKey,
         head: { yaw: rotation.y, pitch: rotation.p },

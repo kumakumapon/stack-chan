@@ -15,7 +15,7 @@ vi.mock('@/features/simulator/use-simulator-engine', () => ({
 
 const simulatorController = {
   workshopCommand: vi.fn(async () => ({})),
-    configureConversation: vi.fn(async () => {}),
+  configureConversation: vi.fn(async () => {}),
   conversationCommand: vi.fn(),
   getConversationStatus: vi.fn(),
   viewportRef: createRef<HTMLCanvasElement>(),
@@ -40,6 +40,7 @@ const simulatorController = {
   performanceMode: 'desktop' as const,
   setPerformanceMode: vi.fn(),
   headSwipe: vi.fn(),
+  headTouch: vi.fn(),
   setHeadTouchPosition: vi.fn(),
   releaseHeadTouch: vi.fn(),
   setImuOrientation: vi.fn(),

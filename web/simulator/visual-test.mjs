@@ -20,19 +20,20 @@ const { baseUrl, server } = await startPreview({
 // Shared with the mobile passes below: every visible control must expose an accessible name.
 // Same check `visual-pages-test.mjs` runs across its viewport sweep.
 async function assertNoUnnamedControls(page, label) {
-  const unnamedControls = await page.evaluate(() =>
-    [...document.querySelectorAll('button, a[href], input, select')].filter(
-      (element) =>
-        element.getClientRects().length > 0 &&
-        element.getAttribute('aria-hidden') !== 'true' &&
-        !(
-          element.getAttribute('aria-label') ||
-          ('labels' in element && element.labels?.length) ||
-          element.getAttribute('title') ||
-          element.textContent?.trim() ||
-          element.getAttribute('placeholder')
-        )
-    ).length
+  const unnamedControls = await page.evaluate(
+    () =>
+      [...document.querySelectorAll('button, a[href], input, select')].filter(
+        (element) =>
+          element.getClientRects().length > 0 &&
+          element.getAttribute('aria-hidden') !== 'true' &&
+          !(
+            element.getAttribute('aria-label') ||
+            ('labels' in element && element.labels?.length) ||
+            element.getAttribute('title') ||
+            element.textContent?.trim() ||
+            element.getAttribute('placeholder')
+          )
+      ).length
   )
   assert.equal(unnamedControls, 0, `${label} must give every visible control an accessible name`)
 }
@@ -244,6 +245,40 @@ try {
   assert.deepEqual(errors, [])
   await captureScreenshot(page, { path: '/tmp/stackchan-simulator-runtime.png', fullPage: true })
   console.log('WASM simulator visual test: desktop pass ok (1280x800)')
+
+  await page.getByRole('log').getByText(FIRMWARE_READY_TRACE, { exact: false }).waitFor({ timeout: 15_000 })
+  await page.waitForTimeout(3000) // Complete the startup greeting before touch play.
+  const idleStatus = page.getByText('再生中: リアクション=なし パフォーマンス=なし', { exact: true })
+  for (const [button, name] of [
+    ['頭をタップ', 'head-hello'],
+    ['頭をタップ', 'nose-boop'],
+    ['連続タップ', 'tickled'],
+    ['頭を長押し', 'head-cuddle'],
+  ]) {
+    await idleStatus.waitFor({ timeout: 10_000 })
+    await page.getByRole('button', { name: button, exact: true }).click()
+    await page.getByRole('log').getByText(`[interaction] ${name}`, { exact: false }).waitFor({ timeout: 10_000 })
+    await page.getByText(`再生中: リアクション=${name} パフォーマンス=なし`, { exact: true }).waitFor()
+    if (name === 'head-cuddle') {
+      await page.waitForTimeout(550)
+      await captureScreenshot(page, { path: '/tmp/stackchan-interactive-cuddle.png', fullPage: true })
+    }
+    await idleStatus.waitFor({ timeout: 10_000 })
+  }
+  // A manually selected reaction owns the face until it finishes or is cancelled.
+  const interactionCount = await page.getByRole('log').getByText('[interaction]', { exact: false }).count()
+  await page.getByRole('button', { name: 'head-cuddle', exact: true }).click()
+  const manualStatus = page.getByText('再生中: リアクション=head-cuddle パフォーマンス=なし', { exact: true })
+  await manualStatus.waitFor()
+  await page.getByRole('button', { name: '頭をタップ', exact: true }).click()
+  await page.waitForTimeout(600)
+  assert.equal(await manualStatus.count(), 1, 'head tap must preserve the manual reaction')
+  assert.equal(await page.getByRole('log').getByText('[interaction]', { exact: false }).count(), interactionCount)
+  await page.getByRole('button', { name: 'リアクションをキャンセル', exact: true }).click()
+  await idleStatus.waitFor()
+  assert.deepEqual(errors, [])
+  assert.doesNotMatch(await page.getByRole('log').innerText(), /XS abort|stack overflow|\[main\] error/)
+  console.log('WASM touch play: tap variants, repeated taps, hold and manual priority ok')
 
   await runMobileSimulatorPass({
     browser,

@@ -39,6 +39,7 @@
       "./compose",
       "./companion-battery",
       "./companion-idle",
+      "./companion-interaction",
       "./companion-time",
       "./focus-timer",
       "./focus-timer-model",
