@@ -3,6 +3,7 @@ import { DogFace, FaceBase, ImageFace, SimpleFace } from 'behaviors/face'
 import { createFaceSkinPalette } from 'face-skin'
 import { createFaceState, Emotion, EmotionNames, type FaceState, setColorRGB } from 'face-state'
 import { Eye } from 'parts/eye'
+import { graphicEyeOutline, graphicMouthOutline, isGraphicEmotion } from 'parts/graphic-expression'
 import { eyeOpenToVariant, IRIS_SPRITE } from 'parts/image/atlas'
 import { Content, type Content as PiuContent } from 'piu/MC'
 import { assert, equal } from 'testing/assert'
@@ -21,6 +22,7 @@ type PiuNode = {
   skin?: unknown
   state?: number
   variant?: number
+  visible?: boolean
 }
 
 type BreathRecorder = PiuNode & {
@@ -100,7 +102,7 @@ applyFaceState(simpleFace, happyFace)
 assertChanged(angryEyelid, simpleLeftEyelid.fillOutline, 'standard eyelid should change for happy expression')
 
 // Emotion changes must invalidate the mouth even when audio/open state is unchanged.
-const mouthRenderer = simpleMouth.behavior as {
+const mouthRenderer = childAt(simpleMouth, 0).behavior as {
   onFaceState(port: unknown, state: FaceState): void
   onDraw(port: unknown): void
 }
@@ -147,6 +149,66 @@ const restoredMouth = drawMouth(Emotion.NEUTRAL)
 equal(restoredMouth[2], neutralMouth[2], 'restoring neutral should restore mouth width')
 equal(restoredMouth[3], neutralMouth[3], 'restoring neutral should restore mouth height')
 
+const graphicMouth = childAt(simpleMouth, 1)
+applyFaceState(simpleFace)
+const originalIris = simpleLeftIris.fillOutline
+// The manifest preloads graphic-expression as the firmware does. Exercising
+// every path here also catches accidental mutation of caches frozen by xsl.
+for (const name of EmotionNames) {
+  const emotion = Emotion[name]
+  if (!isGraphicEmotion(emotion)) continue
+  const face = createFaceState()
+  face.emotion = emotion
+  applyFaceState(simpleFace, face)
+  assertChanged(originalIris, simpleLeftIris.fillOutline, `${name} should replace the circular iris`)
+  equal(graphicMouth.visible, true, `${name} should show its graphic mouth`)
+  equal(childAt(simpleMouth, 0).visible, false, `${name} should hide the standard mouth`)
+  const closedMouth = graphicMouth.fillOutline
+  face.mouth.open = 1
+  applyFaceState(simpleFace, face)
+  assertChanged(closedMouth, graphicMouth.fillOutline, `${name} should respond to speech`)
+  for (const size of [10, 22, 36]) {
+    for (const side of ['left', 'right'] as const) {
+      const outline = graphicEyeOutline(size, size, emotion, side)
+      const bounds = outline.bounds
+      assert(bounds.width > 0 && bounds.height > 0, `${name}/${side} eye should be visible`)
+      assert(bounds.x >= 0 && bounds.y >= 0, `${name}/${side} eye should fit its canvas`)
+      assert(bounds.x + bounds.width <= size && bounds.y + bounds.height <= size, `${name}/${side} eye must not clip`)
+      equal(graphicEyeOutline(size, size, emotion, side), outline, 'unchanged eyes should reuse their outlines')
+    }
+  }
+  for (const [width, height] of [
+    [90, 58],
+    [36, 23],
+  ]) {
+    for (const openStep of [0, 6, 12]) {
+      const outline = graphicMouthOutline(width, height, emotion, openStep)
+      const bounds = outline.bounds
+      assert(bounds.width > 0 && bounds.height > 0, `${name} graphic mouth should remain visible`)
+      assert(bounds.x >= 0 && bounds.y >= 0, `${name} graphic mouth should fit its canvas`)
+      assert(bounds.x + bounds.width <= width && bounds.y + bounds.height <= height, `${name} mouth must not clip`)
+      equal(
+        graphicMouthOutline(width, height, emotion, openStep),
+        outline,
+        'unchanged mouths should reuse their outlines',
+      )
+    }
+  }
+  const iris = simpleLeftIris.fillOutline
+  const gazeLeft = simpleLeftIris.coordinates?.left ?? 0
+  face.eyes.left.gazeX = 1
+  applyFaceState(simpleFace, face)
+  assert((simpleLeftIris.coordinates?.left ?? 0) > gazeLeft, `${name} should retain gaze movement`)
+  face.eyes.left.open = 0
+  applyFaceState(simpleFace, face)
+  equal(simpleLeftIris.fillOutline, iris, `${name} blinking should retain the eye design`)
+  assert(simpleLeftEyelid.fillOutline, `${name} blinking should retain its eyelid mask`)
+}
+applyFaceState(simpleFace)
+equal(graphicMouth.visible, false, 'restoring neutral should hide the graphic mouth')
+equal(childAt(simpleMouth, 0).visible, true, 'restoring neutral should show the standard mouth')
+equal(simpleLeftIris.fillOutline, originalIris, 'restoring neutral should restore the original eye outline')
+
 const themedFace = createFaceState()
 setColorRGB(themedFace.theme.primary, 0x12, 0x34, 0x56)
 setColorRGB(themedFace.theme.secondary, 0x65, 0x43, 0x21)
@@ -162,6 +224,10 @@ equal(
   themedPalette.secondary,
   'standard eyelid should keep theme color through the secondary skin',
 )
+themedFace.emotion = Emotion.LOVE
+;(simpleFace as PiuNode & { distribute?: (id: string, value: unknown) => void }).distribute?.('onFaceState', themedFace)
+equal(simpleLeftIris.skin, themedPalette.primary, 'graphic eyes should keep the theme color')
+equal(graphicMouth.skin, themedPalette.primary, 'graphic mouths should keep the theme color')
 
 const dogFace = new DogFace({ motions: [] }) as PiuNode
 const dogLeftEyelid = childAt(childAt(dogFace, 0), 1)

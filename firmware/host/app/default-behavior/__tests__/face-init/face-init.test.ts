@@ -6,6 +6,9 @@ import { assert, equal } from 'testing/assert'
 
 trace('=== default-mod face init test ===\n')
 
+// The manifest uses the WASM firmware's 512-slot stack budget. The simulator's
+// default 384 slots are too small for the full menu and face initialization.
+
 type RegisteredButton = {
   key?: string
   label?: string

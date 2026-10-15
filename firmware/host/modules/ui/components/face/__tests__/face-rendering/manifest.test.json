@@ -6,6 +6,7 @@
   "modules": {
     "main": "./face-rendering.test"
   },
+  "preload": ["parts/graphic-expression"],
   "creation": {
     "stack": 512
   }

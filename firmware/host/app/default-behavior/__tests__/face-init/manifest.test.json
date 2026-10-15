@@ -19,5 +19,8 @@
     "modules": "$(MODULES)/base/modules/modules",
     "imu": "./imu-stub",
     "main": "./face-init.test"
+  },
+  "creation": {
+    "stack": 512
   }
 }

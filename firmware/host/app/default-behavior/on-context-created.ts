@@ -97,6 +97,18 @@ export const onContextCreated: NonNullable<StackchanAppBehavior['onContextCreate
     [Emotion.WORRIED]: 'sweat',
     [Emotion.CONFIDENT]: null,
     [Emotion.WINK]: 'heart',
+    [Emotion.LOVE]: 'heart',
+    [Emotion.STARSTRUCK]: null,
+    [Emotion.DIZZY]: null,
+    [Emotion.LAUGHING]: null,
+    [Emotion.CRYING]: 'tear',
+    [Emotion.MISCHIEVOUS]: null,
+    [Emotion.FOCUSED]: null,
+    [Emotion.GLITCH]: null,
+    [Emotion.ROBOT]: null,
+    [Emotion.DREAMING]: 'sleepy',
+    [Emotion.SPARKLING]: null,
+    [Emotion.ELECTRIC]: null,
   }
   const setEmotionWithEffect = (target: typeof robot, nextEmotion: Emotion) => {
     currentEmotion = nextEmotion

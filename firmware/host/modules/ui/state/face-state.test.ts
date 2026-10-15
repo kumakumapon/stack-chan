@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 import { test } from 'node:test'
 
 import {
@@ -72,5 +73,16 @@ test('every emotion round-trips by name and survives state copies', () => {
     copyFaceState(src, dst)
     assert.equal(dst.emotion, emotion)
     assert.equal(faceStatesEqual(src, dst), true)
+  }
+})
+
+test('every selectable emotion has a device menu label in each supported language', () => {
+  for (const locale of ['ja', 'en']) {
+    const catalog = JSON.parse(readFileSync(`host/app/strings/${locale}.json`, 'utf8')) as Record<string, unknown>
+    for (const name of EmotionNames) {
+      const label = catalog[`drawer.emotion.${name.toLowerCase()}`]
+      assert.equal(typeof label, 'string', `${locale}/${name} should have a translated label`)
+      assert.ok((label as string).trim().length > 0)
+    }
   }
 })
