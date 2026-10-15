@@ -8,6 +8,7 @@ import {
   type FaceState,
   toPiuColorNumber,
 } from 'face-state'
+import { graphicEyeOutline, isGraphicEmotion } from 'parts/graphic-expression'
 import { FULL_TURN, getFillSkin, quantizeUnit, rememberCachedValue, unitFromStep } from 'parts/shape-utils'
 import type { Container as PiuContainer, Skin as PiuSkin } from 'piu/MC'
 import type { Shape as PiuShape } from 'piu/shape'
@@ -35,6 +36,9 @@ type IrisOptions = {
   r: number
   left: number
   top: number
+  canvasWidth: number
+  canvasHeight: number
+  side: FaceEyeKey
 }
 
 type EyelidOptions = {
@@ -218,18 +222,22 @@ export const Eyelid = defineShapeTemplate((opts: EyelidOptions) => {
 })
 
 const Iris = defineShapeTemplate((opts: IrisOptions) => {
+  const normalOutline = getIrisFillOutline(opts.shape, opts.width, opts.height, opts.r)
+    .clone()
+    .translate((opts.canvasWidth - opts.width) / 2, (opts.canvasHeight - opts.height) / 2)
   return {
     left: opts.left,
     top: opts.top,
-    width: opts.width,
-    height: opts.height,
+    width: opts.canvasWidth,
+    height: opts.canvasHeight,
     skin: getFillSkin(DEFAULT_FACE_PRIMARY_COLOR),
     Behavior: class extends Behavior {
       #palette: FaceSkinPalette | null = null
       #primary = DEFAULT_FACE_PRIMARY_COLOR
+      #emotion: FaceState['emotion'] = Emotion.NEUTRAL
 
       onCreate(shape: PositionedShape) {
-        shape.fillOutline = getIrisFillOutline(opts.shape, opts.width, opts.height, opts.r)
+        shape.fillOutline = normalOutline
         shape.strokeOutline = undefined
       }
 
@@ -239,11 +247,18 @@ const Iris = defineShapeTemplate((opts: IrisOptions) => {
       }
 
       onFaceState(shape: PositionedShape, face: FaceState) {
-        if (this.#palette) return
-        const primary = toPiuColorNumber(face.theme.primary)
-        if (primary === this.#primary) return
-        this.#primary = primary
-        shape.skin = getFillSkin(primary)
+        if (!this.#palette) {
+          const primary = toPiuColorNumber(face.theme.primary)
+          if (primary !== this.#primary) {
+            this.#primary = primary
+            shape.skin = getFillSkin(primary)
+          }
+        }
+        if (face.emotion === this.#emotion) return
+        this.#emotion = face.emotion
+        shape.fillOutline = isGraphicEmotion(face.emotion)
+          ? graphicEyeOutline(opts.canvasWidth, opts.canvasHeight, face.emotion, opts.side)
+          : normalOutline
       }
     },
   }
@@ -260,14 +275,26 @@ export const Eye = Container.template((opts: EyeOptions) => {
   const eyelidHeight = opts.eyelidHeight ?? (shape === 'circle' ? radius * 3 : irisHeight)
   const width = Math.max(irisWidth, eyelidWidth)
   const height = Math.max(irisHeight, eyelidHeight)
-  const irisBaseLeft = (width - irisWidth) / 2
-  const irisBaseTop = (height - irisHeight) / 2
-  const irisBaseCoordinates = { left: irisBaseLeft, top: irisBaseTop, width: irisWidth, height: irisHeight }
+  // Keep a positioning margin for gaze, while giving graphic eyes more room
+  // than the normal iris. The normal outline remains at its original center.
+  const irisCanvasWidth = Math.max(irisWidth, width - 2)
+  const irisCanvasHeight = Math.max(irisHeight, height - 2)
+  const irisBaseLeft = (width - irisCanvasWidth) / 2
+  const irisBaseTop = (height - irisCanvasHeight) / 2
+  const irisBaseCoordinates = {
+    left: irisBaseLeft,
+    top: irisBaseTop,
+    width: irisCanvasWidth,
+    height: irisCanvasHeight,
+  }
   const iris = new Iris({
     shape,
     width: irisWidth,
     height: irisHeight,
     r: irisRadius,
+    canvasWidth: irisCanvasWidth,
+    canvasHeight: irisCanvasHeight,
+    side: opts.side,
     left: irisBaseLeft,
     top: irisBaseTop,
   }) as PositionedContent

@@ -1,6 +1,8 @@
 import type { FaceSkinPalette } from 'face-skin'
 import { DEFAULT_FACE_PRIMARY_COLOR, Emotion, type FaceState, toPiuColorNumber, toPiuColorString } from 'face-state'
-import { type Port as PiuPort, Port } from 'piu/MC'
+import { isGraphicEmotion } from 'parts/graphic-expression'
+import { GraphicMouth } from 'parts/graphic-mouth'
+import { Container, type Port as PiuPort, Port } from 'piu/MC'
 
 export type MouthOptions = {
   cx: number
@@ -51,6 +53,7 @@ class MouthBehavior extends Behavior {
   }
 
   onFaceState(port: PiuPort, face: FaceState) {
+    port.visible = !isGraphicEmotion(face.emotion)
     const open = face.mouth.open
     let needsDraw = false
     if (!this.#hasPalette) {
@@ -109,7 +112,7 @@ class MouthBehavior extends Behavior {
   }
 }
 
-export const Mouth = Port.template((opts: MouthOptions) => {
+const StandardMouth = Port.template((opts: MouthOptions) => {
   const data = {
     cx: opts.cx,
     cy: opts.cy,
@@ -128,5 +131,17 @@ export const Mouth = Port.template((opts: MouthOptions) => {
         super.onCreate(port, data)
       }
     },
+  }
+})
+
+export const Mouth = Container.template((opts: MouthOptions) => {
+  const width = opts.maxWidth ?? 90
+  const height = opts.maxHeight ?? 58
+  return {
+    left: opts.cx - width / 2,
+    top: opts.cy - height / 2,
+    width,
+    height,
+    contents: [new StandardMouth({ ...opts, cx: width / 2, cy: height / 2 }), new GraphicMouth({ width, height })],
   }
 })
