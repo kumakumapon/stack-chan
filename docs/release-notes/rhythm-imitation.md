@@ -10,6 +10,6 @@
 - 左上の戻るボタンでいつでも終了できます。ゲームのタイマー・頭タッチ購読・短音を解放し、他の再生は停止しません。
 - Virtual Petと併用できます。今回のクリア結果はMini App結果イベントとして通知しますが、Petへの経験値連携は追加していません。
 
-CoreS3以外に頭タッチパネルがない機種でも、LCDタッチのある構成なら画面のパッドで遊べます。Webシミュレーターでは「頭をタップ」ボタンとLCDの両方を使えます。実機の音量、入力遅延、判定の体感は実機で確認してください。
+CoreS3以外に頭タッチパネルがない機種でも、LCDタッチのある構成なら画面のパッドで遊べます。LCDタッチも頭タッチもない旧4 MB M5Stack向けには、フラッシュ容量を守るためこの新規ゲームを含めません。Webシミュレーターでは「頭をタップ」ボタンとLCDの両方を使えます。実機の音量、入力遅延、判定の体感は実機で確認してください。
 
 Open **Mini Apps → RHYTHM → Start**. Watch/listen to the pulses, then repeat their spacing with short taps on the head or LCD face pad. Six rounds progress from three to six beats. The first tap anchors your answer; adjacent gaps allow ±25% (at least 150 ms). Replay keeps the current pattern, Muted retains the visual cues, and Back releases the game's input, timers and owned audio. No network or speech recognition is required.
