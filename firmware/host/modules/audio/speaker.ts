@@ -9,6 +9,8 @@ export type ToneProperty = {
   volume?: number
 }
 
+export type OwnedTone = { done: Promise<void>; cancel(): void }
+
 export default class Speaker {
   volume: number
 
@@ -16,23 +18,41 @@ export default class Speaker {
     this.volume = props.volume ?? 0.5
   }
   async tone(hz: number, duration: number, volume?: number): Promise<void> {
+    return this.toneOwned(hz, duration, volume).done
+  }
+
+  toneOwned(hz: number, duration: number, volume?: number): OwnedTone {
     const audio = new AudioOut({
       streams: 1,
       sampleRate: 24000,
       bitsPerSample: 16,
     })
-    return new Promise((resolve) => {
+    let active = true
+    let finish!: () => void
+    const done = new Promise<void>((resolve) => {
+      finish = resolve
+    })
+    const cancel = () => {
+      if (!active) return
+      active = false
+      try {
+        audio.close()
+      } finally {
+        finish()
+      }
+    }
+    try {
+      audio.callback = cancel
       audio.enqueue(0, AudioOut.Flush)
       audio.enqueue(0, AudioOut.Volume, Math.round((volume ?? this.volume) * 256))
       audio.enqueue(0, AudioOut.Tone, hz, (audio.sampleRate * duration) / 1000)
       audio.enqueue(0, AudioOut.Callback, 1)
       audio.start()
-
-      audio.callback = (_id) => {
-        audio.close()
-        resolve()
-      }
-    })
+    } catch (error) {
+      cancel()
+      throw error
+    }
+    return { done, cancel }
   }
 
   async play(buffer: BorrowedAudioBuffer): Promise<boolean> {

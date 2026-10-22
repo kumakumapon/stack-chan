@@ -16,5 +16,8 @@ globalThis.__stackchanWasmAudioBridge = {
   startPlayBuffer,
   startRecord,
   setTimer: Timer.set,
+  clearTimer: Timer.clear,
+  startTone: native('xs_stackchan_wasm_audio_start_tone'),
+  cancelTone: native('xs_stackchan_wasm_audio_cancel_tone'),
   tone,
 }

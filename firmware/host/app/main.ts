@@ -15,6 +15,7 @@ import { initializeLocalization } from 'localization'
 import { installMemoryGame } from 'memory-game-host'
 import Modules from 'modules'
 import { Label, Style } from 'piu/MC'
+import { installRhythmGame } from 'rhythm-game-host'
 import { showStartupSplash, showWiFiConnectionStatus, showWiFiRecoveryChoice } from 'startup-splash'
 import { applyTimezone } from 'timezone-settings'
 import { installWorkshop } from 'workshop-mini-app'
@@ -195,6 +196,7 @@ async function main() {
     installWorkshop(context)
     installMemoryGame(context)
     installDailyMiniApps(context)
+    installRhythmGame(context)
     trace('[main] app context created\n')
     bootStage = 'menu behaviors'
     await runContextCreatedBehaviors(appBehaviors, context, {

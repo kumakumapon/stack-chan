@@ -281,3 +281,78 @@ test('StackchanRuntimeAudio.isActive reflects in-flight say/sing so a reaction c
   await song
   assert.equal(runtime.isActive, false)
 })
+
+test('owned cue yields to other playback and stale cancellation cannot stop its successor', async () => {
+  installBareSpecifierPackages()
+  const { StackchanRuntimeAudio } = (await import('../runtime-audio.js')) as RuntimeAudioModule
+  const outputs: { cancelled: boolean; finish(): void }[] = []
+  const runtime = new StackchanRuntimeAudio({
+    tts: fakeTTS(),
+    speaker: {
+      tone: async () => {},
+      play: async () => true,
+      toneOwned() {
+        let finish!: () => void
+        const done = new Promise<void>((resolve) => {
+          finish = resolve
+        })
+        const output = { cancelled: false, finish }
+        outputs.push(output)
+        return {
+          done,
+          cancel() {
+            output.cancelled = true
+            finish()
+          },
+        }
+      },
+    },
+  })
+  const first = runtime.toneOwned(880, 90)
+  assert(first)
+  assert(runtime.isActive)
+  assert.equal(runtime.toneOwned(880, 90), undefined, 'never overlap tones')
+  await runtime.say('hello')
+  assert(outputs[0].cancelled)
+  assert(!runtime.isActive)
+  const second = runtime.toneOwned(880, 90)
+  assert(second)
+  first.cancel()
+  assert(!outputs[1].cancelled)
+  assert(runtime.isActive)
+  outputs[1].finish()
+  await second.done
+  assert(!runtime.isActive)
+  runtime.toneOwned(880, 90)
+  runtime.close()
+  assert(outputs[2].cancelled)
+  assert(!runtime.isActive)
+  assert.throws(() => runtime.toneOwned(880, Number.NaN))
+})
+
+test('owned cues leave active WebRadio and unsupported targets alone', async () => {
+  installBareSpecifierPackages()
+  const { StackchanRuntimeAudio } = (await import('../runtime-audio.js')) as RuntimeAudioModule
+  let stopped = false
+  const runtime = new StackchanRuntimeAudio({
+    tts: fakeTTS(),
+    webRadio: {
+      state: 'playing',
+      start: async () => {},
+      stop: () => {
+        stopped = true
+      },
+      setVolume: () => {},
+    },
+    speaker: {
+      tone: async () => {},
+      play: async () => true,
+      toneOwned: () => {
+        throw new Error('must not interrupt radio')
+      },
+    },
+  })
+  assert.equal(runtime.toneOwned(880, 90), undefined)
+  assert(!stopped)
+  assert.equal(new StackchanRuntimeAudio({ tts: fakeTTS() }).toneOwned(880, 90), undefined)
+})

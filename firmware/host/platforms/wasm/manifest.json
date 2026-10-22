@@ -49,6 +49,9 @@
       "../../app/memory-game",
       "../../app/memory-game-host",
       "../../app/memory-game-mini-app",
+      "../../app/rhythm-game",
+      "../../app/rhythm-game-host",
+      "../../app/rhythm-game-mini-app",
       "../../app/life-quest",
       "../../app/workshop-model",
       "../../app/workshop-service",
@@ -92,6 +95,7 @@
     "monotonic-clock": "../../app/wasm/monotonic-clock"
   },
   "preload": [
+    "rhythm-game-host",
     "wasm-audio-bridge",
     "wasm-camera-bridge",
     "runtime-context",

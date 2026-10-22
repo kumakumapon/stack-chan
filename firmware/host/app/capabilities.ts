@@ -154,6 +154,8 @@ export type AudioCapability = {
   sing(koe: string, volume?: number): Promise<Maybe<string>>
   record(durationMilliSec?: number): Promise<OwnedAudioBuffer>
   tone(hz: number, duration: number, volume?: number): Promise<void>
+  /** Optional short cue. Yields to other audio; cancellation only closes this cue. */
+  toneOwned?(hz: number, duration: number, volume?: number): { done: Promise<void>; cancel(): void } | undefined
   /**
    * Attempts to play an audio buffer.
    * Returns true when playback completes, and false when playback is unsupported,

@@ -73,7 +73,7 @@ try {
         await tap(140, 166)
       } else await tap(140, 74 + row * 44)
     }
-    await open(pet ? 4 : 3)
+    await open(pet ? 5 : 4)
     await capture('quest')
     await tap(140, 84)
     assert.deepEqual((await saved('quest')).done, [true, false, false])
@@ -87,7 +87,7 @@ try {
     await tap(22, 22)
     await page.reload()
     await boot()
-    await open(pet ? 4 : 3)
+    await open(pet ? 5 : 4)
     await capture('quest-restored')
     assert.deepEqual((await saved('quest')).done, [true, true, true])
     await tap(22, 22)

@@ -8,6 +8,17 @@ import { resolveChromium, startPreview } from '../test-preview-server.mjs'
 
 const { baseUrl, server } = await startPreview({ port: 8107 })
 const inbox = createInbox({ devices: [{ deviceId: 'stackchan-01', token: 'test-secret' }] })
+let pairingCode
+// Observe the real gateway result without depending on Chromium retaining the
+// body of an already-consumed WASM fetch response in its DevTools cache.
+const observedInbox = {
+  ...inbox,
+  device(...args) {
+    const result = inbox.device(...args)
+    if (args[2] === 'pair') pairingCode = result.code
+    return result
+  },
+}
 let polls = 0
 const inboxServer = createServer((request, response) => {
   if (request.url === '/inbox') {
@@ -16,7 +27,7 @@ const inboxServer = createServer((request, response) => {
     return
   }
   if (request.url === '/api/inbox/poll') polls++
-  void handleInbox(request, response, inbox, [baseUrl])
+  void handleInbox(request, response, observedInbox, [baseUrl])
 })
 await new Promise((resolve) => inboxServer.listen(0, '127.0.0.1', resolve))
 const inboxUrl = `http://127.0.0.1:${inboxServer.address().port}`
@@ -63,7 +74,7 @@ try {
     await tap(270, 22)
     await tap(140, 74 + row * 44)
   }
-  await open(2)
+  await open(3)
   await capture('home')
   await tap(140, 58)
   const initial = await image()
@@ -79,7 +90,7 @@ try {
   assert.notEqual(await image(), friends, 'second branch has a different ending')
   await capture('discovery')
   await tap(22, 22)
-  await open(2)
+  await open(3)
   await tap(140, 134)
   await tap(140, 58)
   const settings = await page.evaluate(() => JSON.parse(localStorage.getItem('stackchan.workshop.sc_workshop.state')))
@@ -148,7 +159,7 @@ try {
   await page.clock.fastForward(5000)
   await page.waitForTimeout(100)
   await page.clock.runFor(200)
-  await open(2)
+  await open(3)
   await tap(140, 97)
   await tap(140, 58)
   await capture('notification-list')
@@ -157,9 +168,14 @@ try {
   await tap(140, 222)
   await tap(140, 218)
   await tap(140, 97)
-  const pairResponse = page.waitForResponse((response) => response.url().endsWith('/api/inbox/pair'))
+  pairingCode = undefined
+  const pairResponse = page.waitForResponse(
+    (response) => response.url().endsWith('/api/inbox/pair') && response.request().method() === 'POST'
+  )
   await tap(140, 180)
-  const code = (await (await pairResponse).json()).code
+  assert.equal((await pairResponse).status(), 200)
+  const code = pairingCode
+  assert.equal(typeof code, 'string', 'LCD pairing request reaches the real gateway')
   assert.equal(code.length, 12)
   await page.clock.runFor(200)
   await capture('pairing')

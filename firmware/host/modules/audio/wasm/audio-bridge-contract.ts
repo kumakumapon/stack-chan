@@ -7,6 +7,9 @@ export type WasmAudioBridge = {
   recordError?: () => string | undefined
   recordStatus: () => number
   setTimer?: (callback: () => void, delay?: number) => unknown
+  clearTimer?: (handle: unknown) => void
+  startTone?: (hz: number, duration: number, volume?: number) => number
+  cancelTone?: (id: number) => void
   startPlayBuffer: (buffer: ArrayBuffer) => void
   startRecord: (duration: number) => void
   tone: (hz: number, duration: number, volume?: number) => void
@@ -19,7 +22,7 @@ export type WasmAudioInputBridge = Pick<
 
 export type WasmAudioOutputBridge = Pick<
   WasmAudioBridge,
-  'close' | 'playStatus' | 'setTimer' | 'startPlayBuffer' | 'tone'
+  'close' | 'playStatus' | 'setTimer' | 'clearTimer' | 'startTone' | 'cancelTone' | 'startPlayBuffer' | 'tone'
 >
 
 export type WasmAudioBridgeGlobal = typeof globalThis & {
