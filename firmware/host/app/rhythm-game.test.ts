@@ -112,6 +112,17 @@ test('accepts human timing variation and uses press time despite different relea
   assert.equal(h.game.snapshot().phase, 'won')
 })
 
+test('a release at the latest accepted press and hold boundary beats the missing-input timeout', () => {
+  const h = harness()
+  h.game.start()
+  const [gap] = h.demonstrate()
+  h.tap()
+  h.advance(gap * 1.25)
+  h.tap(300)
+  assert.equal(h.game.snapshot().matched, 2)
+  assert.equal(h.game.snapshot().phase, 'input')
+})
+
 for (const [scale, reason] of [
   [0.4, 'early'],
   [1.4, 'late'],

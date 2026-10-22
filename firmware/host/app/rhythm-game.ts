@@ -112,7 +112,9 @@ export class RhythmGame {
     }
     const expected = this.#pattern[this.#matched - 1]
     // A valid press may only be delivered on release, up to 300 ms later.
-    const deadline = at + expected + Math.max(150, expected * 0.25) + RHYTHM_TAP_MAX_DURATION
+    // Leave one panel polling interval so a release exactly at the accepted
+    // boundary wins over the timeout; the press-time tolerance stays unchanged.
+    const deadline = at + expected + Math.max(150, expected * 0.25) + RHYTHM_TAP_MAX_DURATION + 50
     this.#wait(Math.max(0, deadline - this.#options.now()), () => this.#lose('timeout'))
     this.#publish()
   }
