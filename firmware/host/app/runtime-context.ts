@@ -517,6 +517,9 @@ export class StackchanRuntimeContext implements StackchanContext {
       tone(hz, duration, volume) {
         return context.tone(hz, duration, volume)
       },
+      toneOwned(hz, duration, volume) {
+        return context.#audioRuntime.toneOwned(hz, duration, volume)
+      },
       playAudio(buffer) {
         return context.playAudio(buffer)
       },

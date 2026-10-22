@@ -1,4 +1,5 @@
 declare const setTimeout: (callback: () => void, delay?: number) => unknown
+declare const clearTimeout: (handle: unknown) => void
 
 import type { BorrowedAudioBuffer } from 'audio-buffer'
 import type { WasmAudioOutputBridge } from './audio-bridge-contract.js'
@@ -56,6 +57,31 @@ export default class Speaker {
     return new Promise((resolve) => {
       schedule(audioBridge, resolve, duration + 250)
     })
+  }
+
+  toneOwned(hz: number, duration: number, volume?: number): { done: Promise<void>; cancel(): void } {
+    const bridge = getAudioBridge()
+    if (!bridge.startTone || !bridge.cancelTone) throw new Error('Owned tones are unavailable')
+    const id = bridge.startTone(hz, duration, volume)
+    if (!id) throw new Error('Audio output unavailable')
+    let active = true
+    let finish!: () => void
+    let timer: unknown
+    const done = new Promise<void>((resolve) => {
+      finish = resolve
+    })
+    const cancel = () => {
+      if (!active) return
+      active = false
+      if (timer !== undefined) (bridge.clearTimer ?? clearTimeout)(timer)
+      try {
+        bridge.cancelTone?.(id)
+      } finally {
+        finish()
+      }
+    }
+    timer = (bridge.setTimer ?? setTimeout)(cancel, duration + 250)
+    return { done, cancel }
   }
 
   async play(buffer: BorrowedAudioBuffer): Promise<boolean> {

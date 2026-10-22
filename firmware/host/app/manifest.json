@@ -48,6 +48,9 @@
       "./memory-game",
       "./memory-game-host",
       "./memory-game-mini-app",
+      "./rhythm-game",
+      "./rhythm-game-host",
+      "./rhythm-game-mini-app",
       "./life-quest",
       "./workshop-model",
       "./workshop-service",
@@ -90,6 +93,7 @@
     "monotonic-clock": "./monotonic-clock"
   },
   "preload": [
+    "rhythm-game-host",
     "runtime-context",
     "touch",
     "touch-panel",

@@ -22,6 +22,7 @@ export class StackchanRuntimeAudio {
   #tts: TTS
   #webRadio: WebRadioCapability | undefined
   #activeOperations = 0
+  #ownedTone: { done: Promise<void>; cancel(): void } | undefined
 
   constructor(params: RuntimeAudioConstructorParam, options: RuntimeAudioOptions = {}) {
     this.#options = options
@@ -41,7 +42,7 @@ export class StackchanRuntimeAudio {
 
   /** True while `say`, `sing`, `tone` or `playAudio` is in flight. */
   get isActive(): boolean {
-    return this.#activeOperations > 0
+    return this.#activeOperations > 0 || this.#ownedTone !== undefined
   }
 
   get webRadio(): WebRadioCapability | undefined {
@@ -53,6 +54,7 @@ export class StackchanRuntimeAudio {
       },
       start(options: WebRadioStartOptions) {
         if (runtime.#activeOperations > 0) return Promise.reject(new Error('audio busy'))
+        runtime.#ownedTone?.cancel()
         const webRadio = runtime.#webRadio
         if (!webRadio) return Promise.reject(new Error('WebRadio is not supported'))
         return webRadio.start(options)
@@ -81,6 +83,7 @@ export class StackchanRuntimeAudio {
   }
 
   async say(text: string, volume?: number): Promise<Maybe<string>> {
+    this.#ownedTone?.cancel()
     this.#webRadio?.stop()
     this.#activeOperations += 1
     try {
@@ -101,6 +104,7 @@ export class StackchanRuntimeAudio {
   }
 
   async sing(koe: string, volume?: number): Promise<Maybe<string>> {
+    this.#ownedTone?.cancel()
     this.#webRadio?.stop()
     this.#activeOperations += 1
     try {
@@ -133,6 +137,7 @@ export class StackchanRuntimeAudio {
     if (volume !== undefined && (volume < 0 || volume > 1)) {
       throw new Error('Volume must be between 0 and 1')
     }
+    this.#ownedTone?.cancel()
     this.#webRadio?.stop()
     this.#activeOperations += 1
     try {
@@ -144,6 +149,7 @@ export class StackchanRuntimeAudio {
 
   async playAudio(buffer: BorrowedAudioBuffer): Promise<boolean> {
     if (!this.#speaker) return false
+    this.#ownedTone?.cancel()
     this.#webRadio?.stop()
     this.#activeOperations += 1
     try {
@@ -153,8 +159,43 @@ export class StackchanRuntimeAudio {
     }
   }
 
+  toneOwned(hz: number, duration: number, volume?: number): { done: Promise<void>; cancel(): void } | undefined {
+    if (
+      !Number.isFinite(hz) ||
+      hz <= 0 ||
+      !Number.isFinite(duration) ||
+      duration <= 0 ||
+      duration > 1000 ||
+      (volume !== undefined && (!Number.isFinite(volume) || volume < 0 || volume > 1))
+    )
+      throw new Error('Invalid short tone')
+    if (
+      this.isActive ||
+      !this.#speaker?.toneOwned ||
+      (this.#webRadio && this.#webRadio.state !== 'idle' && this.#webRadio.state !== 'error')
+    )
+      return undefined
+    const tone = this.#speaker.toneOwned(hz, duration, volume)
+    const release = () => {
+      if (this.#ownedTone === owned) this.#ownedTone = undefined
+    }
+    const owned = {
+      done: tone.done.then(release, release),
+      cancel: () => {
+        try {
+          tone.cancel()
+        } finally {
+          release()
+        }
+      },
+    }
+    this.#ownedTone = owned
+    return owned
+  }
+
   close(): void {
     try {
+      this.#ownedTone?.cancel()
       this.#webRadio?.stop()
     } finally {
       try {

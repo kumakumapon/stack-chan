@@ -237,6 +237,9 @@ jobs:
       - name: Verify memory game and Pet coexistence through WASM
         working-directory: ./web
         run: node simulator/memory-game-test.mjs
+      - name: Verify rhythm imitation and head taps through WASM
+        working-directory: ./web
+        run: node simulator/rhythm-game-test.mjs
       - name: Test offline daily Mini Apps in the simulator
         working-directory: ./web
         run: node simulator/daily-mini-apps-test.mjs

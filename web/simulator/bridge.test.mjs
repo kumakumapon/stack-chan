@@ -218,6 +218,78 @@ describe('Host.Audio bridge', () => {
     assert.equal(context.closed, true)
   })
 
+  it('cancels only the owned tone and releases its fallback timer', async () => {
+    const oscillators = []
+    const timers = new Set()
+    const context = {
+      state: 'running',
+      currentTime: 0,
+      destination: {},
+      createOscillator() {
+        const oscillator = {
+          frequency: {},
+          stops: [],
+          disconnected: false,
+          connect() {},
+          start() {},
+          stop(at) {
+            this.stops.push(at)
+          },
+          disconnect() {
+            this.disconnected = true
+          },
+        }
+        oscillators.push(oscillator)
+        return oscillator
+      },
+      createGain: () => ({ gain: {}, connect() {}, disconnect() {} }),
+    }
+    const bridge = createHostAudioOutBridge({
+      createAudioContext: () => context,
+      setTimeoutFn(callback) {
+        timers.add(callback)
+        return callback
+      },
+      clearTimeoutFn: (handle) => timers.delete(handle),
+    })
+    const first = bridge.startTone({ hz: 880, duration: 90 })
+    const second = bridge.startTone({ hz: 440, duration: 90 })
+    assert.equal(timers.size, 2)
+    bridge.cancelTone(first)
+    assert.equal(timers.size, 1)
+    assert(oscillators[0].disconnected)
+    assert(!oscillators[1].disconnected)
+    bridge.cancelTone(first)
+    assert.equal(oscillators[0].stops.length, 2, 'scheduled stop plus one cancellation')
+    oscillators[1].onended()
+    assert.equal(timers.size, 0)
+    await Promise.resolve()
+    bridge.cancelTone(second)
+    assert(oscillators[1].disconnected)
+  })
+
+  it('does not start a cancelled owned tone after suspended audio resumes', async () => {
+    let resume
+    let created = 0
+    const context = {
+      state: 'suspended',
+      resume: () =>
+        new Promise((resolve) => {
+          resume = resolve
+        }),
+      createOscillator() {
+        created++
+        throw new Error('cancelled cue must never start')
+      },
+    }
+    const bridge = createHostAudioOutBridge({ createAudioContext: () => context })
+    const id = bridge.startTone({ hz: 880, duration: 90 })
+    bridge.cancelTone(id)
+    resume()
+    await Promise.resolve()
+    assert.equal(created, 0)
+  })
+
   it('clamps non-finite hz/volume so AudioParam is never set to NaN', async () => {
     // real AudioParam throws when set to a non-finite value; the wasm bridge
     // sends a NaN volume when a MOD calls tone() without one.

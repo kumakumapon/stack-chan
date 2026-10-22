@@ -5,6 +5,8 @@ export default class Speaker {
     void _options
   }
 
+  toneOwned?: (hz: number, duration: number, volume?: number) => { done: Promise<void>; cancel(): void }
+
   tone(_hz: number, _duration: number, _volume?: number): Promise<void> {
     throw new Error('speaker fake is type-only')
   }

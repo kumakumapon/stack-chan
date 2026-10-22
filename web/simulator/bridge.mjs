@@ -465,42 +465,75 @@ export function createHostAudioOutBridge({
 } = {}) {
   let context
 
-  return {
-    async tone({ hz, duration, volume } = {}) {
-      // Guard against non-finite values: the wasm audio bridge always passes a
-      // volume argument, so an omitted volume arrives as NaN (not undefined) and
-      // a destructuring default would not apply. Setting an AudioParam to a
-      // non-finite value throws.
-      const frequency = Number.isFinite(hz) ? hz : 440
-      const durationMs = Number.isFinite(duration) ? Math.max(0, duration) : 100
-      const level = Number.isFinite(volume) ? Math.min(1, Math.max(0, volume)) : 1
-      context ??= createAudioContext()
-      if (context.state === 'suspended' && typeof context.resume === 'function') {
-        await context.resume()
+  let nextToneId = 0
+  const ownedTones = new Map()
+  const playTone = async ({ hz, duration, volume } = {}, owner) => {
+    // Guard against non-finite values: the wasm audio bridge always passes a
+    // volume argument, so an omitted volume arrives as NaN (not undefined) and
+    // a destructuring default would not apply. Setting an AudioParam to a
+    // non-finite value throws.
+    const frequency = Number.isFinite(hz) ? hz : 440
+    const durationMs = Number.isFinite(duration) ? Math.max(0, duration) : 100
+    const level = Number.isFinite(volume) ? Math.min(1, Math.max(0, volume)) : 1
+    context ??= createAudioContext()
+    if (context.state === 'suspended' && typeof context.resume === 'function') {
+      await context.resume()
+    }
+    if (owner?.cancelled) return
+    const oscillator = context.createOscillator()
+    const gain = context.createGain()
+    oscillator.frequency.value = frequency
+    gain.gain.value = level
+    oscillator.connect(gain)
+    gain.connect(context.destination)
+    const startTime = context.currentTime
+    await new Promise((resolve, reject) => {
+      let fallback
+      let finished = false
+      const finish = () => {
+        if (finished) return
+        finished = true
+        if (fallback !== undefined) clearTimeoutFn?.(fallback)
+        oscillator.disconnect?.()
+        gain.disconnect?.()
+        resolve()
       }
-      const oscillator = context.createOscillator()
-      const gain = context.createGain()
-      oscillator.frequency.value = frequency
-      gain.gain.value = level
-      oscillator.connect(gain)
-      gain.connect(context.destination)
-      const startTime = context.currentTime
-      await new Promise((resolve, reject) => {
-        let fallback
-        const finish = () => {
-          if (fallback !== undefined) clearTimeoutFn?.(fallback)
-          resolve()
+      if (owner)
+        owner.cancel = () => {
+          try {
+            oscillator.stop()
+          } finally {
+            finish()
+          }
         }
-        oscillator.onended = finish
-        try {
-          oscillator.start(startTime)
-          oscillator.stop(startTime + durationMs / 1000)
-          fallback = setTimeoutFn?.(finish, durationMs + 250)
-        } catch (error) {
-          if (fallback !== undefined) clearTimeoutFn?.(fallback)
-          reject(error)
-        }
-      })
+      oscillator.onended = finish
+      try {
+        oscillator.start(startTime)
+        oscillator.stop(startTime + durationMs / 1000)
+        fallback = setTimeoutFn?.(finish, durationMs + 250)
+      } catch (error) {
+        if (fallback !== undefined) clearTimeoutFn?.(fallback)
+        reject(error)
+      }
+    })
+  }
+  return {
+    tone: (options) => playTone(options),
+    startTone(options) {
+      const id = ++nextToneId
+      const owner = { cancelled: false }
+      ownedTones.set(id, owner)
+      void playTone(options, owner)
+        .catch(() => {})
+        .finally(() => ownedTones.delete(id))
+      return id
+    },
+    cancelTone(id) {
+      const owner = ownedTones.get(id)
+      if (!owner) return
+      owner.cancelled = true
+      owner.cancel?.()
+      ownedTones.delete(id)
     },
     async play(buffer) {
       if (!(buffer instanceof ArrayBuffer) || buffer.byteLength === 0) return false
@@ -535,6 +568,7 @@ export function createHostAudioOutBridge({
       return true
     },
     close() {
+      for (const id of ownedTones.keys()) this.cancelTone(id)
       context?.close?.()
       context = undefined
     },

@@ -3,6 +3,24 @@
 #include <emscripten.h>
 #include <stdlib.h>
 
+void xs_stackchan_wasm_audio_start_tone(xsMachine* the)
+{
+  double hz = xsmcToNumber(xsArg(0));
+  double duration = xsmcToNumber(xsArg(1));
+  double volume = xsmcArgc > 2 ? xsmcToNumber(xsArg(2)) : 1;
+  int id = EM_ASM_INT({
+    return stackchanRuntime?.host?.AudioOut?.startTone?.({ hz: $0, duration: $1, volume: $2 }) ?? 0;
+  }, hz, duration, volume);
+  xsmcSetInteger(xsResult, id);
+}
+
+void xs_stackchan_wasm_audio_cancel_tone(xsMachine* the)
+{
+  EM_ASM({
+    stackchanRuntime?.host?.AudioOut?.cancelTone?.($0);
+  }, xsmcToInteger(xsArg(0)));
+}
+
 void xs_stackchan_wasm_audio_tone(xsMachine* the)
 {
 	double hz = xsmcToNumber(xsArg(0));
