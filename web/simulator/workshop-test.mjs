@@ -157,9 +157,11 @@ try {
   await tap(140, 222)
   await tap(140, 218)
   await tap(140, 97)
-  const pairResponse = page.waitForResponse((response) => response.url().endsWith('/api/inbox/pair'))
+  const pairResponse = page
+    .waitForResponse((response) => response.url().endsWith('/api/inbox/pair') && response.request().method() === 'POST')
+    .then((response) => response.json())
   await tap(140, 180)
-  const code = (await (await pairResponse).json()).code
+  const code = (await pairResponse).code
   assert.equal(code.length, 12)
   await page.clock.runFor(200)
   await capture('pairing')
