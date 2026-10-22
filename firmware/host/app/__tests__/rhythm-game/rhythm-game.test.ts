@@ -94,6 +94,11 @@ async function run(): Promise<void> {
   assert(tones === 1, 'cue starts sound')
   assert(!control('rhythmPad').active, 'no answers during demonstration')
   tap('rhythmSound')
+  equal(
+    (control('rhythmSound').content('label') as PiuLabel).string,
+    localize('rhythm.soundOff'),
+    'sound toggle has a visible state label',
+  )
   equal(cancelled, 1, 'mute cancels the active owned cue')
   demonstrate()
   tap('rhythmPad', 350)

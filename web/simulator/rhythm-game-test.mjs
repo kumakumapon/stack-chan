@@ -39,6 +39,7 @@ try {
     assert((await ready.count()) > 0, `host must boot: ${await page.getByRole('log').innerText()} ${errors.join('; ')}`)
     await page.clock.runFor(3000)
     if (pet) await page.getByText(/適用済み/).waitFor({ timeout: 45000 })
+    await page.clock.pauseAt(await page.evaluate(() => Date.now() + 100))
     const lcd = page.locator('canvas[aria-hidden="true"]')
     const tap = async (x, y) => {
       await lcd.evaluate(
@@ -72,6 +73,7 @@ try {
       lcd.evaluate((canvas) => Array.from(canvas.getContext('2d').getImageData(16, 122, 1, 1).data))
     const won = async () => {
       const [r, g, b] = await padColor()
+      if (!(g > r * 1.5 && g > b * 1.2)) await capture('failure')
       assert(g > r * 1.5 && g > b * 1.2, `successful rhythm turns the pad green: ${r},${g},${b}`)
     }
     await open()
@@ -95,11 +97,11 @@ try {
     await page.clock.runFor(3300)
     // Use the simulator's real head-touch bridge and recognizer, not direct game input.
     const head = page.getByRole('button', { name: '頭をタップ', exact: true })
-    await head.click()
+    await head.dispatchEvent('click')
     await page.clock.runFor(600)
-    await head.click()
+    await head.dispatchEvent('click')
     await page.clock.runFor(1200)
-    await head.click()
+    await head.dispatchEvent('click')
     await page.clock.runFor(250)
     await won()
     await capture('head-success')

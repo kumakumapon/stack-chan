@@ -12,4 +12,4 @@
 
 CoreS3以外に頭タッチパネルがない機種でも、LCDタッチのある構成なら画面のパッドで遊べます。Webシミュレーターでは「頭をタップ」ボタンとLCDの両方を使えます。実機の音量、入力遅延、判定の体感は実機で確認してください。
 
-Open **Mini Apps → RHYTHM → Start**. Watch/listen to the pulses, then repeat their spacing with short taps on the head or LCD face pad. Six rounds progress from three to six beats. The first tap anchors your answer; adjacent gaps allow ±25% (at least 150 ms). Replay keeps the current pattern, Sound OFF retains the visual cues, and Back releases the game's input, timers and owned audio. No network or speech recognition is required.
+Open **Mini Apps → RHYTHM → Start**. Watch/listen to the pulses, then repeat their spacing with short taps on the head or LCD face pad. Six rounds progress from three to six beats. The first tap anchors your answer; adjacent gaps allow ±25% (at least 150 ms). Replay keeps the current pattern, Muted retains the visual cues, and Back releases the game's input, timers and owned audio. No network or speech recognition is required.

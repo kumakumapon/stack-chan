@@ -133,7 +133,12 @@ export function createRhythmGameApp(options: RhythmGameAppOptions): MiniAppDefin
         { left: 112, top: 138, width: 96, height: 44 },
       )
       const sound = new ActionButton(
-        { name: 'rhythmSound', icon: 'settings', label: '', onTap: () => game.setSound(!game.snapshot().sound) },
+        {
+          name: 'rhythmSound',
+          icon: 'settings',
+          label: localize('rhythm.soundOn'),
+          onTap: () => game.setSound(!game.snapshot().sound),
+        },
         { left: 216, top: 138, width: 96, height: 44 },
       )
       const content = new Container(null, {
