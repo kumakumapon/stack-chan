@@ -5,6 +5,7 @@ import { createInbox, handleInbox } from '../../gateway/src/server/inbox.ts'
 import { inboxPage } from '../../gateway/src/server/inbox-page.ts'
 import { chromium } from 'playwright-core'
 import { resolveChromium, startPreview } from '../test-preview-server.mjs'
+import { launcherRow, tapLauncherRow } from './lcd-test-helpers.mjs'
 
 const { baseUrl, server } = await startPreview({ port: 8107 })
 const inbox = createInbox({ devices: [{ deviceId: 'stackchan-01', token: 'test-secret' }] })
@@ -69,12 +70,12 @@ try {
   const image = () => lcd.evaluate((canvas) => canvas.toDataURL('image/png'))
   const capture = async (name) =>
     writeFileSync(`/tmp/stackchan-workshop-${name}.png`, Buffer.from((await image()).split(',')[1], 'base64'))
-  const open = async (row) => {
+  const open = async (app) => {
     await tap(160, 110)
     await tap(270, 22)
-    await tap(140, 74 + row * 44)
+    await tapLauncherRow(page, tap, launcherRow(app))
   }
-  await open(3)
+  await open('workshop')
   await capture('home')
   await tap(140, 58)
   const initial = await image()
@@ -90,7 +91,7 @@ try {
   assert.notEqual(await image(), friends, 'second branch has a different ending')
   await capture('discovery')
   await tap(22, 22)
-  await open(3)
+  await open('workshop')
   await tap(140, 134)
   await tap(140, 58)
   const settings = await page.evaluate(() => JSON.parse(localStorage.getItem('stackchan.workshop.sc_workshop.state')))
@@ -106,7 +107,7 @@ try {
   await boot()
   const metadata = await page.evaluate(() => JSON.parse(localStorage.getItem('stackchan.workshop.sc_deck.meta')))
   assert(metadata.count > 0, 'deck persisted')
-  await open(0)
+  await open('quiz')
   await tap(140, 84)
   await capture('custom-quiz')
   await tap(140, 157)
@@ -159,7 +160,7 @@ try {
   await page.clock.fastForward(5000)
   await page.waitForTimeout(100)
   await page.clock.runFor(200)
-  await open(3)
+  await open('workshop')
   await tap(140, 97)
   await tap(140, 58)
   await capture('notification-list')

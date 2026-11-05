@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { chromium } from 'playwright-core'
 import { resolveChromium, startPreview } from '../test-preview-server.mjs'
+import { launcherRow, tapLauncherRow } from './lcd-test-helpers.mjs'
 
 assert.ok(existsSync('simulator/mc.wasm'), 'build the WASM host first')
 assert.ok(existsSync('mod-gallery/samples/stackchan-pet/stackchan-pet.xsa'), 'stage the Pet MOD first')
@@ -48,7 +49,7 @@ try {
     const open = async () => {
       await tap(160, 110)
       await tap(270, 22)
-      await tap(140, pet ? 162 : 118)
+      await tapLauncherRow(page, tap, launcherRow('memory', pet))
     }
     const highlighted = async () => lcd.evaluate((canvas) => {
       const ctx = canvas.getContext('2d')

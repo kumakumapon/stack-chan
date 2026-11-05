@@ -40,6 +40,8 @@ export const REACTION_NAMES = [
   'look-touch-right',
   'happy-sparkle',
   'bashful',
+  'look-up',
+  'look-down',
 ] as const
 
 export type ReactionName = (typeof REACTION_NAMES)[number]
