@@ -141,6 +141,9 @@ jobs:
         env:
           STACKCHAN_MODULE_TEST_SHARD_INDEX: ${{ matrix.shard }}
           STACKCHAN_MODULE_TEST_SHARD_TOTAL: 2
+          # GCC 14+ makes incompatible-pointer-types an error, which breaks the SDK's libmad in
+          # Linux builds. Only the Linux makefile appends to C_FLAGS: keep it out of ESP32 builds.
+          C_FLAGS: -Wno-error=incompatible-pointer-types
         run: source "$HOME/.local/share/xs-dev-export.sh" && npm run test:moddable
 
   test-smoke:
@@ -148,6 +151,9 @@ jobs:
     if: needs.changes.outputs.firmware == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     env:
+      # GCC 14+ makes incompatible-pointer-types an error, which breaks the SDK's libmad in
+      # Linux builds. Only the Linux makefile appends to C_FLAGS: keep it out of ESP32 builds.
+      C_FLAGS: -Wno-error=incompatible-pointer-types
       STACKCHAN_LIN_SMOKE_CLEAN: "0"
     steps:
       - uses: actions/checkout@v7

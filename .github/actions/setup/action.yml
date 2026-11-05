@@ -105,6 +105,31 @@ runs:
           /home/runner/.local/share
           /home/runner/.espressif
         key: ${{ env.moddable_cache_key }}-fontbm2
+    - name: Keep the Moddable environment through sudo
+      # Newer runner images ship a sudo that ignores --preserve-env, so xs-dev's
+      # `sudo --preserve-env make install` loses MODDABLE and fails. Wrap sudo to
+      # pass the variables explicitly; the wrapper is only used to install tools.
+      if: inputs.install-moddable == 'true' && steps.restore-cache-moddable.outputs.cache-hit != 'true'
+      run: |
+        real_sudo="$(command -v sudo)"
+        shim_dir="$RUNNER_TEMP/sudo-shim"
+        mkdir -p "$shim_dir"
+        cat > "$shim_dir/sudo" <<SHIM
+        #!/usr/bin/env bash
+        options=()
+        while [[ \$# -gt 0 && "\$1" == -* ]]; do
+          [[ "\$1" == --preserve-env ]] || options+=("\$1")
+          shift
+        done
+        passthrough=("PATH=\$PATH")
+        [[ -z "\${MODDABLE:-}" ]] || passthrough+=("MODDABLE=\$MODDABLE")
+        [[ -z "\${IDF_PATH:-}" ]] || passthrough+=("IDF_PATH=\$IDF_PATH")
+        exec "$real_sudo" "\${options[@]}" env "\${passthrough[@]}" "\$@"
+        SHIM
+        sed -i 's/^        //' "$shim_dir/sudo"
+        chmod +x "$shim_dir/sudo"
+        echo "$shim_dir" >> "$GITHUB_PATH"
+      shell: bash
     - name: install Moddable
       if: inputs.install-moddable == 'true' && steps.restore-cache-moddable.outputs.cache-hit != 'true'
       run: |

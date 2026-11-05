@@ -25,8 +25,21 @@ export async function dragLcd(page, fromY, toY, clock = true) {
 // Host Mini Apps in launcher order. XS sorts titles by code point, so the
 // Japanese titles order as: 3問クイズ, おみくじ, じゃんけん, はやおし, メモリー,
 // リズムまねっこ, 暮らし工房, 生活クエスト, 集中タイマー. The Pet MOD's
-// "PET STATUS" sorts right after the quiz. Keep this the only copy of the order.
-const HOST_LAUNCHER_ORDER = ['quiz', 'fortune', 'janken', 'quick-tap', 'memory', 'rhythm', 'workshop', 'quest', 'focus']
+// "PET STATUS" sorts right after the quiz, and the minigames sample's half-width
+// kana titles (ｽﾀｯｸﾁｬﾝ CATCH / JUMP) sort after every host app. Keep this the only copy of the order.
+const HOST_LAUNCHER_ORDER = [
+  'quiz',
+  'fortune',
+  'janken',
+  'quick-tap',
+  'memory',
+  'rhythm',
+  'workshop',
+  'quest',
+  'focus',
+  'catch',
+  'jump',
+]
 
 export function launcherRow(app, pet = false) {
   const index = HOST_LAUNCHER_ORDER.indexOf(app)

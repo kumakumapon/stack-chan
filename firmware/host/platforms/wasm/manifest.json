@@ -105,7 +105,6 @@
     "monotonic-clock": "../../app/wasm/monotonic-clock"
   },
   "preload": [
-    "play-pack-host",
     "rhythm-game-host",
     "wasm-audio-bridge",
     "wasm-camera-bridge",

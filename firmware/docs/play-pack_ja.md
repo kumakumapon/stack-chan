@@ -70,34 +70,9 @@ MODの追加、Wi-Fi、音声認識、AI契約は不要です。おみくじの�
 - 旧4 MB M5Stack（タッチ入力なし）にはフラッシュ容量を守るため含めません。リズムまねっこと同じ方式です。
   文言も `host/app/strings/*.json` ではなく [play-pack-strings.ts](../host/app/play-pack-strings.ts) に置いています。この方式なら、除外した機種では文言の容量もかかりません。
 - Webシミュレーターでは、自己ベストとおみくじの結果をブラウザの localStorage に保存します。
-- `play-pack-host` は `rhythm-game-host` と同じく preload し、`main.ts` からは `Modules.importNow('play-pack-host')` で名前を指定して読み込みます。
+- `play-pack-host` は `main.ts` から `Modules.importNow('play-pack-host')` で名前を指定して読み込みます。
   WASM ホスト（JavaScript スタック 512 スロット）は、起動時の同期処理の時点でスタックの余裕がほとんどありません。`main.ts` に静的 import を足しただけで XS の stack overflow になることを確認しています。
-  preload するため、`play-pack-host` から import するモジュールのトップレベルでは localize・Preference・Timer・乱数を使いません。おみくじの任意演出（暮らし工房の設定）は、結果を表示した時点で `workshop-service` を名前で解決します。こうして、ネットワーク系のモジュールを preload の連鎖に入れないようにしています。
-
-## 実装
-
-| ファイル | 役割 |
-| --- | --- |
-| `host/app/janken-game.ts` | じゃんけん・ホイの進行、採点、Reactionの所有 |
-| `host/app/quick-tap-game.ts` | 合図、判定、記録の検証と保存 |
-| `host/app/fortune.ts` | 抽選、ローカル日付、保存形式 v1 |
-| `host/app/*-mini-app.ts` | Piu の画面と入力 |
-| `host/app/play-pack-drawing.ts` | ミニ顔・手・矢印のドット絵 |
-| `host/app/play-pack-strings.ts` / `play-pack-text.ts` | 日本語・英語の文言と、現在の言語での解決 |
-| `host/app/play-pack-host.ts` | 登録、タイマー・保存・音・頭タッチ・Reactionの接続 |
-
-## 検証
-
-`firmware/` で実行します。
-
-```sh
-npm run test:unit
-npm run check:architecture
-STACKCHAN_MODULE_TEST_FILTER=play-pack npm run test:moddable
-```
-
-WASMホストとPet MODを準備したうえで、`web/` から `node simulator/play-pack-test.mjs` を実行すると、実際のLCD入力の経路で次の内容を確認できます。
-
+  preload はしません（preload なしで WASM ホストが起動し、play-pack の e2e が通ることを確認済みです）。おみくじの任意演出（暮らし工房の設定）は、結果を表示した時点で `workshop-service` を名前で解決します。
 - 3つのアプリが一覧から開けること
 - じゃんけんでホイまで進めること
 - はやおしが5回で終わり、自己ベストを保存すること
@@ -111,3 +86,11 @@ CoreS3実機では、次の項目を個別に確認して記録してくださ�
 - [ ] はやおし：頭タッチと画面タッチの両方で記録が出る。音量と、合図の音・色の同期を確認する。
 - [ ] おみくじ：時計同期後に1日1回に制限され、電源を入れ直しても同じ結果が出る。日付が変わると引ける。
 - [ ] 3つのアプリとPet・集中タイマーを併用し、戻るを10回繰り返しても待機動作が復帰する。
+
+## XS のキー数の上限（`not enough keys`）
+
+xsl（リンカー）は、プロパティ名などの識別子（キー）を最大 8192 個までしか持てません。CoreS3 のリリースビルド（`m5stackchan_cores3`）はあそびパックの追加前で 7916 個、追加後で 8087 個です。余裕は約100個しかありません。
+オブジェクトのプロパティ名と `#private` フィールドはキー1つになります。これを超えると、リンク時に `Error: not enough keys` で失敗します（Bundle の CI で実際に起きました）。
+
+- メッセージは `play-pack-strings.ts` に「`key=message`」の行として持ち、実行時に `Map` へ読み込みます。オブジェクトにすると約110個のキーが増えます。
+- 新しい機能を足すときは、`firmware/` で `npm run build:m5stackchan_cores3` 相当のリンクが通ることを確認してください。ESP-IDF がなくても、リンクの手順（`xsl`）だけなら再現できます。

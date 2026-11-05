@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { chromium } from 'playwright-core'
-import { dragLcd } from './simulator/lcd-test-helpers.mjs'
+import { launcherRow, tapLauncherRow } from './simulator/lcd-test-helpers.mjs'
 
 import { resolveChromium, startPreview } from './test-preview-server.mjs'
 import { captureScreenshot } from './test-browser-screenshot.mjs'
@@ -182,9 +182,8 @@ try {
   await page.waitForTimeout(100)
   await tapMiniGameScreen(254, 22)
   await page.waitForTimeout(200)
-  // Four standard host apps sort before the sample games. Scroll to CATCH/JUMP.
-  await dragLcd(page, 215, 60, false)
-  await tapMiniGameScreen(160, 166)
+  // Every host app sorts before the sample games (see launcherRow). Scroll to CATCH.
+  await tapLauncherRow(page, tapMiniGameScreen, launcherRow('catch'), false)
   await page.waitForTimeout(300)
   const catchTitleFrame = await miniGameScreen.evaluate((canvas) => canvas.toDataURL('image/png'))
   await tapMiniGameScreen(160, 142)
