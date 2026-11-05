@@ -19,8 +19,9 @@ import type { workshopFor } from 'workshop-service'
 
 /**
  * Offline play pack: rock-paper-scissors with "look over there", a reaction-time
- * game and a daily fortune. This module is preloaded, so keep its import graph
- * free of network services and its top level free of runtime work.
+ * game and a daily fortune. It is loaded by name from main.ts, not imported there, and
+ * not preloaded, which keeps its code out of link-time evaluation (the CoreS3 release link
+ * failed with "not enough keys" while it was preloaded).
  */
 export function installPlayPack(context: StackchanContext): void {
   const schedule = createMemoryGameScheduler(Timer)
