@@ -105,6 +105,13 @@ runs:
           /home/runner/.local/share
           /home/runner/.espressif
         key: ${{ env.moddable_cache_key }}-fontbm2
+    - name: Build the Moddable Linux simulator with newer GCC
+      # GCC 14+ turns incompatible-pointer-types into an error, which breaks the SDK's
+      # bundled libmad (modules/data/mp3/libmad/synth.c) in every Linux test build.
+      # make.lin.mk appends to C_FLAGS, so this reaches only the Linux builds.
+      if: inputs.install-moddable == 'true'
+      run: echo "C_FLAGS=-Wno-error=incompatible-pointer-types" >> "$GITHUB_ENV"
+      shell: bash
     - name: Keep the Moddable environment through sudo
       # Newer runner images ship a sudo that ignores --preserve-env, so xs-dev's
       # `sudo --preserve-env make install` loses MODDABLE and fails. Wrap sudo to
