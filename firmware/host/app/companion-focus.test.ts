@@ -594,3 +594,58 @@ test('touch wiring yields to conversation, apps, audio, MODs and idle suppressio
     Time.reset()
   }
 })
+
+test('the janken and fortune drawer entries open the play pack games, or keep the hand signs without them', async () => {
+  const { JANKEN_APP_ID } = await import('./janken-game.js')
+  const { FORTUNE_APP_ID } = await import('./fortune.js')
+  const originalTrace = globalThis.trace
+  globalThis.trace = () => undefined
+  try {
+    for (const installed of [true, false]) {
+      Timer.reset()
+      const launched: string[] = []
+      const hands: string[] = []
+      const buttons: { key: string; callback: () => void }[] = []
+      let close: (() => void) | undefined
+      const controller = {
+        companionIdle: true,
+        launchMiniApp: (id: string) => {
+          launched.push(id)
+          return true
+        },
+      }
+      const robot = {
+        ui: {
+          application: { behavior: controller },
+          closeDrawer: () => undefined,
+          showFace: () => undefined,
+          setHandAnimation: (name: string) => hands.push(name),
+        },
+        conversation: {},
+        audio: { isActive: false },
+        reaction: { status: () => ({}), play: () => undefined },
+        performance: { status: () => ({}), play: () => ({ ok: true }) },
+        drawer: { addDrawerButton: (button: (typeof buttons)[number]) => buttons.push(button) },
+        lifecycle: { onClose: (handler: () => void) => (close = handler) },
+      }
+      // Targets without the games leave their UI modules out of the build.
+      resetModules(installed ? { 'janken-mini-app': {}, 'fortune-mini-app': {} } : {})
+      installCompanion(robot, { config: { companion: { greetingOnBoot: false, idleReactions: false } } } as never)
+      buttons.find((button) => button.key === 'companion-janken')?.callback()
+      const fortune = buttons.find((button) => button.key === 'companion-fortune')
+      fortune?.callback()
+      if (installed) {
+        assert.deepEqual(launched, [JANKEN_APP_ID, FORTUNE_APP_ID], 'drawer ids match the registered games')
+        assert.deepEqual(hands, [], 'the game replaces the endless hand-sign loop')
+      } else {
+        assert.deepEqual(launched, [], 'nothing launches without the games')
+        assert.deepEqual(hands, ['rock-paper-scissors'], 'targets without the games keep the hand signs')
+        assert.equal(fortune, undefined, 'no dead fortune entry')
+      }
+      close?.()
+    }
+  } finally {
+    globalThis.trace = originalTrace
+    resetModules()
+  }
+})

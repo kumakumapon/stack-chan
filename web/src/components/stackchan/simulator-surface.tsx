@@ -87,6 +87,8 @@ const REACTION_NAMES = [
   'look-touch-right',
   'happy-sparkle',
   'bashful',
+  'look-up',
+  'look-down',
 ] as const
 const PERFORMANCE_NAMES = [
   'greeting',

@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { chromium } from 'playwright-core'
 import { resolveChromium, startPreview } from '../test-preview-server.mjs'
-import { dragLcd } from './lcd-test-helpers.mjs'
+import { launcherRow, tapLauncherRow } from './lcd-test-helpers.mjs'
 
 assert.ok(existsSync('simulator/mc.wasm'), 'build the WASM host first')
 const { baseUrl, server } = await startPreview({ port: 8106 })
@@ -65,15 +65,12 @@ try {
         join(tmpdir(), `stackchan-daily-${pet ? 'pet' : 'host'}-${name}.png`),
         Buffer.from((await lcd.evaluate((canvas) => canvas.toDataURL('image/png'))).split(',')[1], 'base64')
       )
-    const open = async (row) => {
+    const open = async (app) => {
       await tap(160, 110)
       await tap(270, 22)
-      if (row >= 4) {
-        await dragLcd(page, 215, 60)
-        await tap(140, 166)
-      } else await tap(140, 74 + row * 44)
+      await tapLauncherRow(page, tap, launcherRow(app, pet))
     }
-    await open(pet ? 5 : 4)
+    await open('quest')
     await capture('quest')
     await tap(140, 84)
     assert.deepEqual((await saved('quest')).done, [true, false, false])
@@ -87,11 +84,11 @@ try {
     await tap(22, 22)
     await page.reload()
     await boot()
-    await open(pet ? 5 : 4)
+    await open('quest')
     await capture('quest-restored')
     assert.deepEqual((await saved('quest')).done, [true, true, true])
     await tap(22, 22)
-    await open(0)
+    await open('quiz')
     await tap(140, 84)
     await capture('quiz-question')
     await tap(140, 124)
@@ -100,7 +97,7 @@ try {
     await capture('quiz-explanation')
     await page.reload()
     await boot()
-    await open(0)
+    await open('quiz')
     await tap(140, 84)
     await tap(140, 157)
     assert.deepEqual((await saved('quiz')).review, [])
@@ -115,9 +112,8 @@ try {
     if (pet) {
       await tap(160, 110)
       await tap(270, 22)
-      await dragLcd(page, 215, 60)
-      await tap(140, 210)
-      // Last row is Focus Timer: selecting and starting it proves the drag reached it.
+      // Focus Timer is the last row: selecting and starting it proves the scroll reached it.
+      await tapLauncherRow(page, tap, launcherRow('focus', pet))
       await tap(82, 120)
       await tap(160, 212)
       assert.equal((await saved('focus')).state, 'running')

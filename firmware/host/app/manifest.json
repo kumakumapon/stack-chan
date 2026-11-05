@@ -51,6 +51,16 @@
       "./rhythm-game",
       "./rhythm-game-host",
       "./rhythm-game-mini-app",
+      "./janken-game",
+      "./janken-mini-app",
+      "./quick-tap-game",
+      "./quick-tap-mini-app",
+      "./fortune",
+      "./fortune-mini-app",
+      "./play-pack-drawing",
+      "./play-pack-strings",
+      "./play-pack-text",
+      "./play-pack-host",
       "./life-quest",
       "./workshop-model",
       "./workshop-service",
@@ -93,6 +103,7 @@
     "monotonic-clock": "./monotonic-clock"
   },
   "preload": [
+    "play-pack-host",
     "rhythm-game-host",
     "runtime-context",
     "touch",
@@ -141,8 +152,23 @@
   "platforms": {
     "esp32/m5stack": {
       "modules": {
-        "~": ["./rhythm-game", "./rhythm-game-host", "./rhythm-game-mini-app"],
-        "rhythm-game-host": "./rhythm-game-unsupported"
+        "~": [
+          "./rhythm-game",
+          "./rhythm-game-host",
+          "./rhythm-game-mini-app",
+          "./janken-game",
+          "./janken-mini-app",
+          "./quick-tap-game",
+          "./quick-tap-mini-app",
+          "./fortune",
+          "./fortune-mini-app",
+          "./play-pack-drawing",
+          "./play-pack-strings",
+          "./play-pack-text",
+          "./play-pack-host"
+        ],
+        "rhythm-game-host": "./rhythm-game-unsupported",
+        "play-pack-host": "./play-pack-unsupported"
       }
     }
   },

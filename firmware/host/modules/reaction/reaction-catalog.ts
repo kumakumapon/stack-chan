@@ -338,6 +338,26 @@ const BASHFUL = timeline(
   1600,
 )
 
+// Screen-direction glances (e.g. "look over there"). Negative pitch looks up.
+const LOOK_UP = timeline(
+  'look-up',
+  [
+    { at: 0, emotion: 'FOCUSED', head: { pitch: -0.3, durationMs: 300 } },
+    { at: 500, emotion: 'CURIOUS' },
+    { at: 900, head: { pitch: 0, durationMs: 350 } },
+  ],
+  1400,
+)
+const LOOK_DOWN = timeline(
+  'look-down',
+  [
+    { at: 0, emotion: 'FOCUSED', head: { pitch: 0.3, durationMs: 300 } },
+    { at: 500, emotion: 'CURIOUS' },
+    { at: 900, head: { pitch: 0, durationMs: 350 } },
+  ],
+  1400,
+)
+
 export const REACTION_CATALOG: Readonly<Record<ReactionName, ReactionTimeline>> = Object.freeze({
   yes: YES,
   no: NO,
@@ -371,6 +391,8 @@ export const REACTION_CATALOG: Readonly<Record<ReactionName, ReactionTimeline>> 
   'look-touch-right': LOOK_TOUCH_RIGHT,
   'happy-sparkle': HAPPY_SPARKLE,
   bashful: BASHFUL,
+  'look-up': LOOK_UP,
+  'look-down': LOOK_DOWN,
 })
 
 export function reactionTimeline(name: ReactionName): ReactionTimeline {

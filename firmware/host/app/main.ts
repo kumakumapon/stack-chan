@@ -15,6 +15,7 @@ import { initializeLocalization } from 'localization'
 import { installMemoryGame } from 'memory-game-host'
 import Modules from 'modules'
 import { Label, Style } from 'piu/MC'
+import type { installPlayPack } from 'play-pack-host'
 import { installRhythmGame } from 'rhythm-game-host'
 import { showStartupSplash, showWiFiConnectionStatus, showWiFiRecoveryChoice } from 'startup-splash'
 import { applyTimezone } from 'timezone-settings'
@@ -197,6 +198,10 @@ async function main() {
     installMemoryGame(context)
     installDailyMiniApps(context)
     installRhythmGame(context)
+    // Loaded by name, like the optional bridges: the WASM host boots within a few
+    // JavaScript stack slots of its limit, so main keeps its static imports unchanged.
+    if (Modules.has('play-pack-host'))
+      (Modules.importNow('play-pack-host') as { installPlayPack: typeof installPlayPack }).installPlayPack(context)
     trace('[main] app context created\n')
     bootStage = 'menu behaviors'
     await runContextCreatedBehaviors(appBehaviors, context, {

@@ -46,7 +46,7 @@ test('the Japanese UI font covers the host Mini App catalogs on embedded targets
   const supported = new Set(font.characterSet)
   const messages = Object.entries(catalogs.ja)
     .filter(([key]) =>
-      ['focus.', 'memory.', 'quest.', 'quiz.', 'daily.', 'workshop.', 'story.'].some((prefix) =>
+      ['focus.', 'memory.', 'quest.', 'quiz.', 'daily.', 'workshop.', 'story.', 'rhythm.'].some((prefix) =>
         key.startsWith(prefix),
       ),
     )

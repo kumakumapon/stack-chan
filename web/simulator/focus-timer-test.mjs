@@ -3,7 +3,7 @@ import { existsSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { chromium } from 'playwright-core'
-import { dragLcd } from './lcd-test-helpers.mjs'
+import { launcherRow, tapLauncherRow } from './lcd-test-helpers.mjs'
 import { resolveChromium, startPreview } from '../test-preview-server.mjs'
 
 assert.ok(existsSync('simulator/mc.wasm'), 'build the WASM host first')
@@ -78,8 +78,7 @@ try {
     const openTimer = async () => {
       await tap(160, 110) // Reveal face AppBar.
       await tap(270, 22) // Mini App launcher.
-      await dragLcd(page, 215, 60)
-      await tap(140, 210) // The timer is the last row after scrolling.
+      await tapLauncherRow(page, tap, launcherRow('focus', pet)) // The timer is the last row.
     }
     const pixel = () =>
       page

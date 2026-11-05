@@ -178,7 +178,7 @@ void xs_workshop_preference(xsMachine* the) {
     try {
       const input = JSON.parse(UTF8ToString($0));
       const action = input.action; const domain = input.domain; const key = input.key; const value = input.value;
-      if (!'sc_deck sc_workshop sc_inbox sc_activity sc_quiz'.split(' ').includes(domain) || !/^(state|meta|b[01]c[0-9][0-9]?)$/.test(key)) throw Error('Invalid workshop key');
+      if (!'sc_deck sc_workshop sc_inbox sc_activity sc_quiz sc_quicktap sc_fortune'.split(' ').includes(domain) || !/^(state|meta|b[01]c[0-9][0-9]?)$/.test(key)) throw Error('Invalid workshop key');
       const name = 'stackchan.workshop.' + domain + '.' + key;
       if (action === 'set') {
         if (typeof value !== 'string' || value.length > 4096) throw Error('Workshop state too large');

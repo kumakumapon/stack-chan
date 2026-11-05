@@ -30,6 +30,7 @@ export const installCompanion: NonNullable<StackchanAppBehavior['onContextCreate
             onCompanionTap?: () => void
             onCompanionPetting?: () => boolean
             onCompanionMotion?: () => boolean
+            launchMiniApp?: (id: string) => boolean
           }
         }
       | undefined
@@ -117,6 +118,8 @@ export const installCompanion: NonNullable<StackchanAppBehavior['onContextCreate
     'look-touch-right': '右を気にする',
     'happy-sparkle': 'きらきら喜ぶ',
     bashful: 'はにかむ',
+    'look-up': '上を見る',
+    'look-down': '下を見る',
   }
   robot.drawer.addDrawerButton({
     key: 'companion-reaction',
@@ -135,16 +138,39 @@ export const installCompanion: NonNullable<StackchanAppBehavior['onContextCreate
       robot.reaction.play(value)
     },
   })
+  // Play-pack Mini Apps are referenced by id only. Targets that leave them out
+  // (the classic 4 MB M5Stack) exclude their UI modules together with the host,
+  // which Modules.has reports; play-pack.architecture.ts keeps that removal whole.
+  const playable = (module: string) => controller?.launchMiniApp !== undefined && Modules.has(module)
+  const launch = (id: string) => {
+    lastAction = Date.now()
+    interaction?.cancel()
+    robot.ui.closeDrawer()
+    controller?.launchMiniApp?.(id)
+  }
   robot.drawer.addDrawerButton({
     key: 'companion-janken',
     label: 'じゃんけん',
     group: '遊ぶ',
     callback: () => {
-      lastAction = Date.now()
-      robot.ui.closeDrawer()
-      robot.ui.setHandAnimation('rock-paper-scissors')
+      // Without the game, keep the original hand-sign animation.
+      if (playable('janken-mini-app')) launch('stackchan.janken')
+      else {
+        lastAction = Date.now()
+        robot.ui.closeDrawer()
+        robot.ui.setHandAnimation('rock-paper-scissors')
+      }
     },
   })
+  if (playable('fortune-mini-app'))
+    robot.drawer.addDrawerButton({
+      key: 'companion-fortune',
+      label: 'おみくじ',
+      group: '遊ぶ',
+      callback: () => {
+        launch('stackchan.fortune')
+      },
+    })
   const start = () => {
     interaction?.cancel()
     lastAction = Date.now()
