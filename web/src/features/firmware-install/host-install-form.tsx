@@ -1,5 +1,5 @@
 import { Cpu, RotateCcw, TriangleAlert, Usb } from 'lucide-react'
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useMemo } from 'react'
 
 import { useI18n } from '@/app/i18n-provider'
 import { LogConsole } from '@/components/stackchan/log-console'
@@ -18,8 +18,6 @@ import {
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Label } from '@/components/ui/label'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { FIRMWARE_BOARDS } from '@/features/firmware-install/boards'
 import { useFirmwareInstall } from '@/features/firmware-install/use-firmware-install'
 import { type OperationState } from '@/features/operations/operation-state'
@@ -27,14 +25,13 @@ import { useLogBuffer } from '@/hooks/use-log-buffer'
 
 export function HostInstallForm() {
   const { t } = useI18n()
-  const [boardId, setBoardId] = useState(FIRMWARE_BOARDS[0].id)
   const { entries, append, clear } = useLogBuffer()
   const onLog = useCallback(
     (message: string, level: 'info' | 'warning' | 'error' = 'info') => append(message, level, 'device'),
     [append]
   )
   const install = useFirmwareInstall(onLog)
-  const board = FIRMWARE_BOARDS.find((candidate) => candidate.id === boardId) ?? FIRMWARE_BOARDS[0]
+  const board = FIRMWARE_BOARDS[0]
   const busy = ['selecting-port', 'inspecting-device', 'confirming', 'installing'].includes(install.state.status)
 
   const operation = useMemo<OperationState>(() => {
@@ -67,23 +64,12 @@ export function HostInstallForm() {
       <Card>
         <CardHeader>
           <CardTitle>{t('ファームウェア書き込み')}</CardTitle>
-          <CardDescription>{t('USBで接続するｽﾀｯｸﾁｬﾝのボードを選択してください。')}</CardDescription>
+          <CardDescription>{t('M5StackChan CoreS3をUSBで接続してください。')}</CardDescription>
         </CardHeader>
         <CardContent className="grid gap-5">
           <div className="grid gap-2">
-            <Label htmlFor="target-board">{t('ボード')}</Label>
-            <Select value={boardId} onValueChange={(value) => value && setBoardId(value)} disabled={busy}>
-              <SelectTrigger id="target-board" className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {FIRMWARE_BOARDS.map((candidate) => (
-                  <SelectItem key={candidate.id} value={candidate.id}>
-                    {candidate.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <span className="text-sm font-medium">{t('ボード')}</span>
+            <p className="text-sm">{board.label}</p>
           </div>
           <Alert className="border-amber-500/50 bg-amber-500/10" role="note">
             <TriangleAlert aria-hidden="true" />

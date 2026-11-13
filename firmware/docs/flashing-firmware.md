@@ -22,9 +22,10 @@ For all configuration items, please refer to the [Moddable official documentatio
 
 ## Configuration
 
-StackChan can change settings such as motor types and pin assignments from the manifest file. You can modify [`stack-chan/firmware/host/app/manifest_local.json`](../host/app/manifest_local.json) for local settings. The following settings can be written under the `"config"` key.
-
-`manifest_local.json` is intentionally checked in with an empty `"config"` object so private IP addresses, API keys, and bench-specific servo settings are not committed. If you build without adding local driver settings, the firmware uses the platform/app defaults. On a generic bench build this may select the default serial servo driver, so set `config.driver.type` explicitly when your hardware uses a different driver.
+The CoreS3 application starts at [`host/app/manifest_m5stackchan_cores3.json`](../host/app/manifest_m5stackchan_cores3.json).
+A private local manifest may include it and be selected with `npm run build -- --manifest [local manifest]`.
+Wi-Fi and speech settings can also be changed through Preferences. Keep secrets out of commits.
+The dedicated platform fixes the servo type and wiring. The table lists shared settings; alternate `driver.type` values are not supported hardware configurations.
 
 | Key               | Description                                                                | Available values                     |
 | ----------------- | -------------------------------------------------------------------------- | ------------------------------------ |
@@ -40,65 +41,6 @@ StackChan can change settings such as motor types and pin assignments from the m
 
 Additionally, you can specify the paths of other manifest files in a list format under the `"include"` key.
 
-### Configuration Example: the Stack-chan M5Bottom Kit
-
-This is an example configuration for running [Stack-chan Assembly Kit M5Bottom Version](https://mongonta.booth.pm/) distributed by Takao Akaki ([@mongonta0716](https://github.com/mongonta0716)) with the firmware in this repository. The M5Bottom version does not use a dedicated board, but connects to the M5Bottom port and servo.
-
-When using Port.A of M5Stack Core2:
-
-`manifest_local.json`
-
-```json
-{
-  // ...
-  "config": {
-    "driver": {
-      "type": "pwm",
-      "pwmPan": 33,
-      "pwmTilt": 32
-    }
-  }
-}
-```
-
-When using Port.C of M5Stack Core2:
-
-`manifest_local.json`
-
-```json
-{
-  // ...
-  "config": {
-    "driver": {
-      "type": "pwm",
-      "pwmPan": 13,
-      "pwmTilt": 14
-    }
-  }
-}
-```
-
-When using Port.C of M5Stack Basic:
-
-`manifest_local.json`
-
-```json
-{
-  // ...
-  "config": {
-    "driver": {
-      "type": "pwm",
-      "pwmPan": 16,
-      "pwmTilt": 17
-    }
-  }
-}
-```
-
-If Stack-chan is shaking her head left and right, the configuration has been successful.
-
-Reference: [About the firmware for Stack-chan M5Go Bottom version (Japanese)](https://raspberrypi.mongonta.com/softwares-for-stackchan/)
-
 ## Writing the base program (host)
 
 As stated above, Stack-chan's firmware comprises a base program (host) and a user application (MOD).
@@ -111,43 +53,31 @@ $ npm run flash
 ```
 
 Use `npm run build` when you only want to verify the standard build.
-The `build`, `flash`, and `deploy` scripts use release mode by default on every supported subplatform.
+The `build`, `flash`, and `deploy` scripts use release mode by default on M5StackChan CoreS3.
 Pass `--mode=debug` or `--mode=instrument` explicitly when that mode is required.
 The program and intermediate files are saved under `firmware/dist/bin/` and `firmware/dist/tmp/`.
 The host application name is `stack-chan-host`.
 Run `npm run clean` to remove all generated files under `firmware/dist/`.
-`npm run bundle` also keeps every target build under `firmware/dist/`, stages validated target artifacts under
+`npm run bundle` also keeps the CoreS3 build under `firmware/dist/`, stages validated target artifacts under
 `firmware/dist/bundle-targets/`, and writes the assembled directory and ZIP under `firmware/host/app/`.
 
-### Stack-chan subplatforms
+### M5StackChan CoreS3
 
-Stack-chan hardware variants ship their own **subplatform**, which already defines the servo driver type and bus pins. Use the board-specific npm scripts below instead of generic `--target=` commands; each one selects the subplatform (`-p esp32:./host/platforms/<board>`) and its matching app manifest automatically.
+M5StackChan CoreS3 is the only supported hardware. Commands select its dedicated subplatform and matching application manifest.
 
-| Task                    | M5StackChan CoreS3 | Stack-chan RT | Takao Core2 + SG90 |
-| ----------------------- | ------------------ | ------------- | ------------------ |
-| Build only              | `npm run build` or `npm run build:m5stackchan_cores3` | `npm run build:stackchan_rt` | `npm run build:takao_core2_sg90` |
-| Build and flash         | `npm run flash` or `npm run flash:m5stackchan_cores3` | `npm run flash:stackchan_rt` | `npm run flash:takao_core2_sg90` |
-| Run deploy task         | `npm run deploy` or `npm run deploy:m5stackchan_cores3` | `npm run deploy:stackchan_rt` | `npm run deploy:takao_core2_sg90` |
-| Debug (xsbug)           | `npm run debug` or `npm run debug:m5stackchan_cores3` | `npm run debug:stackchan_rt` | `npm run debug:takao_core2_sg90` |
-| Debug (xsdb)            | `npm run debug:xsdb` or `npm run debug:xsdb:m5stackchan_cores3` | `npm run debug:xsdb:stackchan_rt` | `npm run debug:xsdb:takao_core2_sg90` |
-| Install a MOD           | `npm run mod -- [mod manifest]` or `npm run mod:m5stackchan_cores3 -- [mod manifest]` | `npm run mod:stackchan_rt -- [mod manifest]` | `npm run mod:takao_core2_sg90 -- [mod manifest]` |
+| Task | Command |
+| --- | --- |
+| Build | `npm run build` |
+| Flash | `npm run flash` |
+| Deploy | `npm run deploy` |
+| Debug | `npm run debug` / `npm run debug:xsdb` |
+| Install a MOD | `npm run mod -- [mod manifest]` |
+| Package firmware | `npm run bundle` |
 
-The board-specific driver type and servo bus pins live in each subplatform manifest:
-
-- M5StackChan CoreS3: [`host/platforms/m5stackchan_cores3/manifest.json`](../host/platforms/m5stackchan_cores3/manifest.json) — `m5stackchan` driver, serial TX6 / RX7.
-- Stack-chan RT: [`host/platforms/stackchan_rt/manifest.json`](../host/platforms/stackchan_rt/manifest.json) — `dynamixel` driver, serial TX7 / RX6.
-- Takao Core2 + SG90: [`host/platforms/takao_core2_sg90/manifest.json`](../host/platforms/takao_core2_sg90/manifest.json) — `pwm` driver, pan PWM19 / tilt PWM27.
-
-The `m5stackchan` driver adds M5StackChan-specific zero positions, motion limits, and PY32 servo-power control on top of the SCServo protocol. For safety, M5StackChan CoreS3 firmware locks the driver type to `m5stackchan`, while Stack-chan RT firmware locks it to `dynamixel`. Both ignore a different stored `driver.type`.
-
-Put per-device settings such as Wi-Fi credentials and API keys in the board's app manifest under `"config"`. Keep secrets out of commits and add them locally only. On boot, the log line `[dynamixel] serial port=1 tx=7 rx=6 baud=1000000` shows the RT serial pins actually in use.
-
-If written correctly, the face of Stack-chan will appear a few seconds after startup.
-With the product default behavior, the M5Stack buttons change Stack-chan's behavior as follows:
-
-- **A Button** (in the case of CoreS3, the bottom-left area of the screen) ... Stack-chan will look in a random direction every 5 seconds.
-- **B Button** (in the case of CoreS3, the bottom-center area of the screen) ... Stack-chan will look left, right, down, and up.
-- **C Button** (in the case of CoreS3, the bottom-right area of the screen) ... The color of Stack-chan's face will invert.
+The [platform definition](../host/platforms/m5stackchan_cores3/manifest.json) selects the `m5stackchan` driver and serial TX6 / RX7.
+This driver adds product-specific zero positions, motion limits, and PY32 power control on top of SCServo. The driver type is locked and ignores a different stored `driver.type`.
+The stock CoreS3 SDK definition remains an internal dependency, not a separate distribution target.
+WASM and Linux remain development/test environments.
 
 ## Debugging
 
@@ -157,7 +87,6 @@ You can start the selected host under the Moddable debugger with:
 $ npm run debug
 ```
 
-Use the board-specific debug scripts from the table above for Stack-chan RT or Takao Core2 + SG90.
 These commands will open Moddable's debugger `xsbug` and connect it to the M5Stack.
 
 On M5StackChan CoreS3 with Moddable SDK 9.0.0 or later, debug and instrument builds reserve the built-in

@@ -1,5 +1,8 @@
 # Branch and Release Flow
 
+M5StackChan CoreS3 is the only supported and distributed hardware. Release ZIPs contain only the `m5stackchan_cores3` binaries.
+WASM and Linux are development/test environments. Retained historical platforms and shared SDK/driver dependencies do not imply hardware support.
+
 This repository uses the following branch model for a frozen release:
 
 ```text

@@ -24,13 +24,10 @@ MOD がインストールされている場合、製品既定動作は実行さ�
 
 ## 設定変更
 
-ｽﾀｯｸﾁｬﾝが使うモータの種類やピンアサインなどをマニフェストファイルから変更できます。
-ユーザが変更する設定は[`stack-chan/firmware/host/app/manifest_local.json`](../host/app/manifest_local.json)にまとまっています。
-`"config"`キーの配下に次のような設定が書けます。
-
-`manifest_local.json` は、私設 IP アドレス、API キー、ベンチ固有のサーボ設定をコミットしないため、空の `"config"` として管理しています。
-ローカルの driver 設定を追加せずにビルドした場合、firmware は platform/app の既定値を使います。
-汎用ベンチ環境では既定のシリアルサーボ driver が選ばれる可能性があるため、異なる driver を使う場合は `config.driver.type` を明示してください。
+M5StackChan CoreS3のアプリ設定は[`host/app/manifest_m5stackchan_cores3.json`](../host/app/manifest_m5stackchan_cores3.json)が入口です。
+独自のローカルmanifestからこのファイルをincludeし、`npm run build -- --manifest [ローカルmanifest]`で指定できます。
+Wi-Fiや音声設定はPreferencesからも変更できます。秘密情報はコミットしないでください。
+サーボの種類と配線は専用プラットフォームで固定します。以下は共通設定項目で、`driver.type`の他機種向け値は本製品では使用しません。
 
 | キー              | 説明                                            | 使用可能な値                                |
 | ----------------- | ----------------------------------------------- | ------------------------------------------- |
@@ -45,67 +42,6 @@ MOD がインストールされている場合、製品既定動作は実行さ�
 | tts.volume        | TTS を再生する時の音量                        | 0~1                                         |
 
 また、`"include"`キーの配下にリスト形式で他のマニフェストファイルのパスを指定できます。
-
-### 設定例: ｽﾀｯｸﾁｬﾝ M5Bottom 版キットを動かす
-
-紅木タカオ氏（[@mongonta0716](https://github.com/mongonta0716)）が頒布する
-[ｽﾀｯｸﾁｬﾝ組み立てキット M5Bottom 版](https://mongonta.booth.pm/)を本リポジトリのファームウェアで動かすための設定例です。
-M5Bottom 版は本リポジトリと違って専用基板を使わず、M5Bottom のポートとサーボを接続します。
-
-M5Stack Core2 の Port.A（M5Stack Core2 本体側面の赤い穴）を使う場合:
-
-`manifest_local.json`
-
-```json
-{
-  // ...
-  "config": {
-    "driver": {
-      "type": "pwm",
-      "pwmPan": 33,
-      "pwmTilt": 32
-    }
-  }
-}
-```
-
-M5Stack Core2 の Port.C を使う場合:
-
-`manifest_local.json`
-
-```json
-{
-  // ...
-  "config": {
-    "driver": {
-      "type": "pwm",
-      "pwmPan": 13,
-      "pwmTilt": 14
-    }
-  }
-}
-```
-
-M5Stack Basic の Port.C を使う場合:
-
-`manifest_local.json`
-
-```json
-{
-  // ...
-  "config": {
-    "driver": {
-      "type": "pwm",
-      "pwmPan": 16,
-      "pwmTilt": 17
-    }
-  }
-}
-```
-
-ファームウェア導入後、ｽﾀｯｸﾁｬﾝが左右に首振りを行うようであれば成功です。
-
-参考: [ｽﾀｯｸﾁｬﾝ M5GoBottom 版のファームウェアについて \| M5Stack 沼人の日記](https://raspberrypi.mongonta.com/softwares-for-stackchan/)
 
 ## 基本プログラム（ホスト）の書き込み
 
@@ -126,35 +62,23 @@ debugまたはinstrumentモードが必要な場合は、`--mode=debug` また�
 `npm run clean` を実行すると、`firmware/dist/` 配下の生成物をすべて削除できます。
 `npm run bundle` でも各ターゲットのビルド出力は `firmware/dist/` 配下に保存され、検証済みの成果物は `firmware/dist/bundle-targets/` に集約されます。最終的なディレクトリと ZIP は `firmware/host/app/` 配下に生成されます。
 
-### Stack-chan サブプラットフォーム
+### M5StackChan CoreS3
 
-Stack-chan の各ハードウェア構成は、サーボの driver 種別とバスのピンをあらかじめ定義した**サブプラットフォーム**を同梱しています。汎用 `--target=` コマンドではなく、次の npm スクリプトを使ってください。サブプラットフォーム（`-p esp32:./host/platforms/<board>`）と対応するアプリ manifest が自動的に選択されます。
+対応する実機はM5StackChan CoreS3のみです。各コマンドは専用サブプラットフォームと対応するアプリmanifestを選びます。
 
-| 用途                      | M5StackChan CoreS3 | Stack-chan RT | タカオ版 Core2 + SG90 |
-| ------------------------- | ------------------ | ------------- | --------------------- |
-| ビルドのみ                | `npm run build` または `npm run build:m5stackchan_cores3` | `npm run build:stackchan_rt` | `npm run build:takao_core2_sg90` |
-| ビルドから書き込みまで    | `npm run flash` または `npm run flash:m5stackchan_cores3` | `npm run flash:stackchan_rt` | `npm run flash:takao_core2_sg90` |
-| deploy task を実行        | `npm run deploy` または `npm run deploy:m5stackchan_cores3` | `npm run deploy:stackchan_rt` | `npm run deploy:takao_core2_sg90` |
-| デバッグ（xsbug）         | `npm run debug` または `npm run debug:m5stackchan_cores3` | `npm run debug:stackchan_rt` | `npm run debug:takao_core2_sg90` |
-| デバッグ（xsdb）          | `npm run debug:xsdb` または `npm run debug:xsdb:m5stackchan_cores3` | `npm run debug:xsdb:stackchan_rt` | `npm run debug:xsdb:takao_core2_sg90` |
-| MOD の書き込み            | `npm run mod -- [modのパス]` または `npm run mod:m5stackchan_cores3 -- [modのパス]` | `npm run mod:stackchan_rt -- [modのパス]` | `npm run mod:takao_core2_sg90 -- [modのパス]` |
+| 用途 | コマンド |
+| --- | --- |
+| ビルド | `npm run build` |
+| 書き込み | `npm run flash` |
+| deploy | `npm run deploy` |
+| デバッグ | `npm run debug` / `npm run debug:xsdb` |
+| MOD書き込み | `npm run mod -- [modのmanifest]` |
+| 配布ZIP生成 | `npm run bundle` |
 
-ボード固有の driver 種別とサーボバスのピンは、各サブプラットフォームの manifest にまとまっています。
-
-- M5StackChan CoreS3: [`host/platforms/m5stackchan_cores3/manifest.json`](../host/platforms/m5stackchan_cores3/manifest.json) — `m5stackchan` driver、シリアル TX6 / RX7。
-- Stack-chan RT: [`host/platforms/stackchan_rt/manifest.json`](../host/platforms/stackchan_rt/manifest.json) — `dynamixel` driver、シリアル TX7 / RX6。
-- タカオ版 Core2 + SG90: [`host/platforms/takao_core2_sg90/manifest.json`](../host/platforms/takao_core2_sg90/manifest.json) — `pwm` driver、pan PWM19 / tilt PWM27。
-
-`m5stackchan` driver は SCServo プロトコルに加えて、M5StackChan 専用のゼロ位置、可動域、PY32 サーボ電源制御を提供します。安全のため、M5StackChan CoreS3 用ファームウェアは driver 種別を `m5stackchan` に、Stack-chan RT 用ファームウェアは `dynamixel` に固定します。どちらも保存済みの異なる `driver.type` は無視します。
-
-Wi-Fi 認証情報や API キーなどのデバイス固有の設定は、各ボードのアプリ manifest の `"config"` 配下に書いてください。秘密情報はコミットせず、ローカルにのみ追加してください。起動時のログ `[dynamixel] serial port=1 tx=7 rx=6 baud=1000000` で RT が実際に使うシリアルピンを確認できます。
-
-正しく書き込めていれば起動から数秒後にｽﾀｯｸﾁｬﾝの顔が表示されます。
-M5Stack のボタンを押すと次のように変わります。
-
-- A ボタン（CoreS3 の場合は画面左下の領域） ... ｽﾀｯｸﾁｬﾝが 5 秒おきにランダムな方向を見る
-- B ボタン（CoreS3 の場合は画面中央下の領域） ... ｽﾀｯｸﾁｬﾝが左、右、下、上を向く
-- C ボタン（CoreS3 の場合は画面右下の領域） ... ｽﾀｯｸﾁｬﾝの顔の色が反転する
+専用の[プラットフォーム定義](../host/platforms/m5stackchan_cores3/manifest.json)で、`m5stackchan`ドライバーとシリアルTX6 / RX7を選択します。
+ドライバーはSCServoプロトコルに加えて専用ゼロ位置・可動域・PY32電源制御を持ち、保存済みの異なる`driver.type`を無視します。
+通常CoreS3のSDK定義は内部依存として使用します。他機種の配布を意味しません。
+WASMとLinuxは開発・テスト用に維持します。
 
 ## デバッグ
 
@@ -164,7 +88,6 @@ M5Stack のボタンを押すと次のように変わります。
 $ npm run debug
 ```
 
-Stack-chan RT やタカオ版 Core2 + SG90 では、上の表にあるボード別の debug script を使います。
 このコマンドはModdableのデバッガ`xsbug`を開き、M5Stackと接続します。
 
 Moddable SDK 9.0.0以降のM5StackChan CoreS3では、debugおよびinstrument buildは、xsbugを起動しない場合も内蔵USB Serial/JTAGのCDCドライバをModdable debugger用に確保します。

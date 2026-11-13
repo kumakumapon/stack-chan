@@ -41,7 +41,7 @@ if (!command || command === 'help' || command === '--help' || command === '-h') 
 
 if (targetOption) {
   console.error(`[stack-chan] --target is not supported by this command wrapper: ${targetOption}`)
-  console.error('[stack-chan] Use a named script such as npm run flash:stackchan_rt or npm run flash:takao_core2_sg90.')
+  console.error('[stack-chan] This repository supports M5StackChan CoreS3 only. Use npm run flash.')
   process.exit(1)
 }
 
@@ -49,14 +49,16 @@ if (targetOption) {
 // guard the wrapper would silently fall back to the default device.
 if (process.env.npm_config_target) {
   console.error(`[stack-chan] --target is not supported by this command wrapper: ${process.env.npm_config_target}`)
-  console.error(
-    '[stack-chan] Use a named script such as npm run build:m5stack, npm run build:m5stackchan_cores3, or npm run flash:takao_core2_sg90.',
-  )
+  console.error('[stack-chan] This repository supports M5StackChan CoreS3 only. Use npm run build.')
   process.exit(1)
 }
 
+// Reject retired positional selectors before they can fall back to CoreS3.
+const retiredDevice = positionalArgs(rawArgs).find((value) =>
+  ['m5stack', 'm5stack_core2', 'm5stack_cores3', 'stackchan_rt', 'takao_core2_sg90', 'rt', 'takao'].includes(value),
+)
 const deviceName = resolveDevice(
-  readOption(rawArgs, 'device') ?? process.env.STACKCHAN_DEVICE ?? firstDeviceArg(rawArgs),
+  retiredDevice ?? readOption(rawArgs, 'device') ?? process.env.STACKCHAN_DEVICE ?? firstDeviceArg(rawArgs),
 )
 const device = devices[deviceName]
 const args = positionalArgs(rawArgs).filter((arg) => !isDeviceName(arg) && !isBuildModeFlag(arg))
@@ -385,16 +387,14 @@ function printHelp() {
 
 Devices:
   m5stackchan_cores3  M5StackChan CoreS3 (default)
-  stackchan_rt        Stack-chan RT CoreS3
-  takao_core2_sg90    Stack-chan Takao Core2 + SG90
 
 Examples:
-  npm run flash:stackchan_rt
-  npm run build:takao_core2_sg90
+  npm run flash
+  npm run build
   npm run build:m5stackchan_cores3 -- --mode=debug
   npm run build:m5stackchan_cores3 -- --mode=instrument
   npm run debug:xsdb -- --port /dev/ttyACM1
   npm run mod:build -- mods/examples/mini_app_sample/manifest.json --mode=release
   npm run mod -- mods/examples/look_around/manifest.json --port /dev/ttyACM1
-  STACKCHAN_DEVICE=takao_core2_sg90 npm run mod -- mods/examples/look_around/manifest.json`)
+  STACKCHAN_DEVICE=m5stackchan_cores3 npm run mod -- mods/examples/look_around/manifest.json`)
 }

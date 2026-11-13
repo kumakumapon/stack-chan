@@ -9,7 +9,7 @@
 
 ｽﾀｯｸﾁｬﾝはM5Stackで作られた、JavaScriptで動くオープンソースのｽｰﾊﾟｰｶﾜｲｲﾛﾎﾞｯﾄです。
 
-このリポジトリは、M5StackChan CoreS3を標準構成とするファームウェア、ユーザーアプリケーション（MOD）、ブラウザー上の開発ツール、ケース、回路図を提供します。
+このリポジトリは、M5StackChan CoreS3専用のファームウェア、ユーザーアプリケーション（MOD）、ブラウザー上の開発ツール、ケース、回路図を提供します。
 
 - 動画: https://youtu.be/fZb_mF08xV0
 - 公式ハッシュタグ: [`#stackchan` | `#ｽﾀｯｸﾁｬﾝ` (JP)](https://twitter.com/search?q=%23stackchan%20OR%20%23%EF%BD%BD%EF%BE%80%EF%BD%AF%EF%BD%B8%EF%BE%81%EF%BD%AC%EF%BE%9D)
@@ -30,7 +30,7 @@ M5StackChan AIデスクトップロボット（K151）単体で始められま�
 ### 2. ファームウェアを書き込む
 
 M5StackChanをデータ通信対応のUSBケーブルでPCへ接続し、ChromeまたはEdgeで[Webファームウェア書き込み](https://kumakumapon.github.io/stack-chan/develop/web/flash/)を開きます。
-機種には「M5StackChan CoreS3」を選択してください。
+対応機種はM5StackChan CoreS3です。
 Moddable SDKやESP-IDFのセットアップは不要です。
 
 > [!IMPORTANT]
@@ -67,11 +67,10 @@ Moddable SDKやESP-IDFのセットアップは不要です。
 
 ## 対応ハードウェア
 
-配布ファームウェアは、M5Stack、M5Stack Core2、M5Stack CoreS3、M5StackChan CoreS3に対応します。
-標準構成と実機リリース検証の対象はM5StackChan CoreS3です。
-
-Stack-chan RTとタカオ版Core2 + SG90向けのファームウェアは、ソースからビルドできます。
-機種ごとのコマンドと制約は[ファームウェアの説明](./firmware/README_ja.md)を参照してください。
+対応・配布・実機リリース検証の対象は **M5StackChan CoreS3のみ**です。
+初代M5Stack、Core2、通常のCoreS3、Stack-chan RT、タカオ版Core2 + SG90は対象外です。
+WASMシミュレーターとLinux実行環境は開発・自動テスト用に維持します。
+ビルドと書き込みは[ファームウェアの説明](./firmware/README_ja.md)を参照してください。
 
 自作する場合は、[ケース](./case/README_ja.md)で必要な部品と組み立て方を確認してください。
 基板情報は[回路図](./schematics/README_ja.md)で確認できます。

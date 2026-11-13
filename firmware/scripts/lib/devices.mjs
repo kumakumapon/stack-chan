@@ -6,25 +6,11 @@ export const devices = {
     esptoolChip: 'esp32s3',
     firmwareVersionSource: 'moddable',
   },
-  stackchan_rt: {
-    platform: './host/platforms/stackchan_rt',
-    manifest: './host/app/manifest_stackchan_rt.json',
-    label: 'Stack-chan RT CoreS3',
-    esptoolChip: 'esp32s3',
-  },
-  takao_core2_sg90: {
-    platform: './host/platforms/takao_core2_sg90',
-    manifest: './host/app/manifest_takao_core2_sg90.json',
-    label: 'Stack-chan Takao Core2 + SG90',
-    esptoolChip: 'esp32',
-  },
 }
 
 export const aliases = {
   default: 'm5stackchan_cores3',
   m5stackchan: 'm5stackchan_cores3',
-  rt: 'stackchan_rt',
-  takao: 'takao_core2_sg90',
 }
 
 export function resolveDevice(value, prefix = '[stack-chan]') {

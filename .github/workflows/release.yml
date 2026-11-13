@@ -68,7 +68,7 @@ jobs:
         run: |
           set -euo pipefail
           bundle="host/app/tech.moddable.stackchan"
-          for target in com.m5stack com.m5stack.core2 com.m5stack.cores3 m5stackchan_cores3; do
+          for target in m5stackchan_cores3; do
             for binary in bootloader.bin partition-table.bin xs_esp32.bin; do
               test -s "$bundle/$target/$binary"
             done

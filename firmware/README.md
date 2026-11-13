@@ -18,7 +18,7 @@ If you are comfortable with the Arduino IDE and use PWM servos, [stack-chan-test
 For a first trial, the [Stack-chan browser tools](https://kumakumapon.github.io/stack-chan/develop/web/) let you start without installing a local development environment.
 
 1. Connect M5StackChan to a computer with a data-capable USB cable.
-2. Open the [Web firmware installer](https://kumakumapon.github.io/stack-chan/develop/web/flash/) in Chrome or Edge, select "M5StackChan CoreS3," and install the firmware.
+2. Open the [Web firmware installer](https://kumakumapon.github.io/stack-chan/develop/web/flash/) in Chrome or Edge and install the firmware.
 3. Choose a MOD from the [MOD Gallery](https://kumakumapon.github.io/stack-chan/develop/web/mod-gallery/) and try it in the simulator or on the device.
 
 > [!IMPORTANT]
@@ -29,7 +29,7 @@ For a first trial, the [Stack-chan browser tools](https://kumakumapon.github.io/
 
 ## Start local development
 
-The standard firmware target is M5StackChan CoreS3.
+M5StackChan CoreS3 is the only supported hardware target.
 To change the source code, run these commands from the `firmware` directory:
 
 ```console
@@ -41,7 +41,7 @@ npm run flash
 ```
 
 `npm run flash` builds and flashes the standard host.
-For Stack-chan RT or Takao Core2 + SG90, use `npm run flash:stackchan_rt` or `npm run flash:takao_core2_sg90`.
+Other hardware build/flash commands and distributions are no longer provided. WASM and Linux remain development/test environments.
 When updating only a MOD, pass its manifest: `npm run mod -- mods/examples/look_around/manifest.json`.
 The command builds a MOD archive, discovers the device's `xs` partition, and writes it directly with `esptool`.
 Because it does not use the xsbug install channel, the installed host can be either a debug or release build.
@@ -65,9 +65,9 @@ They manage the Moddable output directory and keep host, MOD, and test build art
 - The host application name is `stack-chan-host`.
 - `npm run clean` removes all generated files under `firmware/dist/`.
 - Do not pass a custom `-o` or invoke `mcconfig`, `mcrun`, or `mcpack` directly when using the repository workflow.
-- `npm run bundle` builds every release target under `firmware/dist/` and stages validated target artifacts in `firmware/dist/bundle-targets/`.
+- `npm run bundle` builds M5StackChan CoreS3 under `firmware/dist/` and stages validated target artifacts in `firmware/dist/bundle-targets/`.
   It writes the assembled directory and ZIP under `firmware/host/app/`.
-- Use the named `build:release:<target>` scripts for individual release builds.
+- Use `npm run build:release:m5stackchan_cores3` for the release build.
   CI uses the same scripts before `bundle:package` assembles their artifacts.
 
 See [Building and Writing Programs](docs/flashing-firmware.md) for target-specific commands and detailed output paths.

@@ -18,7 +18,7 @@ Arduino IDEになじみがあり、PWMサーボを使う場合は、@mongonta071
 ファームウェアを初めて試す場合は、[ｽﾀｯｸﾁｬﾝ Webツール](https://kumakumapon.github.io/stack-chan/develop/web/)を使うとローカル開発環境を用意せずに始められます。
 
 1. M5StackChanをデータ通信対応のUSBケーブルでPCへ接続します。
-2. ChromeまたはEdgeで[Webファームウェア書き込み](https://kumakumapon.github.io/stack-chan/develop/web/flash/)を開き、「M5StackChan CoreS3」を選択して書き込みます。
+2. ChromeまたはEdgeで[Webファームウェア書き込み](https://kumakumapon.github.io/stack-chan/develop/web/flash/)を開き、M5StackChan CoreS3へ書き込みます。
 3. [MOD Gallery](https://kumakumapon.github.io/stack-chan/develop/web/mod-gallery/)でMODを選び、シミュレーターまたは実機で試します。
 
 > [!IMPORTANT]
@@ -29,7 +29,7 @@ Arduino IDEになじみがあり、PWMサーボを使う場合は、@mongonta071
 
 ## ローカル開発を始める
 
-標準構成はM5StackChan CoreS3です。
+対応する実機はM5StackChan CoreS3のみです。
 ソースコードを変更する場合は、`firmware`ディレクトリで次の順に実行します。
 
 ```console
@@ -41,7 +41,7 @@ npm run flash
 ```
 
 `npm run flash`は標準構成のホストをビルドして書き込みます。
-Stack-chan RTまたはタカオ版Core2 + SG90では、`npm run flash:stackchan_rt`または`npm run flash:takao_core2_sg90`を使います。
+他機種向けのビルド・書き込みコマンドと配布物は提供しません。WASMとLinuxは開発・テスト用です。
 MODだけを更新する場合は、`npm run mod -- mods/examples/look_around/manifest.json`のようにMODの`manifest.json`を指定します。
 このコマンドはMODアーカイブをビルドし、実機の`xs`パーティションを検出して`esptool`で直接書き込みます。
 xsbugの書き込み経路を使わないため、ホストはデバッグビルドとリリースビルドのどちらでも構いません。
@@ -54,7 +54,7 @@ xsbugの書き込み経路を使わないため、ホストはデバッグビル
 - Feetech、FUTABA、DYNAMIXEL、PWMサーボを含む複数のモーター構成に対応します。
 - Stack-chan Voice、VOICEVOX、ElevenLabs、OpenAIを使った音声合成に対応します。
 - ファームウェア書き込み、BLE設定、MOD Gallery、ブロックエディタ、顔エディタ、WebAssemblyシミュレーターをブラウザーから利用できます。
-- ファームウェアとWeb UIは日本語、英語、簡体字中国語に対応します。
+- ファームウェアとWeb UIは日本語、英語に対応します。
 
 ## ビルド出力
 
@@ -65,9 +65,9 @@ xsbugの書き込み経路を使わないため、ホストはデバッグビル
 - ホストアプリケーション名は`stack-chan-host`です。
 - `npm run clean`は`firmware/dist/`配下の生成物をすべて削除します。
 - リポジトリのビルド手順では、独自の`-o`を指定したり、`mcconfig`、`mcrun`、`mcpack`を直接実行したりしないでください。
-- `npm run bundle`は各リリース対象を`firmware/dist/`配下でビルドし、検証済みの成果物を`firmware/dist/bundle-targets/`に集約します。
+- `npm run bundle`はM5StackChan CoreS3を`firmware/dist/`配下でビルドし、検証済みの成果物を`firmware/dist/bundle-targets/`に集約します。
   最終的なディレクトリとZIPは`firmware/host/app/`配下に生成されます。
-- 対象ごとのリリースビルドには、名前付きの`build:release:<target>`スクリプトを使います。
+- 単独のリリースビルドには`npm run build:release:m5stackchan_cores3`を使います。
   CIも同じスクリプトでビルドし、`bundle:package`で成果物を組み立てます。
 
 ターゲット別のコマンドと詳しい出力先は、[プログラムのビルドと書き込み](docs/flashing-firmware_ja.md)を参照してください。
