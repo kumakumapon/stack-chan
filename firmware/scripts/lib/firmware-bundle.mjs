@@ -11,7 +11,6 @@ import { prepareCoreS3IdfDependencies } from './idf-dependencies.mjs'
 import { coreS3SdkconfigSourceDirectory, prepareVersionSdkconfig } from './moddable-version.mjs'
 
 const appDirectory = path.join(firmwareDirectory, 'host', 'app')
-const standardManifestPath = path.join(appDirectory, 'manifest.json')
 const m5stackchanManifestPath = path.join(appDirectory, 'manifest_m5stackchan_cores3.json')
 
 export const firmwareBundleName = 'tech.moddable.stackchan'
@@ -21,34 +20,6 @@ export const firmwareBundleTargetMetadataName = 'bundle-target.json'
 export const firmwareBundleStagingDirectory = path.join(buildOutputDirectory, 'bundle-targets')
 
 export const firmwareBundleTargets = [
-  {
-    name: 'm5stack',
-    bundleId: 'com.m5stack',
-    platform: 'esp32/m5stack',
-    outputPlatform: 'm5stack',
-    manifestPath: standardManifestPath,
-    sdkconfigSource: ['build', 'devices', 'esp32', 'xsProj-esp32'],
-    partitionSource: ['build', 'devices', 'esp32', 'xsProj-esp32', 'partitions.csv'],
-  },
-  {
-    name: 'm5stack_core2',
-    bundleId: 'com.m5stack.core2',
-    platform: 'esp32/m5stack_core2',
-    outputPlatform: 'm5stack_core2',
-    manifestPath: standardManifestPath,
-    sdkconfigSource: ['build', 'devices', 'esp32', 'targets', 'm5stack_core2', 'sdkconfig'],
-    partitionSource: ['build', 'devices', 'esp32', 'targets', 'm5stack_core2', 'sdkconfig', 'partitions.csv'],
-  },
-  {
-    name: 'm5stack_cores3',
-    bundleId: 'com.m5stack.cores3',
-    platform: 'esp32/m5stack_cores3',
-    outputPlatform: 'm5stack_cores3',
-    manifestPath: standardManifestPath,
-    sdkconfigSource: ['build', 'devices', 'esp32', 'targets', 'm5stack_cores3', 'sdkconfig'],
-    partitionSource: ['build', 'devices', 'esp32', 'targets', 'm5stack_cores3', 'sdkconfig', 'partitions.csv'],
-    idfDependencyPlatform: 'm5stack_cores3',
-  },
   {
     name: 'm5stackchan_cores3',
     bundleId: 'm5stackchan_cores3',

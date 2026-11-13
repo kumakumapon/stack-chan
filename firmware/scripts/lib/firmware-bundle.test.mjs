@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { test } from 'node:test'
 import { firmwareDirectory } from './build-output.mjs'
+import { devices } from './devices.mjs'
 import {
   assembleFirmwareBundle,
   buildFirmwareBundleTarget,
@@ -14,15 +15,13 @@ import {
   resolveFirmwareBundleTarget,
 } from './firmware-bundle.mjs'
 
-test('bundle targets cover every manifest device and add the custom Stack-chan target', () => {
+test('bundle targets match the supported command registry and manifest devices', () => {
   const manifest = JSON.parse(readFileSync(path.join(firmwareDirectory, 'host/app/manifest.json'), 'utf8'))
   const configuredIds = firmwareBundleTargets.map(({ bundleId }) => bundleId)
 
   assert.equal(firmwareBundleName, manifest.bundle.id)
-  assert.deepEqual(
-    configuredIds.filter((bundleId) => bundleId.startsWith('com.')).sort(),
-    [...manifest.bundle.devices].sort(),
-  )
+  assert.deepEqual(configuredIds.sort(), [...manifest.bundle.devices].sort())
+  assert.deepEqual(firmwareBundleTargets.map(({ name }) => name).sort(), Object.keys(devices).sort())
   assert.equal(new Set(configuredIds).size, configuredIds.length)
   assert.equal(resolveFirmwareBundleTarget('m5stackchan_cores3').bundleId, 'm5stackchan_cores3')
 })
@@ -31,7 +30,7 @@ test('builds a release target through a final sdkconfig manifest override', () =
   const root = mkdtempSync(path.join(tmpdir(), 'stackchan-bundle-target-'))
   const moddableDirectory = path.join(root, 'moddable')
   const outputDirectory = path.join(root, 'output')
-  const sdkconfigDirectory = path.join(moddableDirectory, 'build/devices/esp32/xsProj-esp32')
+  const sdkconfigDirectory = path.join(moddableDirectory, 'build/devices/esp32/targets/m5stack_cores3/sdkconfig')
   const moddableVersion = '8.3.1'
   const firmwareVersion = '8.3.1+stackchan.1'
   let wrapperManifestPath
@@ -43,23 +42,23 @@ test('builds a release target through a final sdkconfig manifest override', () =
     writeFileSync(path.join(sdkconfigDirectory, 'sdkconfig.defaults'), 'CONFIG_SPIRAM=y\n')
     writeFileSync(path.join(sdkconfigDirectory, 'partitions.csv'), 'fixture partitions\n')
 
-    const result = buildFirmwareBundleTarget('m5stack', {
+    const result = buildFirmwareBundleTarget('m5stackchan_cores3', {
       moddableDirectory,
       outputDirectory,
       runCommand(command, args, cwd, env) {
         assert.equal(command, 'mcconfig')
         assert.equal(cwd, firmwareDirectory)
         assert.equal(env.MODDABLE, moddableDirectory)
-        assert.equal(args[args.indexOf('-p') + 1], 'esp32/m5stack')
+        assert.equal(args[args.indexOf('-p') + 1], 'esp32:./host/platforms/m5stackchan_cores3')
 
         wrapperManifestPath = args.at(-1)
         assert.equal(path.dirname(wrapperManifestPath), path.join(firmwareDirectory, 'host/app'))
         const wrapper = JSON.parse(readFileSync(wrapperManifestPath, 'utf8'))
-        assert.equal(wrapper.include[0], path.join(firmwareDirectory, 'host/app/manifest.json'))
+        assert.equal(wrapper.include[0], path.join(firmwareDirectory, 'host/app/manifest_m5stackchan_cores3.json'))
         const override = JSON.parse(readFileSync(wrapper.include[1], 'utf8'))
-        assert.equal(override.build.SDKCONFIGPATH, path.join(outputDirectory, 'generated/sdkconfig/m5stack'))
+        assert.equal(override.build.SDKCONFIGPATH, path.join(outputDirectory, 'generated/sdkconfig/m5stackchan_cores3'))
 
-        const buildDirectory = path.join(outputDirectory, 'bin/esp32/m5stack/release/stack-chan-host')
+        const buildDirectory = path.join(outputDirectory, 'bin/esp32/m5stackchan_cores3/release/stack-chan-host')
         mkdirSync(buildDirectory, { recursive: true })
         writeFileSync(path.join(buildDirectory, 'bootloader.bin'), Buffer.from([1]))
         writePartitionTable(path.join(buildDirectory, 'partition-table.bin'), 256)
@@ -67,7 +66,7 @@ test('builds a release target through a final sdkconfig manifest override', () =
       },
     })
 
-    assert.equal(result.target.bundleId, 'com.m5stack')
+    assert.equal(result.target.bundleId, 'm5stackchan_cores3')
     assert.equal(result.firmwareVersion, firmwareVersion)
     assert.equal(existsSync(wrapperManifestPath), false)
     assert.deepEqual(readdirSync(result.directory).sort(), [
@@ -165,14 +164,13 @@ test('rejects incomplete target sets and firmware that exceeds its factory parti
   }
 })
 
-test('rejects inconsistent embedded versions across independently built targets', () => {
+test('rejects a firmware image that disagrees with its staged metadata', () => {
   const fixture = createBundleFixture()
 
   try {
     const { bundleId } = firmwareBundleTargets[0]
     const targetDirectory = path.join(fixture.inputDirectory, bundleId)
     writeFirmware(path.join(targetDirectory, 'xs_esp32.bin'), '9.9.9')
-    writeMetadata(targetDirectory, bundleId, '9.9.9')
 
     assert.throws(
       () =>
@@ -180,7 +178,7 @@ test('rejects inconsistent embedded versions across independently built targets'
           inputDirectory: fixture.inputDirectory,
           outputDirectory: fixture.outputDirectory,
         }),
-      /Bundle targets use different firmware versions/,
+      /Bundle firmware version mismatch/,
     )
   } finally {
     fixture.remove()
@@ -242,3 +240,16 @@ function writeMetadata(directory, target, firmwareVersion) {
     }),
   )
 }
+
+test('rejects retired targets and stale staged firmware before packaging', () => {
+  for (const target of ['m5stack', 'm5stack_core2', 'm5stack_cores3', 'stackchan_rt', 'takao_core2_sg90']) {
+    assert.throws(() => resolveFirmwareBundleTarget(target), /Unknown firmware bundle target/)
+  }
+  const fixture = createBundleFixture()
+  try {
+    mkdirSync(path.join(fixture.inputDirectory, 'com.m5stack'))
+    assert.throws(() => assembleFirmwareBundle(fixture), /Bundle target set mismatch/)
+  } finally {
+    fixture.remove()
+  }
+})

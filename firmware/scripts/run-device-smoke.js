@@ -15,7 +15,7 @@
 //
 // Usage:
 //   UPLOAD_PORT=/dev/ttyACM0 npm run test:device
-//   npm run test:device -- --device stackchan_rt --flash
+//   npm run test:device -- --device m5stackchan_cores3 --flash
 //   UPLOAD_PORT=/dev/ttyACM0 npm run test:device -- --channel serial
 import { spawn, spawnSync } from 'node:child_process'
 import { createReadStream, mkdtempSync } from 'node:fs'

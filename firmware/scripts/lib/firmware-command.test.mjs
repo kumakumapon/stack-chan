@@ -56,7 +56,6 @@ test('CoreS3 non-release host builds warn that Codex Voice USB is unavailable', 
     }
   }
   assert.doesNotMatch(dryRunCommand('build', 'm5stackchan_cores3'), /Codex Voice USB is unavailable/)
-  assert.doesNotMatch(dryRunCommand('build', 'stackchan_rt', '--mode=debug'), /Codex Voice USB is unavailable/)
 })
 
 test('MOD command keeps debug as the default build mode', () => {
@@ -268,3 +267,35 @@ function assertMainCommand(invocation, command, manifestPath) {
 function count(source, value) {
   return source.split(value).length - 1
 }
+
+test('retired hardware selectors fail before any build or device write is planned', () => {
+  for (const device of [
+    'm5stack',
+    'm5stack_core2',
+    'm5stack_cores3',
+    'stackchan_rt',
+    'takao_core2_sg90',
+    'rt',
+    'takao',
+  ]) {
+    for (const command of ['build', 'flash', 'mod']) {
+      for (const selector of [[device], ['--device', device], [`--device=${device}`], []]) {
+        const env = {
+          ...process.env,
+          STACKCHAN_DRY_RUN: '1',
+          STACKCHAN_DEVICE: selector.length ? '' : device,
+          npm_config_target: '',
+        }
+        const args = command === 'mod' ? [manifest, ...selector] : selector
+        const result = spawnSync(process.execPath, ['scripts/firmware.mjs', command, ...args], {
+          cwd: firmwareDirectory,
+          encoding: 'utf8',
+          env,
+        })
+        assert.notEqual(result.status, 0, `${command} ${args.join(' ')}`)
+        assert.match(result.stderr, /Unknown device/)
+        assert.doesNotMatch(result.stdout, /mcconfig|mcrun|esptool/)
+      }
+    }
+  }
+})

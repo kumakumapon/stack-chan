@@ -9,11 +9,7 @@ import { fileURLToPath } from 'node:url'
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 
 const targets = [
-  { platform: 'esp32/m5stack', manifest: 'host/app/manifest_local.json' },
-  { platform: 'esp32/m5stack_cores3', manifest: 'host/app/manifest_local.json' },
   { platform: 'esp32:./host/platforms/m5stackchan_cores3', manifest: 'host/app/manifest_m5stackchan_cores3.json' },
-  { platform: 'esp32:./host/platforms/stackchan_rt', manifest: 'host/app/manifest_stackchan_rt.json' },
-  { platform: 'esp32:./host/platforms/takao_core2_sg90', manifest: 'host/app/manifest_takao_core2_sg90.json' },
   { platform: 'wasm', manifest: 'host/app/manifest_wasm.json' },
 ]
 

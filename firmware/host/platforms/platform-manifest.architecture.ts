@@ -1,6 +1,10 @@
 import assert from 'node:assert/strict'
 import { existsSync, readdirSync, readFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { join, resolve } from 'node:path'
+import { pathToFileURL } from 'node:url'
+
+const { devices: supportedDevices } = await import(pathToFileURL(resolve('scripts/lib/devices.mjs')).href)
+
 import { describe, test } from 'node:test'
 
 const esp32PlatformManifest = JSON.parse(readFileSync('host/platforms/esp32/manifest.json', 'utf8'))
@@ -73,7 +77,7 @@ describe('Stack-chan platform manifest', () => {
   })
 
   test('subplatforms ship a provider, an app manifest, and npm scripts', () => {
-    const subplatforms = listSubplatforms()
+    const subplatforms = listSubplatforms().filter(({ name }) => name in supportedDevices)
     assert.ok(subplatforms.length > 0, 'expected at least one subplatform directory')
 
     for (const subplatform of subplatforms) {

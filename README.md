@@ -9,7 +9,7 @@
 
 Stack-chan is an open-source, JavaScript-driven, super-kawaii robot built with M5Stack.
 
-This repository provides firmware with M5StackChan CoreS3 as its standard configuration, user applications called MODs, browser development tools, cases, and schematics.
+This repository provides firmware for M5StackChan CoreS3, user applications called MODs, browser development tools, cases, and schematics.
 
 - Video (with English subtitles): https://youtu.be/fZb_mF08xV0
 - Official hashtag: [`#stackchan` | `#ｽﾀｯｸﾁｬﾝ` (JP)](https://twitter.com/search?q=%23stackchan%20OR%20%23%EF%BD%BD%EF%BE%80%EF%BD%AF%EF%BD%B8%EF%BE%81%EF%BD%AC%EF%BE%9D)
@@ -30,7 +30,7 @@ The joystick remote controller is optional.
 ### 2. Flash the firmware
 
 Connect M5StackChan to a computer with a data-capable USB cable, then open the [Web firmware installer](https://kumakumapon.github.io/stack-chan/develop/web/flash/) in Chrome or Edge.
-Select "M5StackChan CoreS3" as the device.
+The installer targets M5StackChan CoreS3.
 You do not need to install the Moddable SDK or ESP-IDF.
 
 > [!IMPORTANT]
@@ -67,11 +67,10 @@ Use the [Stack-chan browser tools](https://kumakumapon.github.io/stack-chan/deve
 
 ## Supported hardware
 
-The distributed firmware supports M5Stack, M5Stack Core2, M5Stack CoreS3, and M5StackChan CoreS3.
-M5StackChan CoreS3 is the standard configuration and the target used for physical-device release validation.
-
-Firmware for Stack-chan RT and Takao Core2 + SG90 can be built from source.
-See the [firmware guide](./firmware/README.md) for target-specific commands and constraints.
+**M5StackChan CoreS3 is the only supported, distributed, and release-tested hardware.**
+M5Stack Basic, Core2, stock CoreS3, Stack-chan RT, and Takao Core2 + SG90 are no longer supported.
+The WASM simulator and Linux runtime remain development and automated-test environments.
+See the [firmware guide](./firmware/README.md) for build and installation commands.
 
 To build the hardware yourself, see the [case guide](./case/README.md) for parts and assembly instructions.
 See the [schematics](./schematics/README.md) for board information.

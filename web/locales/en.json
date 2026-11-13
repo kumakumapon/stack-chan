@@ -42,7 +42,6 @@
   "ファームウェア書き込み | ｽﾀｯｸﾁｬﾝ": "Firmware Installer | Stack-chan",
   "対応ボードへUSB経由で書き込む": "Install firmware on a supported board over USB",
   "USBで対応ボードへ書き込む": "Install on a supported board over USB",
-  "USBで接続するｽﾀｯｸﾁｬﾝのボードを選択してください。": "Select the Stack-chan board connected over USB.",
   "ボード": "Board",
   "USBに接続して書き込む": "Connect over USB and install",
   "書き込み前にご確認ください": "Before installing",
@@ -743,5 +742,6 @@
   "タップ・連続タップ・長押しで遊べます。前方と後方のスワイプを続けるとなでる操作になります。": "Play with taps, repeated taps and holds. Swipe forward and backward in succession to pet the head.",
   "頭をタップ": "Tap head",
   "連続タップ": "Repeated taps",
-  "頭を長押し": "Hold head"
+  "頭を長押し": "Hold head",
+  "M5StackChan CoreS3をUSBで接続してください。": "Connect your M5StackChan CoreS3 over USB."
 }
