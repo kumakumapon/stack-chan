@@ -13,22 +13,16 @@ import type {
 } from 'capabilities'
 import { type BatteryLevelReader, ChatStatusBar } from 'chat-status-bar'
 import type { DrawerButtonViewSpec } from 'drawer'
-import { DynamixelDriver } from 'dynamixel-driver'
 import IMU from 'imu'
 import Led from 'led'
-import { M5StackChanServoDriver } from 'm5stackchan-servo-driver'
 import config from 'mc/config'
 import Microphone from 'microphone'
 import Modules from 'modules'
-import type { MotionDriver } from 'motion-controller'
-import { NoneDriver } from 'none-driver'
+import { createHostMotionDriver } from 'motion-driver-factory'
 import { ImageAvatarFace } from 'parts/image/image-avatar-face'
 import type { Container as PiuContainer } from 'piu/MC'
 import PY32Led from 'py32-led'
-import { RS30XDriver } from 'rs30x-driver'
 import { StackchanRuntimeContext } from 'runtime-context'
-import { SCServoDriver } from 'scservo-driver'
-import { PWMServoDriver } from 'sg90-driver'
 import Speaker from 'speaker'
 import Touch, { type TouchOptions } from 'touch'
 import TouchPanel from 'touch-panel'
@@ -124,17 +118,6 @@ export function createStackchanContext(
   preferences: PreferenceConfig,
   options: StackchanContextOptions = {},
 ): StackchanContext {
-  const drivers = new Map<string, (param: unknown) => MotionDriver>([
-    ['scservo', (param) => new SCServoDriver(param as ConstructorParameters<typeof SCServoDriver>[0])],
-    [
-      'm5stackchan',
-      (param) => new M5StackChanServoDriver(param as ConstructorParameters<typeof M5StackChanServoDriver>[0]),
-    ],
-    ['dynamixel', (param) => new DynamixelDriver(param as ConstructorParameters<typeof DynamixelDriver>[0])],
-    ['pwm', (param) => new PWMServoDriver(param as ConstructorParameters<typeof PWMServoDriver>[0])],
-    ['rs30x', (param) => new RS30XDriver(param as ConstructorParameters<typeof RS30XDriver>[0])],
-    ['none', () => new NoneDriver()],
-  ])
   const ttsEngines = new Map<string, (param: unknown) => TTS>([
     ['local', (param) => new LocalTTS(param as ConstructorParameters<typeof LocalTTS>[0])],
     ['remote', (param) => new RemoteTTS(param as ConstructorParameters<typeof RemoteTTS>[0])],
@@ -161,8 +144,6 @@ export function createStackchanContext(
 
   // Servo Driver
   const driverPrefs = preferences.driver
-  const driverKey = driverPrefs.type ?? 'scservo'
-  const Driver = drivers.get(driverKey)
 
   // TTS
   const ttsPrefs = preferences.tts
@@ -174,9 +155,8 @@ export function createStackchanContext(
   const uiKey = uiPrefs.type ?? 'simple'
   const UI = uiControllers.get(uiKey)
 
-  if (!Driver || !TTS || !UI) {
+  if (!TTS || !UI) {
     for (const [key, klass] of [
-      [driverKey, Driver],
       [ttsKey, TTS],
       [uiKey, UI],
     ]) {
@@ -190,7 +170,7 @@ export function createStackchanContext(
   trace(`[main] TTS engine: ${ttsKey}\n`)
 
   options.onStage?.('driver')
-  const driver = Driver(driverPrefs)
+  const driver = createHostMotionDriver(driverPrefs)
   options.onStage?.('ui')
   const ui = UI(uiPrefs)
   options.onStage?.('tts')

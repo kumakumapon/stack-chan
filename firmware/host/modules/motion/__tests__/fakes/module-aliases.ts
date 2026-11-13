@@ -21,6 +21,8 @@ const ALIASES: Record<string, string> = {
   'servo-command-error': '../../internal/servo-command-error.js',
   'single-wait-slot': '../../internal/single-wait-slot.js',
   'm5stackchan-servo': '../../m5stackchan-servo.js',
+  'm5stackchan-servo-driver': '../../m5stackchan-servo-driver.js',
+  'none-driver': '../../none-driver.js',
   'motion-controller': '../../motion-controller.js',
   'stackchan-util': '../../../util/stackchan-util.js',
   'protocols/scservo': '../../protocols/scservo.js',

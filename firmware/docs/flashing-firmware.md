@@ -25,11 +25,11 @@ For all configuration items, please refer to the [Moddable official documentatio
 The CoreS3 application starts at [`host/app/manifest_m5stackchan_cores3.json`](../host/app/manifest_m5stackchan_cores3.json).
 A private local manifest may include it and be selected with `npm run build -- --manifest [local manifest]`.
 Wi-Fi and speech settings can also be changed through Preferences. Keep secrets out of commits.
-The dedicated platform fixes the servo type and wiring. The table lists shared settings; alternate `driver.type` values are not supported hardware configurations.
+The dedicated platform fixes the servo type and wiring. The product uses `m5stackchan`; `none` is reserved for desktop and WASM hosts. Retired driver types are rejected.
 
 | Key               | Description                                                                | Available values                     |
 | ----------------- | -------------------------------------------------------------------------- | ------------------------------------ |
-| driver.type       | Type of motor driver                                                       | "m5stackchan", "scservo", "rs30x", "pwm", "none", "dynamixel"    |
+| driver.type       | Type of motor driver                                                       | "m5stackchan" (CoreS3), "none" (desktop/WASM)    |
 | driver.panId      | ID of the serial servo used for pan axis (horizontal rotation of the neck) | 1~254                                |
 | driver.tiltId     | ID of the serial servo used for tilt axis (vertical rotation of the neck)  | 1~254                                |
 | driver.offsetPan  | Offset of the pan axis                                                     | -90~90                               |

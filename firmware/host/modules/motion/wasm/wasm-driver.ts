@@ -83,9 +83,5 @@ export class WasmDriver {
   }
 }
 
-export const DynamixelDriver = WasmDriver
 export const M5StackChanServoDriver = WasmDriver
 export const NoneDriver = WasmDriver
-export const PWMServoDriver = WasmDriver
-export const RS30XDriver = WasmDriver
-export const SCServoDriver = WasmDriver

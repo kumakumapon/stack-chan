@@ -18,6 +18,9 @@
     "sourceMap": true,
     "target": "es2024",
     "paths": {
+      "motion-driver-factory": [
+        "./host/app/motion-driver-factory"
+      ],
       "face-state": [
         "./host/modules/ui/state/face-state"
       ],

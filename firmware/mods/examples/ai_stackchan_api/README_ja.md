@@ -53,7 +53,7 @@
 
 ### 2. ビルド、書き込み
 次の手順でModを書き込みます。標準構成は M5StackChan CoreS3 です。
-タカオ版 Core2 + SG90 では `build:takao_core2_sg90` / `flash:takao_core2_sg90` / `mod:takao_core2_sg90` を使います。
+対応する実機はM5StackChan CoreS3のみです。旧機種向けのドライバーとコマンドは削除済みです。
 ```
 cd (YOUR_WORKING_DIRECTORY)/stack-chan/firmware
 npm run build -- ssid=YOUR_WIFI_SSID password=YOUR_WIFI_PASSWORD

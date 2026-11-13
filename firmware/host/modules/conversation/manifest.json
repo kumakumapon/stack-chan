@@ -47,13 +47,6 @@
         }
       }
     },
-    "esp32/stackchan_rt": {
-      "include": ["$(MODULES)/network/services/chatAudioIO/manifest.json"],
-      "modules": {
-        "~": "./StackChanChatAudioIO",
-        "StackChanChatAudioIO": "./chat-audioio/worker-stack"
-      }
-    },
     "mac": {
       "include": ["$(MODULES)/network/services/chatAudioIO/manifest.json"],
       "modules": {

@@ -37,6 +37,7 @@
       "./boot-network-recovery",
       "./boot-services",
       "./compose",
+      "./motion-driver-factory",
       "./companion-battery",
       "./companion-idle",
       "./companion-interaction",
@@ -139,7 +140,7 @@
       {
         "source": "../modules/ui/assets/fonts/k8x12",
         "size": 24,
-        "characters": "Stack-chan[\u30fb\uff3f\u30fb]0123456789:ABCDEFGHIJKLMNOPQRSTUVWXYZ",
+        "characters": "Stack-chan[・＿・]0123456789:ABCDEFGHIJKLMNOPQRSTUVWXYZ",
         "monochrome": true
       }
     ]
@@ -147,29 +148,6 @@
   "bundle": {
     "id": "tech.moddable.stackchan",
     "devices": ["m5stackchan_cores3"]
-  },
-  "platforms": {
-    "esp32/m5stack": {
-      "modules": {
-        "~": [
-          "./rhythm-game",
-          "./rhythm-game-host",
-          "./rhythm-game-mini-app",
-          "./janken-game",
-          "./janken-mini-app",
-          "./quick-tap-game",
-          "./quick-tap-mini-app",
-          "./fortune",
-          "./fortune-mini-app",
-          "./play-pack-drawing",
-          "./play-pack-strings",
-          "./play-pack-text",
-          "./play-pack-host"
-        ],
-        "rhythm-game-host": "./rhythm-game-unsupported",
-        "play-pack-host": "./play-pack-unsupported"
-      }
-    }
   },
   "typescript": {
     "tsconfig": {

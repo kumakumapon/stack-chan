@@ -38,6 +38,7 @@
       "../../app/boot-network-recovery",
       "../../app/boot-services",
       "../../app/compose",
+      "../../app/motion-driver-factory",
       "../../app/companion-battery",
       "../../app/companion-idle",
       "../../app/companion-interaction",

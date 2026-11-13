@@ -349,6 +349,12 @@
       ],
       "quiz": [
         "./host/app/quiz.ts"
+      ],
+      "m5stackchan-servo-driver": [
+        "./host/modules/motion/m5stackchan-servo-driver.ts"
+      ],
+      "none-driver": [
+        "./host/modules/motion/none-driver.ts"
       ]
     },
     "types": [

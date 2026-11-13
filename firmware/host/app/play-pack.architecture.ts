@@ -61,23 +61,23 @@ test('play pack messages resolve placeholders and fall back visibly', () => {
   assert.equal(formatPlayText('ja', 'missing.key'), 'missing.key', 'unknown keys stay visible')
 })
 
-test('targets that drop the play pack drop its host and every game UI module together', () => {
-  type Manifest = {
-    modules?: Record<string, unknown>
-    platforms?: Record<string, { modules?: Record<string, unknown> }>
-  }
-  const manifest = JSON.parse(readFileSync(join(firmwareRoot, 'host', 'app', 'manifest.json'), 'utf8')) as Manifest
-  const hostModules = (manifest.modules?.['*'] as string[] | undefined) ?? []
-  const playPack = hostModules.filter((path) => /\/(janken|quick-tap|fortune|play-pack)[^/]*$/.test(path))
-  assert.ok(playPack.includes('./play-pack-host'), 'the play pack is part of the standard host')
-  for (const [platform, config] of Object.entries(manifest.platforms ?? {})) {
-    const removed = new Set((config.modules?.['~'] as string[] | undefined) ?? [])
-    const dropped = playPack.filter((path) => removed.has(path))
-    if (dropped.length === 0) continue
-    // The Drawer probes the game UI modules by name, so a partial removal would leave dead entries.
-    assert.deepEqual(dropped.sort(), [...playPack].sort(), `${platform} removes the whole play pack`)
-    assert.equal(config.modules?.['play-pack-host'], './play-pack-unsupported', `${platform} keeps a no-op host`)
-  }
+test('CoreS3 and WASM include the same complete play pack', () => {
+  const read = (name: string) => JSON.parse(readFileSync(join(firmwareRoot, name), 'utf8'))
+  const app = read('host/app/manifest.json')
+  const product = read('host/app/manifest_m5stackchan_cores3.json')
+  const wasm = read('host/platforms/wasm/manifest.json')
+  const isPlayPack = (path: string) => /\/(janken|quick-tap|fortune|play-pack)[^/]*$/.test(path)
+  const productModules = app.modules['*']
+    .filter(isPlayPack)
+    .map((path: string) => path.slice(2))
+    .sort()
+  const simulatorModules = wasm.modules['*']
+    .filter(isPlayPack)
+    .map((path: string) => path.replace('../../app/', ''))
+    .sort()
+  assert.ok(product.include.includes('./manifest.json'))
+  assert.ok(productModules.includes('play-pack-host'))
+  assert.deepEqual(simulatorModules, productModules)
 })
 
 test('every message line parses to one unique key, so nothing is silently dropped', () => {

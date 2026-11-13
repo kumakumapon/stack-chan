@@ -67,14 +67,7 @@ test('WASM source imports omit TypeScript file extensions', () => {
 
 test('WASM servo driver facades map through the manifest and re-export the consolidated WasmDriver', () => {
   const manifest = readManifest('host/modules/motion/manifest_wasm.json')
-  const driverNames = [
-    'dynamixel-driver',
-    'm5stackchan-servo-driver',
-    'none-driver',
-    'sg90-driver',
-    'rs30x-driver',
-    'scservo-driver',
-  ]
+  const driverNames = ['m5stackchan-servo-driver', 'none-driver']
 
   for (const driverName of driverNames) {
     assert.equal(manifest.modules[driverName], `./wasm/${driverName}`)
