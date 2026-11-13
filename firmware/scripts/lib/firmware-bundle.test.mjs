@@ -34,6 +34,7 @@ test('builds a release target through a final sdkconfig manifest override', () =
   const moddableVersion = '8.3.1'
   const firmwareVersion = '8.3.1+stackchan.1'
   let wrapperManifestPath
+  let linkedKeyCount = 7800
 
   try {
     mkdirSync(path.join(moddableDirectory, 'tools'), { recursive: true })
@@ -42,7 +43,7 @@ test('builds a release target through a final sdkconfig manifest override', () =
     writeFileSync(path.join(sdkconfigDirectory, 'sdkconfig.defaults'), 'CONFIG_SPIRAM=y\n')
     writeFileSync(path.join(sdkconfigDirectory, 'partitions.csv'), 'fixture partitions\n')
 
-    const result = buildFirmwareBundleTarget('m5stackchan_cores3', {
+    const options = {
       moddableDirectory,
       outputDirectory,
       runCommand(command, args, cwd, env) {
@@ -60,11 +61,15 @@ test('builds a release target through a final sdkconfig manifest override', () =
 
         const buildDirectory = path.join(outputDirectory, 'bin/esp32/m5stackchan_cores3/release/stack-chan-host')
         mkdirSync(buildDirectory, { recursive: true })
+        const linkerDirectory = path.join(outputDirectory, 'tmp/esp32/m5stackchan_cores3/release/stack-chan-host')
+        mkdirSync(linkerDirectory, { recursive: true })
+        writeFileSync(path.join(linkerDirectory, 'mc.xs.c'), `#define mxKeysCount ${linkedKeyCount}\n`)
         writeFileSync(path.join(buildDirectory, 'bootloader.bin'), Buffer.from([1]))
         writePartitionTable(path.join(buildDirectory, 'partition-table.bin'), 256)
         writeFirmware(path.join(buildDirectory, 'xs_esp32.bin'), firmwareVersion)
       },
-    })
+    }
+    const result = buildFirmwareBundleTarget('m5stackchan_cores3', options)
 
     assert.equal(result.target.bundleId, 'm5stackchan_cores3')
     assert.equal(result.firmwareVersion, firmwareVersion)
@@ -75,6 +80,15 @@ test('builds a release target through a final sdkconfig manifest override', () =
       'partition-table.bin',
       'xs_esp32.bin',
     ])
+    const metadataPath = path.join(result.directory, firmwareBundleTargetMetadataName)
+    assert.equal(JSON.parse(readFileSync(metadataPath, 'utf8')).keys.used, linkedKeyCount)
+    linkedKeyCount = 8087
+    assert.throws(() => buildFirmwareBundleTarget('m5stackchan_cores3', options), /XS key reserve below/)
+    assert.equal(
+      JSON.parse(readFileSync(metadataPath, 'utf8')).keys.used,
+      7800,
+      'rejected builds preserve the staged valid target',
+    )
   } finally {
     rmSync(root, { recursive: true, force: true })
   }

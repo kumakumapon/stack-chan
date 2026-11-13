@@ -27,11 +27,11 @@ MOD がインストールされている場合、製品既定動作は実行さ�
 M5StackChan CoreS3のアプリ設定は[`host/app/manifest_m5stackchan_cores3.json`](../host/app/manifest_m5stackchan_cores3.json)が入口です。
 独自のローカルmanifestからこのファイルをincludeし、`npm run build -- --manifest [ローカルmanifest]`で指定できます。
 Wi-Fiや音声設定はPreferencesからも変更できます。秘密情報はコミットしないでください。
-サーボの種類と配線は専用プラットフォームで固定します。以下は共通設定項目で、`driver.type`の他機種向け値は本製品では使用しません。
+サーボの種類と配線は専用プラットフォームで固定します。実機では`m5stackchan`を使用し、`none`はデスクトップ・WASM用です。旧ドライバーの指定はエラーになります。
 
 | キー              | 説明                                            | 使用可能な値                                |
 | ----------------- | ----------------------------------------------- | ------------------------------------------- |
-| driver.type       | モータドライバの種類                            | "m5stackchan", "scservo", "rs30x", "pwm", "none", "dynamixel"           |
+| driver.type       | モータドライバの種類                            | "m5stackchan" (CoreS3), "none" (desktop/WASM)           |
 | driver.panId      | パン軸（首の横回転）に使うシリアルサーボの ID   | 1~254                                       |
 | driver.tiltId     | チルト軸（首の縦回転）に使うシリアルサーボの ID | 1~254                                       |
 | driver.offsetPan  | パン軸のオフセット                              | -90~90                                      |

@@ -32,3 +32,33 @@ test('capacity report measures compiled resources and rejects overflowing images
     rmSync(directory, { recursive: true, force: true })
   }
 })
+
+test('XS key capacity reads the linked image and reports the remaining budget', async () => {
+  const { xsKeyCapacity } = await import('./firmware-size-report.mjs')
+  assert.deepEqual(xsKeyCapacity('/* generated */\r\n#define mxKeysCount 7800\r\n'), {
+    used: 7800,
+    capacity: 8192,
+    free: 392,
+    minimumFree: 256,
+  })
+})
+
+test('XS key reserve rejects the previous near-limit image and permits the budget boundary', async () => {
+  const { xsKeyCapacity, assertXsKeyReserve } = await import('./firmware-size-report.mjs')
+  assert.throws(() => assertXsKeyReserve(xsKeyCapacity('#define mxKeysCount 8087\n')), /105 free/)
+  assert.doesNotThrow(() => assertXsKeyReserve(xsKeyCapacity('#define mxKeysCount 7936\n')))
+  assert.throws(() => assertXsKeyReserve(xsKeyCapacity('#define mxKeysCount 7937\n')), /reserve below/)
+})
+
+test('XS key reporting fails closed on missing, ambiguous, or out-of-range linker metadata', async () => {
+  const { xsKeyCapacity } = await import('./firmware-size-report.mjs')
+  for (const source of [
+    '',
+    '#define mxKeysCount nope',
+    '#define mxKeysCount 7800\n#define mxKeysCount 7900\n',
+    '#define mxKeysCount 0\n',
+    '#define mxKeysCount 8193\n',
+  ]) {
+    assert.throws(() => xsKeyCapacity(source))
+  }
+})

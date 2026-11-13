@@ -106,10 +106,7 @@ describe('Stack-chan platform manifest', () => {
   })
 
   test('dedicated smart-servo platforms lock their hardware driver', () => {
-    const expectedDrivers = new Map([
-      ['m5stackchan_cores3', 'm5stackchan'],
-      ['stackchan_rt', 'dynamixel'],
-    ])
+    const expectedDrivers = new Map([['m5stackchan_cores3', 'm5stackchan']])
 
     for (const [platform, expectedType] of expectedDrivers) {
       const manifest = readJson(join('host/platforms', platform, 'manifest.json'))

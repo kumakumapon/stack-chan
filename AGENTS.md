@@ -11,7 +11,7 @@ Stack-chan is a JavaScript-driven M5Stack-embedded robot. The codebase is primar
 ### Modular Component System
 - **Host Program**: Core firmware (`firmware/host/app/main.ts`) that provides the robot framework
 - **MODs**: User applications that extend functionality (in `firmware/mods/` directory)
-- **Drivers**: Hardware abstraction for different servo types (PWM, DYNAMIXEL, RS30X, SCServo)
+- **Drivers**: Calibrated M5StackChan CoreS3 driver over SCServo, plus desktop no-hardware and WASM simulation drivers
 - **UI modules**: Piu Application, views, drawer, status bar, bubbles, effects, and face components under `firmware/host/modules/ui`
 - **TTS Engines**: Text-to-speech providers (local, remote, VoiceVox, ElevenLabs, OpenAI)
 - **Services**: Background services (HTTP server, network, preferences)
@@ -49,6 +49,7 @@ All commands should be run from the `firmware/` directory:
 - The host application name is always `stack-chan-host`.
 - Do not add a custom `-o`; repository commands reject it to keep worktree output isolated under `firmware/dist`.
 - `npm run clean` removes all generated files under `firmware/dist`.
+- Release builds validate `mc.xs.c` and keep at least 256 of the 8192 XS keys free. Capacity reports include the linked key count and reserve; do not lower the reserve to bypass a failure.
 - `npm run bundle` builds M5StackChan CoreS3 under `firmware/dist/`, stages validated target artifacts in `firmware/dist/bundle-targets/`, and writes the assembled directory and ZIP under `firmware/host/app/`.
 - `npm run build:release:m5stackchan_cores3` and `npm run bundle:package` are the CI building blocks for the CoreS3 release build and final artifact assembly.
 - `npm run mod` uses `mcrun -t build` to create an archive, then discovers and writes the live device's `xs` partition with `esptool`.
@@ -70,8 +71,8 @@ All commands should be run from the `firmware/` directory:
 
 The only supported hardware target is M5StackChan CoreS3 (`m5stackchan_cores3`).
 Build, distribution, installer, and release validation must target this device only.
-WASM and Linux remain development/test environments. Historical platform implementations
-and shared SDK/driver dependencies remain internal until a separate cleanup.
+WASM and Linux remain development/test environments. Keep the stock CoreS3 SDK base,
+SCServo transport, and CoreS3 power/audio/camera dependencies; retired hardware drivers are removed.
 
 Do not use `--target` or `npm_config_target`; the firmware command wrapper rejects generic target overrides so that the matching platform and application manifest are selected together.
 
@@ -84,7 +85,7 @@ Do not use `--target` or `npm_config_target`; the firmware command wrapper rejec
 ## Hardware Configuration
 
 Configuration is managed through preferences system with these key areas:
-- `driver`: Servo motor configuration (type: scservo, dynamixel, pwm, rs30x, none)
+- `driver`: `m5stackchan` is locked for CoreS3; `none` is reserved for desktop/WASM hosts
 - `tts`: Text-to-speech engine selection
 - `ui`: Piu UI and face selection
 - `wifi`: Network configuration

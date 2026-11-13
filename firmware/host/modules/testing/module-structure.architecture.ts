@@ -233,15 +233,7 @@ test('periodic motion hot paths reuse fixed state and callbacks', () => {
     assert.doesNotMatch(block, /\.\s*(?:map|filter|reduce)\s*\(/, 'updatePose should not allocate arrays')
   }
 
-  const driverFiles = [
-    'dynamixel-driver.ts',
-    'm5stackchan-servo-driver.ts',
-    'none-driver.ts',
-    'rs30x-driver.ts',
-    'scservo-driver.ts',
-    'sg90-driver.ts',
-    'wasm/wasm-driver.ts',
-  ]
+  const driverFiles = ['m5stackchan-servo-driver.ts', 'none-driver.ts', 'wasm/wasm-driver.ts']
   for (const driverFile of driverFiles) {
     const driverPath = join(MODULE_ROOT, 'motion', driverFile)
     const driver = readFileSync(driverPath, 'utf8')
@@ -272,11 +264,7 @@ test('motion protocol continuable command errors are reported through callbacks'
     'SingleWaitSlot should not throw for a continuable busy state',
   )
 
-  const protocolSources = [
-    join(MODULE_ROOT, 'motion', 'protocols', 'dynamixel.ts'),
-    join(MODULE_ROOT, 'motion', 'protocols', 'rs30x.ts'),
-    join(MODULE_ROOT, 'motion', 'protocols', 'scservo.ts'),
-  ]
+  const protocolSources = [join(MODULE_ROOT, 'motion', 'protocols', 'scservo.ts')]
 
   for (const sourcePath of protocolSources) {
     const source = readFileSync(sourcePath, 'utf8')

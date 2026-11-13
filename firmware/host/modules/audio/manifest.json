@@ -104,11 +104,6 @@
         }
       }
     },
-    "esp32/m5stack_fire": {
-      "modules": {
-        "audio-in": "./platforms/m5stack-fire/audio-in"
-      }
-    },
     "esp32/m5stack_cores3": {
       "defines": {
         "audioOut": {
@@ -177,24 +172,6 @@
             "mck_pin": 0,
             "datain": 14
           }
-        }
-      }
-    },
-    "esp32/stackchan_rt": {
-      "modules": {
-        "*": "$(MODDABLE)/modules/io/common/builtinCommon",
-        "embedded:io/audio/in": "$(MODDABLE)/modules/io/audioin/esp32/audioin"
-      },
-      "dependency": [
-        {
-          "idf": "esp_driver_i2s"
-        }
-      ],
-      "defines": {
-        "audioOut": {
-          "bitsPerSample": 16,
-          "numChannels": 1,
-          "sampleRate": 24000
         }
       }
     }

@@ -67,8 +67,8 @@ MODの追加、Wi-Fi、音声認識、AI契約は不要です。おみくじの�
 
 - 表示中はCompanionの待機動作を止め、終了・登録解除で再開します。ゲームが作ったタイマー、頭タッチの購読、短い音、Reactionはすべて解放します。
 - Virtual Pet MOD、集中タイマー、他のMini Appと併用できます。Petへの経験値連携は追加していません。
-- 旧4 MB M5Stack（タッチ入力なし）にはフラッシュ容量を守るため含めません。リズムまねっこと同じ方式です。
-  文言も `host/app/strings/*.json` ではなく [play-pack-strings.ts](../host/app/play-pack-strings.ts) に置いています。この方式なら、除外した機種では文言の容量もかかりません。
+- 対応する実機はM5StackChan CoreS3のみです。WASMシミュレーターでも同じアプリを利用できます。
+  文言は [play-pack-strings.ts](../host/app/play-pack-strings.ts) に置いています。
 - Webシミュレーターでは、自己ベストとおみくじの結果をブラウザの localStorage に保存します。
 - `play-pack-host` は `main.ts` から `Modules.importNow('play-pack-host')` で名前を指定して読み込みます。
   WASM ホスト（JavaScript スタック 512 スロット）は、起動時の同期処理の時点でスタックの余裕がほとんどありません。`main.ts` に静的 import を足しただけで XS の stack overflow になることを確認しています。
@@ -89,7 +89,8 @@ CoreS3実機では、次の項目を個別に確認して記録してくださ�
 
 ## XS のキー数の上限（`not enough keys`）
 
-xsl（リンカー）は、プロパティ名などの識別子（キー）を最大 8192 個までしか持てません。CoreS3 のリリースビルド（`m5stackchan_cores3`）はあそびパックの追加前で 7916 個、追加後で 8087 個です。余裕は約100個しかありません。
+xsl（リンカー）は、プロパティ名などの識別子（キー）を最大 8192 個までしか持てません。あそびパック追加時のCoreS3リリースビルド（`m5stackchan_cores3`）は7916個から8087個へ増え、空きは105個になりました。これは旧機種ドライバーを整理する前の記録です。
+現在のキー数はCIの容量レポートを参照してください。リリースビルドとBundle生成は`mc.xs.c`の`mxKeysCount`から実測し、空きが256個未満なら失敗します。上限チェックを弱めず、依存関係や実装を削減してください。
 オブジェクトのプロパティ名と `#private` フィールドはキー1つになります。これを超えると、リンク時に `Error: not enough keys` で失敗します（Bundle の CI で実際に起きました）。
 
 - メッセージは `play-pack-strings.ts` に「`key=message`」の行として持ち、実行時に `Map` へ読み込みます。オブジェクトにすると約110個のキーが増えます。

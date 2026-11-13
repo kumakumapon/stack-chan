@@ -7,6 +7,7 @@ import {
   hostApplicationName,
   moddableOutputArguments,
 } from './build-output.mjs'
+import { assertXsKeyReserve, xsKeyCapacity } from './firmware-size-report.mjs'
 import { prepareCoreS3IdfDependencies } from './idf-dependencies.mjs'
 import { coreS3SdkconfigSourceDirectory, prepareVersionSdkconfig } from './moddable-version.mjs'
 
@@ -130,6 +131,18 @@ export function buildFirmwareBundleTarget(
     'release',
     hostApplicationName,
   )
+  const linkerSource = path.join(
+    outputDirectory,
+    'tmp',
+    'esp32',
+    target.outputPlatform,
+    'release',
+    hostApplicationName,
+    'mc.xs.c',
+  )
+  const keys = xsKeyCapacity(readFileSync(linkerSource, 'utf8'))
+  console.log(`[stack-chan] XS keys: ${keys.used}/${keys.capacity} (${keys.free} free, minimum ${keys.minimumFree})`)
+  assertXsKeyReserve(keys)
   const stagingDirectory = path.join(outputDirectory, 'bundle-targets', target.bundleId)
   rmSync(stagingDirectory, { recursive: true, force: true })
   mkdirSync(stagingDirectory, { recursive: true })
@@ -148,6 +161,7 @@ export function buildFirmwareBundleTarget(
         formatVersion: 1,
         target: target.bundleId,
         firmwareVersion: versionSdkconfig.version,
+        keys,
       },
       null,
       2,
