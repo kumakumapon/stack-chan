@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { writeFile } from 'node:fs/promises'
 import { chromium } from 'playwright-core'
 import { launcherRow, tapLauncherRow } from './simulator/lcd-test-helpers.mjs'
 
@@ -178,17 +179,37 @@ try {
     await miniGameScreen.dispatchEvent('mousedown', { clientX, clientY })
     await miniGameScreen.dispatchEvent('mouseup', { clientX, clientY })
   }
+  const captureCatchState = async (stage) => {
+    const frame = await miniGameScreen.evaluate((canvas) => canvas.toDataURL('image/png'))
+    await writeFile(`/tmp/stackchan-catch-${stage}.png`, Buffer.from(frame.split(',')[1], 'base64'))
+    await writeFile(
+      `/tmp/stackchan-catch-${stage}.json`,
+      JSON.stringify(
+        {
+          stage,
+          url: page.url(),
+          launcherRow: launcherRow('catch'),
+          log: await page.getByRole('log').innerText(),
+          pageErrors: pageErrors.map((error) => error.message),
+        },
+        null,
+        2
+      )
+    )
+    return frame
+  }
   await tapMiniGameScreen(160, 120)
   await page.waitForTimeout(100)
   await tapMiniGameScreen(254, 22)
   await page.waitForTimeout(200)
+  await captureCatchState('launcher')
   // Every host app sorts before the sample games (see launcherRow). Scroll to CATCH.
   await tapLauncherRow(page, tapMiniGameScreen, launcherRow('catch'), false)
   await page.waitForTimeout(300)
-  const catchTitleFrame = await miniGameScreen.evaluate((canvas) => canvas.toDataURL('image/png'))
+  const catchTitleFrame = await captureCatchState('title')
   await tapMiniGameScreen(160, 142)
   await page.waitForTimeout(1_000)
-  const catchRunningFrame = await miniGameScreen.evaluate((canvas) => canvas.toDataURL('image/png'))
+  const catchRunningFrame = await captureCatchState('running')
   assert.notEqual(catchRunningFrame, catchTitleFrame, 'the center tap should start Stack-chan CATCH')
   assert.equal(await page.getByRole('log').getByText('XS abort', { exact: false }).count(), 0)
 

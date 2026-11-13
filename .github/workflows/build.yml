@@ -11,6 +11,8 @@ on:
       - "docs/specs/**"
       - "docs/operations/visual-programming-validation.md"
       - "docs/operations/visual-programming-acceptance.md"
+      - "docs/operations/ci-validation_ja.md"
+      - ".github/scripts/ci-*.mjs"
       - ".github/actions/setup/action.yml"
       - ".github/workflows/build.yml"
       - "lefthook.yml"
@@ -24,6 +26,8 @@ on:
       - "docs/specs/**"
       - "docs/operations/visual-programming-validation.md"
       - "docs/operations/visual-programming-acceptance.md"
+      - "docs/operations/ci-validation_ja.md"
+      - ".github/scripts/ci-*.mjs"
       - ".github/actions/setup/action.yml"
       - ".github/workflows/build.yml"
       - "lefthook.yml"
@@ -56,6 +60,7 @@ jobs:
               - "firmware/**"
               - ".github/actions/setup/action.yml"
               - ".github/workflows/build.yml"
+              - ".github/scripts/ci-*.mjs"
               - "lefthook.yml"
 
   biome:
@@ -88,6 +93,8 @@ jobs:
       - name: Run firmware tests
         working-directory: ./firmware
         run: npm run test
+      - name: Test CI result policy and browser suite coverage
+        run: node --test .github/scripts/ci-*.test.mjs
       - name: Run legacy name checks
         working-directory: ./firmware
         run: npm run check:legacy-names
@@ -181,35 +188,40 @@ jobs:
     if: always()
     needs:
       - changes
+      - biome
       - test-fast
       - test-moddable
       - test-smoke
+      - web-visual
     runs-on: ubuntu-latest
-    steps:
-      - name: Verify test job results
-        env:
-          CHANGES_RESULT: ${{ needs.changes.result }}
-          FAST_RESULT: ${{ needs.test-fast.result }}
-          MODDABLE_RESULT: ${{ needs.test-moddable.result }}
-          SMOKE_RESULT: ${{ needs.test-smoke.result }}
-        run: |
-          if [[ "$CHANGES_RESULT" != "success" || "$FAST_RESULT" != "success" ]]; then
-            echo "Required test job failed: changes=$CHANGES_RESULT fast=$FAST_RESULT"
-            exit 1
-          fi
-          for result in "$MODDABLE_RESULT" "$SMOKE_RESULT"; do
-            if [[ "$result" != "success" && "$result" != "skipped" ]]; then
-              echo "Firmware test job failed: moddable=$MODDABLE_RESULT smoke=$SMOKE_RESULT"
-              exit 1
-            fi
-          done
-
-  web-visual:
-    runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - name: Verify test job results
+        env:
+          CI_NEEDS: ${{ toJSON(needs) }}
+        run: node .github/scripts/ci-results.mjs test
+
+  web-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    outputs:
+      suites: ${{ steps.matrix.outputs.suites }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - name: Select browser suites
+        id: matrix
+        run: echo "suites=$(node .github/scripts/ci-web-suites.mjs matrix)" >> "$GITHUB_OUTPUT"
       - uses: ./.github/actions/setup
         with:
           target-branch: "9.0.0"
@@ -229,32 +241,15 @@ jobs:
           source "$HOME/.local/share/xs-dev-export.sh"
           npm run mod:build:simulator
           node ../web/mod-gallery/stage-pet.mjs
-      - name: Run responsive and editor browser tests
+      - name: Build shared browser application
         working-directory: ./firmware
-        run: |
-          npm --prefix ../web run test:visual
-          npm --prefix ../web run test:i18n-visual
-      - name: Verify Virtual Pet through the WASM simulator
-        working-directory: ./web
-        run: node simulator/pet-test.mjs
-      - name: Verify offline focus timer and Pet coexistence through WASM
-        working-directory: ./web
-        run: node simulator/focus-timer-test.mjs
-      - name: Verify memory game and Pet coexistence through WASM
-        working-directory: ./web
-        run: node simulator/memory-game-test.mjs
-      - name: Verify rhythm imitation and head taps through WASM
-        working-directory: ./web
-        run: node simulator/rhythm-game-test.mjs
-      - name: Verify play pack games and Pet coexistence through WASM
-        working-directory: ./web
-        run: node simulator/play-pack-test.mjs
-      - name: Test offline daily Mini Apps in the simulator
-        working-directory: ./web
-        run: node simulator/daily-mini-apps-test.mjs
-      - name: Verify Daily Workshop through WASM
-        working-directory: ./web
-        run: node simulator/workshop-test.mjs
+        run: npm --prefix ../web run build
+      - name: Upload shared browser runtime
+        uses: actions/upload-artifact@v7
+        with:
+          name: web-runtime-${{ github.sha }}
+          path: web/dist
+          if-no-files-found: error
       - name: Upload compiled simulator
         uses: actions/upload-artifact@v7
         with:
@@ -263,19 +258,67 @@ jobs:
             web/simulator/mc.js
             web/simulator/mc.wasm
           if-no-files-found: error
+
+  web-browser:
+    needs: web-build
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.web-build.outputs.suites) }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: Install browser test dependencies
+        run: npm --prefix web ci
+      - name: Download shared browser runtime
+        uses: actions/download-artifact@v8
+        with:
+          name: web-runtime-${{ github.sha }}
+          path: web/dist
       - name: Verify companion browser transport
-        working-directory: ./firmware
+        if: matrix.suite == 'companion'
         run: |
-          node --test ../web/simulator/conversation-bridge.test.mjs
-          npm --prefix ../gateway ci
-          npm --prefix ../gateway run build
-      - name: Verify Companion through the WASM simulator and localhost Gateway
-        working-directory: ./web
-        run: node simulator/companion-test.mjs
-      - name: Upload browser screenshots
+          node --test web/simulator/conversation-bridge.test.mjs
+          npm --prefix gateway ci
+          npm --prefix gateway run build
+      - name: Run browser suite
+        env:
+          STACKCHAN_WEB_SUITE: ${{ matrix.suite }}
+        run: |
+          set -o pipefail
+          node .github/scripts/ci-web-suites.mjs run 2>&1 | tee "/tmp/stackchan-${STACKCHAN_WEB_SUITE}.log"
+      - name: Upload browser diagnostics
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: web-visual-screenshots
-          path: /tmp/stackchan-*.png
+          name: web-visual-${{ matrix.suite }}-diagnostics
+          path: |
+            /tmp/stackchan-*.png
+            /tmp/stackchan-*.json
+            /tmp/stackchan-*.log
           if-no-files-found: ignore
+
+  # Keep the existing check name while reflecting every matrix result.
+  web-visual:
+    if: always()
+    needs: [web-build, web-browser]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - name: Verify browser job results
+        env:
+          CI_NEEDS: ${{ toJSON(needs) }}
+        run: node .github/scripts/ci-results.mjs web
