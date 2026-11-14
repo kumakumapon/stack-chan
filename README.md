@@ -71,6 +71,7 @@ Use the [Stack-chan browser tools](https://kumakumapon.github.io/stack-chan/deve
 M5Stack Basic, Core2, stock CoreS3, Stack-chan RT, and Takao Core2 + SG90 are no longer supported.
 The WASM simulator and Linux runtime remain development and automated-test environments.
 See the [firmware guide](./firmware/README.md) for build and installation commands.
+See [retired hardware and capacity tracking (Japanese)](./docs/operations/retired-hardware_ja.md) for the disposition of legacy capacity issues and validation records.
 
 To build the hardware yourself, see the [case guide](./case/README.md) for parts and assembly instructions.
 See the [schematics](./schematics/README.md) for board information.

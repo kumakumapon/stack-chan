@@ -7,6 +7,6 @@
 - **おみくじ**：箱を振って、大吉〜末吉、ラッキーアクション、ラッキーカラーを引きます。時計が同期済みなら1日1回で、同じ日は同じ結果を表示します。
 
 首の動きは、じゃんけんの「動きON」を選んだときだけです（初期値OFF）。会話中や別の動作中は首を動かしません。上下を向く `look-up` / `look-down` リアクションも追加しました。
-旧4 MB M5Stack向けにはフラッシュ容量を守るため含めません。実機の首の向き・音量・タッチの体感は実機で確認してください。
+現在の実機対象はM5StackChan CoreS3のみです。旧4 MB M5Stackの容量を理由に機能を除外していた構成は終了しました（[旧機種の対応終了](../operations/retired-hardware_ja.md)）。実機の首の向き・音量・タッチの体感は実機で確認してください。
 
-Open **Mini Apps → JANKEN / QUICK TAP / FORTUNE**. Janken is rock-paper-scissors followed by "look over there": the winner points, and a matching glance scores; first to two wins. Quick Tap measures your reaction to a green signal over five rounds and keeps a personal best; tapping early is a false start. Fortune draws one slip a day once the clock is synced. Head motion is opt-in in Janken and pauses during conversations or other activity. New `look-up` / `look-down` reactions are available everywhere reactions are. The classic 4 MB M5Stack does not include the play pack.
+Open **Mini Apps → JANKEN / QUICK TAP / FORTUNE**. Janken is rock-paper-scissors followed by "look over there": the winner points, and a matching glance scores; first to two wins. Quick Tap measures your reaction to a green signal over five rounds and keeps a personal best; tapping early is a false start. Fortune draws one slip a day once the clock is synced. Head motion is opt-in in Janken and pauses during conversations or other activity. New `look-up` / `look-down` reactions are available everywhere reactions are. M5StackChan CoreS3 is the only supported hardware; the former classic 4 MB M5Stack build has been retired.

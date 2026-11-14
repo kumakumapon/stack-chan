@@ -71,6 +71,7 @@ Moddable SDKやESP-IDFのセットアップは不要です。
 初代M5Stack、Core2、通常のCoreS3、Stack-chan RT、タカオ版Core2 + SG90は対象外です。
 WASMシミュレーターとLinux実行環境は開発・自動テスト用に維持します。
 ビルドと書き込みは[ファームウェアの説明](./firmware/README_ja.md)を参照してください。
+旧機種向けの容量課題と過去の検証記録の扱いは[対応終了の案内](./docs/operations/retired-hardware_ja.md)を参照してください。
 
 自作する場合は、[ケース](./case/README_ja.md)で必要な部品と組み立て方を確認してください。
 基板情報は[回路図](./schematics/README_ja.md)で確認できます。
