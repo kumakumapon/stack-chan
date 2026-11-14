@@ -216,7 +216,7 @@ export function PreferencesPage() {
                 name: 'tts.volume',
                 label: '音量（0–1）',
                 type: 'number',
-                step: '0.1',
+                step: '0.01',
                 min: '0',
                 max: '1',
               })}
