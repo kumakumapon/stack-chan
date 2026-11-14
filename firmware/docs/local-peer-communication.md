@@ -1,6 +1,6 @@
 # Local peer messaging
 
-ESP32 Stack-chan targets expose nearby messaging through `context.connectivity.localPeer` without requiring the Internet. The host supports ESP-NOW and BLE Serial behind the same API.
+M5StackChan CoreS3 exposes nearby messaging through `context.connectivity.localPeer` without requiring the Internet. The host supports ESP-NOW and BLE Serial behind the same API.
 
 ```js
 const session = await context.connectivity.localPeer.open({
@@ -14,7 +14,7 @@ if (peers.length)
   await session.send(peers[0].id, "pose.changed", { pan: 0.2, tilt: -0.1 });
 ```
 
-ESP-NOW is preferred when `transport` is omitted. The 4 MB `esp32/m5stack` build contains only BLE and therefore defaults to BLE. An explicitly requested unavailable transport rejects with `LocalPeerError.code === 'not-supported'`.
+ESP-NOW is preferred when `transport` is omitted. An explicitly requested unavailable transport rejects with `LocalPeerError.code === 'not-supported'`. The former BLE-only 4 MB `esp32/m5stack` target has been retired; see [retired hardware (Japanese)](../../docs/operations/retired-hardware_ja.md).
 
 BLE advertises the Nordic UART Service as `STK-LP-XXXX`. It accepts one PC or phone central at a time. `discover()` returns that connected central, while `broadcast()` sends to it without acknowledgement. A broadcast made while disconnected is not delivered. Use the reusable [Web Bluetooth client](../../web/local-peer/ble-local-peer.mjs) from a user gesture that is allowed to open the browser device chooser.
 
