@@ -1,0 +1,275 @@
+M5StackChan CoreS3 physical-device validation — 2026-11-14 JST
+
+Session began November 14 and continued into November 15 JST; exact per-case
+timestamps were not recorded.
+
+Final status (read before the chronological observations below):
+- Firmware tested: fe64b25f3dd3ed8d105f5dd47fef2fa6753e078a, standard release
+  host built locally with Moddable 9.5.0 / ESP-IDF 6.1.0, flashed with verified hash.
+- Physical observations are user-reported; serial/build results were captured
+  by the agent. This is a partial acceptance record, not a release sign-off.
+- Confirmed: face display; head tap/hold/stroke and stroke recovery/repeat;
+  greeting completion; two recordings/playbacks; two camera openings and
+  input recovery; language/timezone persistence; volume saving/preview;
+  normal-boot Wi-Fi auto-connect; three USB-connected power cycles;
+  LED on/off; servo menu motion/return; look-around movement/stop;
+  Face/palette and hand selection; tilt recovery; tone; clock/battery display;
+  Web BLE language/volume read and volume write/reconnect/restore.
+- Initial head-stroke nonresponse was not reproduced after the update;
+  the cause of the initial observation is unknown.
+- Initial Wi-Fi-loss suspicion and look-around nonmovement were superseded
+  by successful normal-boot reconnection and movement after waiting.
+- Remaining: strict USB-disconnected boot procedure; exhaustive expressions;
+  multiple enabled look-around targets/eye movement; battery power/low-battery;
+  quiet hours; Gateway/USB conversations; MOD/Gallery and other release cases.
+- Follow-ups: setup Wi-Fi UI starts disconnected with no saved-network display;
+  Web timezone field is absent. Neither is fixed by this PR.
+- PR code fix: Web volume input step 0.1 -> 0.01 with a patch changeset.
+  Web build and 8 related tests pass; modified Web UI has not been published
+  or manually tested with the physical device at 1% increments.
+
+Chronological observations (later results supersede provisional statuses):
+
+Connection: COM3, USB VID_303A/PID_1001.
+Initial firmware SHA/version and MOD: not identified.
+Local checkout: fe64b25f (not evidence of installed firmware version).
+Initial observations below were collected before the firmware update.
+
+Observed serial log:
+- USB_UART_CHIP_RESET occurred when opening the serial connection.
+- CoreS3 AXP2101 power-rail patch, app start and LCD touch initialization logged.
+
+User-reported observations:
+- Face appears: PASS for observed display only.
+- Stroking the head: no response; unresolved (gesture technique/input path not yet isolated).
+- Menu greeting: completes; PASS for reported completion only.
+
+Pending:
+- Separate head tap, hold and reciprocal stroke checks while idle.
+- Identify installed FW/MOD before treating these as release-candidate acceptance.
+- Establish head-touch input logs if the above operations all fail.
+
+Firmware update (explicitly requested by user):
+- Source SHA: fe64b25f3dd3ed8d105f5dd47fef2fa6753e078a.
+- Target: m5stackchan_cores3, standard host manifest, release mode.
+- Local SDK: Moddable 9.5.0; ESP-IDF 6.1.0.
+- npm ci completed; npm run build completed.
+- npm run deploy -- --port COM3 completed with exit code 0.
+- esptool reported Hash of data verified, then hard reset.
+- Capacity report passed: 6,608,048 / 16,318,464 bytes;
+  XS keys 7,899 / 8,192, free 293 (minimum 256).
+- Post-update serial capture: power rails patched, app context created,
+  app behaviors ready. Physical display and head-touch response pending.
+- No MOD was written in this session. Existing MOD/settings state is unverified.
+
+Post-update physical observations (user reported):
+- Head single tap: expression and neck respond — PASS for visible response.
+- Head hold (approximately 1 second): expression and neck respond — PASS
+  for visible response.
+- Reciprocal head stroke: expression and neck respond — PASS for visible response.
+- Initial unresponsive stroke was not reproduced after the update; root cause
+  of the pre-update observation remains unknown.
+- Gesture-specific expression selection, restoration timing, torque release,
+  repeated operation and reboot persistence have not yet been checked.
+
+Additional post-update observations (user reported):
+- After stroking and waiting as instructed (5–10 seconds), expression and
+  posture return to normal — PASS for visible restoration.
+- Stroking again produces a response — PASS for repeated operation.
+- Menu greeting finishes its audio and motion and returns to the normal
+  screen — PASS for completion and visible restoration.
+- The above supersedes the earlier pending restoration/repeat checks.
+- Exact gesture-specific expressions, torque release/remaining motor noise
+  and reboot persistence remain unverified.
+
+Recording/playback diagnostic (user reported):
+- Two consecutive recording/playback runs both reproduce the recorded voice.
+- No audible dropout or silence in either run.
+- Returns to normal screen and remains operable after completion.
+- G-21: PASS for this two-run manual check on the updated firmware.
+- This does not establish Gateway streaming, STT or long-duration audio quality.
+
+Camera diagnostic (user reported, following the two-run instructions):
+- Both camera openings display video and close back to the normal screen.
+- Menu operation and head-stroke response remain normal after closing.
+- G-19: PASS for this two-run manual check on the updated firmware.
+- Head-touch recovery after camera use: PASS for observed stroke response.
+
+Power-cycle check (user reported):
+- One power cycle completed; face appears after startup.
+- Head stroke responds after startup.
+- Menu opens and remains operable.
+- PASS for this single power-cycle check; G-02 requires three cycles and
+  is not yet complete. Settings persistence remains unverified.
+
+Startup-settings volume check (user reported):
+- Volume setting is saved and the confirmation tone changes to match it.
+- PASS for reported volume adjustment and persistence in startup settings.
+- Exact tested levels and explicit power-cycle details were not reported;
+  full G-06 low/medium/high and G-08 multi-setting acceptance remain open.
+
+Startup-settings language check (user reported):
+- Switching to English updates the display to English.
+- Switching back to Japanese updates the display to Japanese.
+- After saving and restarting, Japanese is retained.
+- User reports no problems with the instructed checks, including display
+  completeness and operability.
+- G-04: PASS. Language persistence portion of G-08: PASS.
+- One additional restart was reported; whether it was a full power cycle
+  was not specified, so it is not counted toward G-02's three power cycles.
+
+Startup-settings timezone check (user reported):
+- Clock changes when selecting another city and returns to Japan time
+  when selecting Tokyo, following the instructed sequence.
+- Saved timezone is retained after restarting.
+- G-05: PASS for the observed clock changes.
+- Timezone persistence portion of G-08: PASS.
+- Exact displayed times and selected comparison city were not recorded.
+
+Wi-Fi restart check (user reported):
+- Restarting from a connected state returns to disconnected.
+- User suspects Wi-Fi settings are forgotten; persistence versus connection
+  failure has not yet been isolated.
+- G-08 Wi-Fi auto-reconnection: FAIL for this attempt.
+- Do not mark the overall settings-persistence acceptance complete.
+
+Wi-Fi follow-up:
+- User reports the previously selected network name is absent in setup UI.
+- Source inspection: setup-mode initializes status to NOT_CONNECTED,
+  networks to an empty list and selectedSSID to an empty string; this UI
+  state is not proof that stored credentials have been deleted.
+- A 25-second COM3 capture included USB_UART_CHIP_RESET, No Wi-Fi SSID,
+  then [main] start, [main] network ready: connected,
+  [main] app context created and [main] app behaviors ready (in that order).
+- The pre-main missing-SSID line is not attributed to the main boot attempt;
+  the capture may include buffered output. Main reports connected.
+- Earlier G-08 FAIL is a user-observed symptom, not a confirmed storage bug.
+  Automatic reconnection needs confirmation separately from setup UI status.
+- No production code changed during this investigation.
+
+Wi-Fi normal-boot confirmation (user reported):
+- Restarting without entering setup shows Wi-Fi connecting, then the face.
+- Combined with the captured main network-ready connected status, normal
+  boot auto-reconnection is confirmed for this tested sequence.
+- G-08 Wi-Fi persistence/auto-reconnection portion: PASS for this sequence;
+  supersedes the provisional FAIL above. Credential loss was not reproduced.
+- Setup UI still starts disconnected with an empty network list even when
+  credentials are stored. Track as a usability follow-up: distinguish saved
+  credentials from current connection state; this is not a storage-loss fix.
+- New credential entry and scanning (G-07), recovery from AP loss and repeated
+  power-cycle connectivity have not yet been fully validated.
+
+LED diagnostic (user reported):
+- Enabling LED produces rainbow illumination.
+- Disabling LED turns it off completely.
+- Menu remains operable afterwards.
+- G-18: PASS for this manual check.
+
+Servo menu diagnostic (user reported):
+- Head moves left/right and up/down, then returns to the front.
+- No remaining vibration or audible motor holding noise after completion.
+- Menu remains operable afterwards.
+- G-16: PASS for this manual check. Absence of holding noise is observed;
+  electrical torque-release state was not measured.
+- This is the built-in servo menu, not the separate servo_selftest MOD;
+  Issue #17 self-test classification/JSON acceptance remains open.
+
+Look-around menu check (user reported):
+- Selecting look-around produces no observed gaze or neck movement.
+- G-17: FAIL for the reported enable attempt; wait duration and enabled
+  indicator state have not yet been established. Cause under investigation.
+- Built-in servo diagnostic previously passed; this does not establish
+  a servo hardware failure.
+
+Look-around follow-up (user reported):
+- The looking indicator appears when enabled.
+- After waiting at least 15 seconds, neck movement was observed.
+- Enable/movement observation: PASS; supersedes the provisional no-movement
+  failure above. Exact movement onset was not measured.
+- Implementation updates the target every 5 seconds; multiple target
+  updates, visible eye movement and disable/stop behavior remain unverified.
+- G-17 is not yet complete pending those checks.
+
+Look-around disable check (user reported):
+- After disabling and waiting approximately 15 seconds, look-around stops.
+- No remaining neck vibration or motor holding noise.
+- Menu remains operable.
+- Disable/stop behavior: PASS for this manual check.
+- G-17 remains partial: enabled neck movement and disabled stopping are
+  confirmed; two enabled pose updates and visible eye movement have not
+  been explicitly reported. Electrical torque release was not measured.
+
+Face selection check (user reported):
+- Simple, dog and image Faces can each be selected.
+- Changing expressions on each Face renders eyes/mouth without reported
+  missing parts or loss of operability.
+- Returning to the preferred Face works normally.
+- PASS for instructed Face selection/expression checks; full G-11 remains
+  partial because all expressions and light/dark palettes were not enumerated.
+
+Hand selection check (user reported):
+- None removes the hands.
+- Rock-paper-scissors, clap and thinking selections animate the hands.
+- Menu remains operable after switching.
+- G-12: PASS for hand rendering/animation and operability; automatic drawer
+  closing was not explicitly reported.
+
+IMU tilt check (user reported):
+- Slowly tilting the supported device changes its expression.
+- Returning it to its original orientation and waiting restores the normal
+  expression.
+- Menu operation and head-stroke response remain normal afterwards.
+- PASS for the instructed tilt/recovery check. G-14 remains partial because
+  the separate light-vibration stimulus was not tested.
+
+Tone playback diagnostic (user reported):
+- Confirmation tone plays to completion without audible dropout.
+- Menu remains operable after completion.
+- G-20: PASS for this manual check.
+
+Repeated power-cycle check (user reported, two additional cycles):
+- Both additional cycles pass all three instructed observations: Wi-Fi
+  connecting followed by the face, no boot loop/screen freeze, and normal
+  menu operation/head-stroke response.
+- Three user-reported power cycles now pass in this session.
+- G-02 boot-stability observations: PASS for this sequence. USB was allowed
+  to remain connected in the instructions, so USB-disconnected startup is
+  not established and strict G-02 procedure is not fully complete.
+- Normal Wi-Fi auto-reconnection also passes in the two additional cycles.
+
+Status-bar check (user reported):
+- Time updates while displayed.
+- Battery level is displayed.
+- PASS for these display observations. Full G-15 remains partial: numeric
+  range, accuracy, battery configuration and battery versus external-power
+  behavior were not recorded. Low-battery notification is unverified.
+
+Face light/dark palette check (user reported):
+- Simple, dog and image Faces each switch between light/dark palettes.
+- No reported missing or unreadable eyes, mouth or balloon.
+- Returning to the preferred Face and palette succeeds.
+- PASS for the instructed palette checks; together with earlier Face checks,
+  selection and palette coverage is complete. G-11's exhaustive expression
+  coverage remains unverified because individual expressions were not listed.
+
+Web Preferences BLE read check (user reported):
+- Language and volume read normally.
+- Timezone setting is not present/visible in the Web settings UI.
+- PASS for reported language/volume readback; timezone comparison not run.
+- G-23 remains partial pending write/reconnect validation.
+- Source confirms Web preference-model PREFERENCE_KEYS omits time.timezone,
+  while firmware PREF_KEYS includes it. Web timezone UI/readback is a missing
+  feature, not a device-read failure; retain as a follow-up.
+
+Web Preferences BLE write/reconnect check (user reported):
+- Volume change saves successfully and is reflected in the device setting
+  and confirmation tone.
+- Disconnecting/reconnecting reads back the changed value.
+- Restoring and saving the original volume succeeds.
+- G-23: PASS for this volume read/write/reconnect sequence.
+- Web volume spinner uses 0.1 steps while device uses 0.01. Local Web source
+  changed to 0.01; this local change has not been published or device-tested.
+- Local fix validation: Web production build (TypeScript + Vite) PASS;
+  preference page/hook/BLE client tests PASS (3 files, 8 tests);
+  git diff --check PASS. These checks do not verify native browser spinner
+  behavior or BLE roundtrip at 1% increments on the modified Web build.
