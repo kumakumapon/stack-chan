@@ -73,6 +73,15 @@ jobs:
           name: firmware-size-${{ matrix.target }}
           path: ./firmware/dist/size-reports
           if-no-files-found: error
+      - name: Upload XS comparison diagnostics
+        uses: actions/upload-artifact@v7
+        with:
+          name: xs-comparison-diagnostics
+          path: |
+            ./firmware/dist/tmp/esp32/**/release/stack-chan-host/mc.xs.c
+            ./firmware/dist/tmp/esp32/**/release/stack-chan-host/mc.xs.h
+            ./firmware/dist/tmp/esp32/**/release/stack-chan-host/manifest_flat.json
+          if-no-files-found: error
       - name: Upload bundle target
         uses: actions/upload-artifact@v7
         with:
