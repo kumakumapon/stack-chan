@@ -118,9 +118,7 @@
     "sntp": "pool.ntp.org",
     "driver": {
       "panId": 1,
-      "tiltId": 2,
-      "offsetTilt": 0,
-      "offsetPan": 0
+      "tiltId": 2
     },
     "enablePowerButton": true
   },

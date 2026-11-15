@@ -153,14 +153,14 @@ export class PreferenceServer extends UARTServer {
     }
     const prop = `${domain}.${key}`
     if (this.#readOnlyKeys.includes(prop)) {
-      trace(`ignoring read-only preference ... ${prop}: ${value}\n`)
+      trace(`ignoring read-only preference ... ${prop}\n`)
       const currentValue = this.#effectiveValues[prop]
       if (currentValue != null) this.notifyPreference(prop, currentValue, true)
       return
     }
     const currentValue = Preference.get(domain, key) ?? this.#effectiveValues[prop]
     if (currentValue !== value) {
-      trace(`changing preference ... ${domain}.${key}: ${value}\n`)
+      trace(`changing preference ... ${domain}.${key}\n`)
       Preference.set(domain, key, value)
       this.notifyPreference(prop, value)
       this.#handlePreferenceChanged?.(prop, value)

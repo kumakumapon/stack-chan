@@ -46,6 +46,9 @@ export default defineConfig({
   plugins: [react(), tailwindcss(), copyRuntimeAssets()],
   resolve: {
     alias: {
+      'timezone-model': fileURLToPath(
+        new URL('../firmware/host/modules/preferences/timezone-model.ts', import.meta.url)
+      ),
       quiz: fileURLToPath(new URL('../firmware/host/app/quiz.ts', import.meta.url)),
       '@/editor': fileURLToPath(new URL('./editor', import.meta.url)),
       '@': fileURLToPath(new URL('./src', import.meta.url)),

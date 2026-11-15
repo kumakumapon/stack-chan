@@ -5,6 +5,7 @@ import { launcherRow, tapLauncherRow } from './simulator/lcd-test-helpers.mjs'
 
 import { resolveChromium, startPreview } from './test-preview-server.mjs'
 import { captureScreenshot } from './test-browser-screenshot.mjs'
+import { checkPreferenceBrowser } from './preference-browser-check.mjs'
 
 const port = Number(process.env.STACKCHAN_PAGES_TEST_PORT ?? 8097)
 const executablePath = resolveChromium()
@@ -37,6 +38,7 @@ try {
     headless: true,
     args: ['--no-sandbox', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'],
   })
+  await checkPreferenceBrowser(browser, baseUrl)
   const context = await browser.newContext()
   await context.addInitScript(() => {
     if (!localStorage.getItem('stackchan.locale')) localStorage.setItem('stackchan.locale', 'ja')

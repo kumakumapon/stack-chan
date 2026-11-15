@@ -70,9 +70,25 @@ export class BlePreferenceClient implements PreferenceClient {
   private readonly handleValueChanged = (event: CharacteristicValueEvent) => {
     try {
       const decoded = this.decoder.decode(event.target.value)
-      this.onValue(JSON.parse(decoded) as PreferenceValue)
-    } catch (error) {
-      console.warn('[preferences] Invalid BLE notification', error)
+      const payload: unknown = JSON.parse(decoded)
+      if (
+        !payload ||
+        typeof payload !== 'object' ||
+        !('prop' in payload) ||
+        typeof payload.prop !== 'string' ||
+        !('value' in payload) ||
+        ('readOnly' in payload && typeof payload.readOnly !== 'boolean')
+      ) {
+        throw new Error('Invalid preference notification')
+      }
+      this.onValue({
+        prop: payload.prop,
+        value: payload.value,
+        ...('readOnly' in payload && typeof payload.readOnly === 'boolean' ? { readOnly: payload.readOnly } : {}),
+      })
+    } catch {
+      // Parser errors may contain the original JSON, including passwords or API tokens.
+      console.warn('[preferences] Invalid BLE notification')
     }
   }
 
@@ -126,7 +142,11 @@ export class BlePreferenceClient implements PreferenceClient {
 
   async send(payload: { _batch: Record<string, string> }) {
     if (!this.rx || !this.isConnected()) throw new AppError('not-connected', 'ｽﾀｯｸﾁｬﾝへ接続していません')
-    const bytes = this.encoder.encode(JSON.stringify(payload))
+    const serialized = JSON.stringify(payload)
+    // Match PreferenceServer's bounded receive buffer before making any partial write.
+    if (serialized.length > 32768)
+      throw new AppError('preference-too-large', '設定データが大きすぎます。入力を短くして保存してください。')
+    const bytes = this.encoder.encode(serialized)
     for (let index = 0; index < bytes.length;) {
       let end = Math.min(index + 128, bytes.length)
       // Firmware decodes each GATT write as UTF-8, so never split a code point.
