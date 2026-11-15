@@ -17,6 +17,7 @@ import { Column, Container, Label, Port, Scroller, Skin, Style } from 'piu/MC'
 import type { SettingsNetworkEntry } from 'settings-network-list'
 import type { SettingsStatus, SettingsStatusValue as SettingsStatusValueModel } from 'settings-status-model'
 import {
+  hasSavedWiFiCredentials,
   SettingsStatusValue as SettingsStatusValueConst,
   settingsStatusToLabel as settingsStatusToLabelImpl,
 } from 'settings-status-model'
@@ -89,10 +90,12 @@ export type SettingsViewDefinition = Readonly<{
 
 type SettingsWifiViewHandles = {
   wifi: PiuContent & { string?: string }
+  savedNetwork: PiuContent & { string?: string }
   scan: PiuContainer
   boot: PiuContainer
+  offline: PiuContainer
   bootState: {
-    connected: boolean
+    canBoot: boolean
   }
   list: PiuColumn
   networkState: {
@@ -103,7 +106,8 @@ type SettingsWifiViewHandles = {
 
 const STATUS_TOP = UI.headerHeight + 4
 const STATUS_HEIGHT = 28
-const ACTION_TOP = STATUS_TOP + STATUS_HEIGHT + 4
+const SAVED_NETWORK_TOP = STATUS_TOP + STATUS_HEIGHT
+const ACTION_TOP = SAVED_NETWORK_TOP + 16 + 4
 const NETWORK_LIST_TOP = ACTION_TOP + UI.touchTarget + 6
 const NETWORK_ROW_HEIGHT = 40
 const PASSWORD_SSID_HEIGHT = 12
@@ -418,7 +422,7 @@ const SettingsWifiView = {
   create(context: SettingsViewContext): SettingsViewInstance {
     const styles = uiStyles()
     const networkState = { networks: [] as SettingsNetworkEntry[] }
-    const bootState = { connected: context.state.status.wifi === SettingsStatusValue.CONNECTED }
+    const bootState = { canBoot: false }
     const scan = new ActionButton(
       { icon: 'scan', label: localize('settings.scan'), onTap: context.actions.scanWifi },
       { left: 8, top: ACTION_TOP, width: 148 },
@@ -426,14 +430,22 @@ const SettingsWifiView = {
     const boot = new ActionButton(
       {
         icon: 'play',
-        label: localize(bootState.connected ? 'settings.boot' : 'splash.offline'),
+        label: localize('settings.boot'),
         onTap: () => {
-          if (bootState.connected) context.actions.boot()
+          if (bootState.canBoot) context.actions.boot()
           else context.actions.navigate(SettingsViewId.OFFLINE)
         },
         tone: 'success',
       },
       { left: 164, top: ACTION_TOP, width: 148 },
+    )
+    const offline = new ActionButton(
+      {
+        icon: 'close',
+        label: localize('splash.offline'),
+        onTap: () => context.actions.navigate(SettingsViewId.OFFLINE),
+      },
+      { left: 8, right: 8, bottom: 8 },
     )
     const handles: SettingsWifiViewHandles = {
       wifi: new Label(null, {
@@ -443,8 +455,16 @@ const SettingsWifiView = {
         height: STATUS_HEIGHT,
         style: styles.bodyMuted,
       }),
+      savedNetwork: new Label(null, {
+        left: 12,
+        right: 12,
+        top: SAVED_NETWORK_TOP,
+        height: 16,
+        style: styles.bodyMuted,
+      }),
       scan,
       boot,
+      offline,
       bootState,
       list: new Column(null, { left: 0, width: UI.screenWidth, top: 0 }),
       networkState,
@@ -464,13 +484,15 @@ const SettingsWifiView = {
           onLeading: () => context.actions.navigate(SettingsViewId.MENU),
         }),
         handles.wifi,
+        handles.savedNetwork,
         scan,
         boot,
+        offline,
         new Scroller(null, {
           left: 0,
           right: 0,
           top: NETWORK_LIST_TOP,
-          bottom: 0,
+          bottom: UI.touchTarget + 12,
           active: true,
           backgroundTouch: true,
           clip: true,
@@ -495,6 +517,10 @@ const SettingsWifiView = {
 
 function updateSettingsStatus(handles: SettingsWifiViewHandles, status: SettingsStatus): void {
   handles.wifi.string = localize('settings.wifiStatus', { status: settingsStatusToLabel(status.wifi) })
+  const saved = hasSavedWiFiCredentials(status)
+  handles.savedNetwork.string = status['wifi.ssid']
+    ? localize('settings.savedNetwork', { ssid: fitSSID(status['wifi.ssid']) })
+    : localize('settings.noSavedNetwork')
   const scanning = status.wifi === SettingsStatusValue.SCANNING
   setActionButtonLabel(handles.scan, localize(scanning ? 'settings.scanning' : 'settings.scan'))
   setActionButtonEnabled(handles.scan, !scanning)
@@ -502,9 +528,14 @@ function updateSettingsStatus(handles: SettingsWifiViewHandles, status: Settings
     status.wifi === SettingsStatusValue.CONNECTING ||
     status.wifi === SettingsStatusValue.SYNCING_TIME ||
     status.wifi === SettingsStatusValue.RECONNECTING
-  handles.bootState.connected = status.wifi === SettingsStatusValue.CONNECTED
-  setActionButtonLabel(handles.boot, localize(handles.bootState.connected ? 'settings.boot' : 'splash.offline'))
+  const connected = status.wifi === SettingsStatusValue.CONNECTED
+  handles.bootState.canBoot = connected || saved
+  setActionButtonLabel(
+    handles.boot,
+    localize(connected ? 'settings.boot' : saved ? 'settings.bootSaved' : 'splash.offline'),
+  )
   setActionButtonEnabled(handles.boot, !scanning && !connecting)
+  setActionButtonEnabled(handles.offline, !scanning && !connecting)
 }
 
 function updateSettingsNetworks(handles: SettingsWifiViewHandles, networks: readonly SettingsNetworkEntry[]) {

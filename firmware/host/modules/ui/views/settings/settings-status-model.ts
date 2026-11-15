@@ -41,3 +41,7 @@ export type SettingsStatus = {
   'time.timezone'?: string
   'tts.volume'?: number
 }
+
+export function hasSavedWiFiCredentials(status: SettingsStatus): boolean {
+  return Boolean(status['wifi.ssid']?.length && status['wifi.password']?.length)
+}
