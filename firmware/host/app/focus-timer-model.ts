@@ -26,14 +26,22 @@ export function isFocusTimerPreset(value: unknown): value is FocusTimerPreset {
 
 export class FocusTimerModel {
   #now: () => number
-  #preset: FocusTimerPreset = 'focus-25'
-  #state: FocusTimerState = 'idle'
-  #remainingMs: number | null = FOCUS_TIMER_PRESETS['focus-25'].durationMs
+  readonly #data: {
+    -readonly [Key in keyof Omit<FocusTimerSnapshot, 'phase' | 'durationMs'>]: Omit<
+      FocusTimerSnapshot,
+      'phase' | 'durationMs'
+    >[Key]
+  } = {
+    preset: 'focus-25',
+    state: 'idle',
+    remainingMs: FOCUS_TIMER_PRESETS['focus-25'].durationMs,
+    generation: 0,
+    pauseReason: undefined,
+    interruptionReason: undefined,
+  }
+
   #deadline = 0
   #lastClock: number | undefined
-  #generation = 0
-  #pauseReason: FocusTimerSnapshot['pauseReason']
-  #interruptionReason: FocusTimerSnapshot['interruptionReason']
 
   constructor(now: () => number, saved?: unknown) {
     this.#now = now
@@ -42,110 +50,110 @@ export class FocusTimerModel {
 
   snapshot(): FocusTimerSnapshot {
     return Object.freeze({
-      state: this.#state,
-      preset: this.#preset,
-      ...FOCUS_TIMER_PRESETS[this.#preset],
-      remainingMs: this.#remainingMs,
-      generation: this.#generation,
-      ...(this.#pauseReason ? { pauseReason: this.#pauseReason } : {}),
-      ...(this.#interruptionReason ? { interruptionReason: this.#interruptionReason } : {}),
+      state: this.#data.state,
+      preset: this.#data.preset,
+      ...FOCUS_TIMER_PRESETS[this.#data.preset],
+      remainingMs: this.#data.remainingMs,
+      generation: this.#data.generation,
+      ...(this.#data.pauseReason ? { pauseReason: this.#data.pauseReason } : {}),
+      ...(this.#data.interruptionReason ? { interruptionReason: this.#data.interruptionReason } : {}),
     })
   }
 
   select(preset: FocusTimerPreset): boolean {
-    if (this.#state !== 'idle' || !isFocusTimerPreset(preset) || preset === this.#preset) return false
-    this.#preset = preset
-    this.#remainingMs = FOCUS_TIMER_PRESETS[preset].durationMs
-    this.#generation++
+    if (this.#data.state !== 'idle' || !isFocusTimerPreset(preset) || preset === this.#data.preset) return false
+    this.#data.preset = preset
+    this.#data.remainingMs = FOCUS_TIMER_PRESETS[preset].durationMs
+    this.#data.generation++
     return true
   }
 
-  start(preset: FocusTimerPreset = this.#preset): boolean {
-    if (this.#state === 'running' || this.#state === 'paused' || !isFocusTimerPreset(preset)) return false
-    this.#preset = preset
-    this.#pauseReason = undefined
-    this.#interruptionReason = undefined
+  start(preset: FocusTimerPreset = this.#data.preset): boolean {
+    if (this.#data.state === 'running' || this.#data.state === 'paused' || !isFocusTimerPreset(preset)) return false
+    this.#data.preset = preset
+    this.#data.pauseReason = undefined
+    this.#data.interruptionReason = undefined
     this.#lastClock = undefined
     const now = this.#readClock()
     if (now === undefined) return false
-    this.#remainingMs = FOCUS_TIMER_PRESETS[preset].durationMs
-    this.#deadline = now + this.#remainingMs
-    this.#state = 'running'
-    this.#generation++
+    this.#data.remainingMs = FOCUS_TIMER_PRESETS[preset].durationMs
+    this.#deadline = now + this.#data.remainingMs
+    this.#data.state = 'running'
+    this.#data.generation++
     return true
   }
 
-  elapsed(generation = this.#generation): boolean {
-    if (generation !== this.#generation || this.#state !== 'running') return false
+  elapsed(generation = this.#data.generation): boolean {
+    if (generation !== this.#data.generation || this.#data.state !== 'running') return false
     const now = this.#readClock()
     if (now === undefined) return false
-    this.#remainingMs = Math.max(0, this.#deadline - now)
-    if (this.#remainingMs !== 0) return false
-    this.#state = 'completed'
-    this.#generation++
+    this.#data.remainingMs = Math.max(0, this.#deadline - now)
+    if (this.#data.remainingMs !== 0) return false
+    this.#data.state = 'completed'
+    this.#data.generation++
     return true
   }
 
   pause(reason: 'user' | 'hidden' = 'user', at?: number): boolean {
-    if (this.#state !== 'running') return false
+    if (this.#data.state !== 'running') return false
     // A queued browser visibility event carries its original monotonic instant.
     // Even if RAF/timers stopped, time spent hidden must not count on return.
     const now = this.#readClock(at)
     if (now === undefined) return false
-    this.#remainingMs = Math.max(0, this.#deadline - now)
-    if (this.#remainingMs === 0) {
-      this.#state = 'completed'
+    this.#data.remainingMs = Math.max(0, this.#deadline - now)
+    if (this.#data.remainingMs === 0) {
+      this.#data.state = 'completed'
     } else {
-      this.#state = 'paused'
-      this.#pauseReason = reason
+      this.#data.state = 'paused'
+      this.#data.pauseReason = reason
     }
-    this.#generation++
-    return this.#state === 'paused'
+    this.#data.generation++
+    return this.#data.state === 'paused'
   }
 
   resume(): boolean {
-    if (this.#state !== 'paused') return false
+    if (this.#data.state !== 'paused') return false
     const now = this.#readClock()
     if (now === undefined) return false
-    this.#deadline = now + (this.#remainingMs ?? 0)
-    this.#state = 'running'
-    this.#pauseReason = undefined
-    this.#generation++
+    this.#deadline = now + (this.#data.remainingMs ?? 0)
+    this.#data.state = 'running'
+    this.#data.pauseReason = undefined
+    this.#data.generation++
     return true
   }
 
   cancel(): boolean {
-    if (this.#state !== 'running' && this.#state !== 'paused') return false
+    if (this.#data.state !== 'running' && this.#data.state !== 'paused') return false
     this.#reset()
     return true
   }
 
   acknowledge(): boolean {
-    if (this.#state !== 'completed' && this.#state !== 'interrupted') return false
+    if (this.#data.state !== 'completed' && this.#data.state !== 'interrupted') return false
     this.#reset()
     return true
   }
 
   interrupt(reason: 'reboot' | 'clock'): void {
-    this.#state = 'interrupted'
-    this.#remainingMs = null
-    this.#pauseReason = undefined
-    this.#interruptionReason = reason
-    this.#generation++
+    this.#data.state = 'interrupted'
+    this.#data.remainingMs = null
+    this.#data.pauseReason = undefined
+    this.#data.interruptionReason = reason
+    this.#data.generation++
   }
 
   serialize(): string {
     // Only settings and the latest state. No history, deadlines or task contents.
-    return JSON.stringify({ version: 1, preset: this.#preset, state: this.#state })
+    return JSON.stringify({ version: 1, preset: this.#data.preset, state: this.#data.state })
   }
 
   restore(saved: unknown): void {
-    this.#preset = 'focus-25'
-    this.#state = 'idle'
+    this.#data.preset = 'focus-25'
+    this.#data.state = 'idle'
     this.#lastClock = undefined
-    this.#pauseReason = undefined
-    this.#interruptionReason = undefined
-    this.#generation++
+    this.#data.pauseReason = undefined
+    this.#data.interruptionReason = undefined
+    this.#data.generation++
     try {
       const value = typeof saved === 'string' ? JSON.parse(saved) : undefined
       if (
@@ -153,22 +161,22 @@ export class FocusTimerModel {
         isFocusTimerPreset(value.preset) &&
         ['idle', 'running', 'paused', 'completed', 'interrupted'].includes(value.state)
       ) {
-        this.#preset = value.preset
-        this.#state = value.state
-        if (this.#state === 'running' || this.#state === 'paused' || this.#state === 'interrupted') {
-          this.#state = 'interrupted'
-          this.#interruptionReason = 'reboot'
+        this.#data.preset = value.preset
+        this.#data.state = value.state
+        if (this.#data.state === 'running' || this.#data.state === 'paused' || this.#data.state === 'interrupted') {
+          this.#data.state = 'interrupted'
+          this.#data.interruptionReason = 'reboot'
         }
       }
     } catch {
       // A corrupt or newer record cannot create an active timer.
     }
-    this.#remainingMs =
-      this.#state === 'interrupted'
+    this.#data.remainingMs =
+      this.#data.state === 'interrupted'
         ? null
-        : this.#state === 'completed'
+        : this.#data.state === 'completed'
           ? 0
-          : FOCUS_TIMER_PRESETS[this.#preset].durationMs
+          : FOCUS_TIMER_PRESETS[this.#data.preset].durationMs
   }
 
   #readClock(at?: number): number | undefined {
@@ -193,11 +201,11 @@ export class FocusTimerModel {
   }
 
   #reset(): void {
-    this.#state = 'idle'
-    this.#remainingMs = FOCUS_TIMER_PRESETS[this.#preset].durationMs
-    this.#pauseReason = undefined
-    this.#interruptionReason = undefined
+    this.#data.state = 'idle'
+    this.#data.remainingMs = FOCUS_TIMER_PRESETS[this.#data.preset].durationMs
+    this.#data.pauseReason = undefined
+    this.#data.interruptionReason = undefined
     this.#lastClock = undefined
-    this.#generation++
+    this.#data.generation++
   }
 }

@@ -110,12 +110,17 @@ export function parseFortuneRecord(raw: unknown): FortuneRecord | undefined {
 
 export class FortuneTeller {
   readonly #options: FortuneOptions
-  #phase: FortunePhase = 'ready'
-  #draw: FortuneDraw | null = null
+  readonly #state: {
+    -readonly [Key in keyof Omit<FortuneSnapshot, 'dated' | 'canDraw'>]: Omit<FortuneSnapshot, 'dated' | 'canDraw'>[Key]
+  } = {
+    phase: 'ready',
+    draw: null,
+    shake: 0,
+    repeat: false,
+    saveFailed: false,
+  }
   #drawnDay: number | null = null
-  #shake = 0
-  #repeat = false
-  #saveFailed = false
+
   #generation = 0
   #cancelTimer: (() => void) | undefined
   #cancelEffect: (() => void) | undefined
@@ -133,28 +138,28 @@ export class FortuneTeller {
     }
     const record = parseFortuneRecord(raw)
     if (record?.day === today) {
-      this.#phase = 'revealed'
-      this.#draw = { rank: record.rank, action: record.action, color: record.color }
+      this.#state.phase = 'revealed'
+      this.#state.draw = { rank: record.rank, action: record.action, color: record.color }
       this.#drawnDay = today
-      this.#repeat = true
+      this.#state.repeat = true
     }
   }
 
   snapshot(): FortuneSnapshot {
     const today = this.#today()
     return {
-      phase: this.#phase,
-      draw: this.#draw,
-      shake: this.#shake,
+      phase: this.#state.phase,
+      draw: this.#state.draw,
+      shake: this.#state.shake,
       dated: today !== null,
-      repeat: this.#repeat,
+      repeat: this.#state.repeat,
       canDraw: this.#canDraw(today),
-      saveFailed: this.#saveFailed,
+      saveFailed: this.#state.saveFailed,
     }
   }
 
   subscribe(listener: (snapshot: FortuneSnapshot) => void): () => void {
-    if (this.#phase === 'closed') return () => undefined
+    if (this.#state.phase === 'closed') return () => undefined
     this.#listeners.add(listener)
     listener(this.snapshot())
     return () => this.#listeners.delete(listener)
@@ -163,16 +168,16 @@ export class FortuneTeller {
   draw(): void {
     if (!this.#canDraw(this.#today())) return
     this.#stopEffect()
-    this.#draw = null
-    this.#repeat = false
-    this.#phase = 'shaking'
-    this.#shake = 0
+    this.#state.draw = null
+    this.#state.repeat = false
+    this.#state.phase = 'shaking'
+    this.#state.shake = 0
     this.#shakeFrame()
   }
 
   close(): void {
-    if (this.#phase === 'closed') return
-    this.#phase = 'closed'
+    if (this.#state.phase === 'closed') return
+    this.#state.phase = 'closed'
     this.#generation++
     this.#cancelTimer?.()
     this.#cancelTimer = undefined
@@ -190,20 +195,20 @@ export class FortuneTeller {
   }
 
   #canDraw(today: number | null): boolean {
-    if (this.#phase === 'ready') return true
-    if (this.#phase !== 'revealed') return false
+    if (this.#state.phase === 'ready') return true
+    if (this.#state.phase !== 'revealed') return false
     // One slip per local day; an unsynced clock cannot tell days apart, so it never locks.
     return today === null || this.#drawnDay === null || today !== this.#drawnDay
   }
 
   #shakeFrame(): void {
-    this.#shake++
+    this.#state.shake++
     this.#publish()
     const generation = ++this.#generation
     this.#cancelTimer = this.#options.schedule(() => {
-      if (this.#phase !== 'shaking' || generation !== this.#generation) return
+      if (this.#state.phase !== 'shaking' || generation !== this.#generation) return
       this.#cancelTimer = undefined
-      if (this.#shake < FORTUNE_SHAKE_FRAMES) this.#shakeFrame()
+      if (this.#state.shake < FORTUNE_SHAKE_FRAMES) this.#shakeFrame()
       else this.#reveal()
     }, FORTUNE_SHAKE_INTERVAL)
   }
@@ -211,16 +216,16 @@ export class FortuneTeller {
   #reveal(): void {
     const draw = drawFortune(this.#options.random)
     const day = this.#today()
-    this.#phase = 'revealed'
-    this.#shake = 0
-    this.#draw = draw
+    this.#state.phase = 'revealed'
+    this.#state.shake = 0
+    this.#state.draw = draw
     this.#drawnDay = day
-    this.#saveFailed = false
+    this.#state.saveFailed = false
     if (day !== null && this.#options.storage) {
       try {
         this.#options.storage.set(JSON.stringify({ version: 1, day, ...draw }))
       } catch {
-        this.#saveFailed = true
+        this.#state.saveFailed = true
       }
     }
     this.#publish()

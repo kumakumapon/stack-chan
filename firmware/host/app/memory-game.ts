@@ -54,13 +54,18 @@ export function createMemoryGameScheduler<Handle>(timer: {
 
 export class MemoryGame {
   readonly #options: MemoryGameOptions
-  #phase: MemoryGamePhase = 'ready'
+  readonly #state: {
+    -readonly [Key in keyof Omit<MemoryGameSnapshot, 'round'>]: Omit<MemoryGameSnapshot, 'round'>[Key]
+  } = {
+    phase: 'ready',
+    symbol: null,
+    matched: 0,
+    score: 0,
+    motion: false,
+    motionBlockReason: null,
+  }
   #sequence: MemoryGameSymbol[] = []
-  #symbol: MemoryGameSymbol | null = null
-  #matched = 0
-  #score = 0
-  #motion = false
-  #motionBlockReason: MemoryGameMotionBlockReason | null = null
+
   #generation = 0
   #cancelTimer: (() => void) | undefined
   #cancelReaction: (() => void) | undefined
@@ -72,82 +77,82 @@ export class MemoryGame {
 
   snapshot(): MemoryGameSnapshot {
     return {
-      phase: this.#phase,
-      symbol: this.#symbol,
+      phase: this.#state.phase,
+      symbol: this.#state.symbol,
       round: this.#sequence.length,
-      matched: this.#matched,
-      score: this.#score,
-      motion: this.#motion,
-      motionBlockReason: this.#motionBlockReason,
+      matched: this.#state.matched,
+      score: this.#state.score,
+      motion: this.#state.motion,
+      motionBlockReason: this.#state.motionBlockReason,
     }
   }
 
   subscribe(listener: (snapshot: MemoryGameSnapshot) => void): () => void {
-    if (this.#phase === 'closed') return () => undefined
+    if (this.#state.phase === 'closed') return () => undefined
     this.#listeners.add(listener)
     listener(this.snapshot())
     return () => this.#listeners.delete(listener)
   }
 
   start(): void {
-    if (this.#phase !== 'ready' && this.#phase !== 'lost' && this.#phase !== 'complete') return
+    if (this.#state.phase !== 'ready' && this.#state.phase !== 'lost' && this.#state.phase !== 'complete') return
     this.#stopPending()
     this.#sequence = []
-    this.#score = 0
+    this.#state.score = 0
     this.#appendRound()
   }
 
   next(): void {
-    if (this.#phase !== 'won') return
+    if (this.#state.phase !== 'won') return
     this.#stopPending()
     this.#appendRound()
   }
 
   answer(symbol: MemoryGameSymbol): void {
-    if (this.#phase !== 'input' || !MEMORY_GAME_SYMBOLS.includes(symbol)) return
-    if (this.#sequence[this.#matched] !== symbol) {
-      this.#symbol = this.#sequence[this.#matched]
-      this.#phase = 'lost'
+    if (this.#state.phase !== 'input' || !MEMORY_GAME_SYMBOLS.includes(symbol)) return
+    if (this.#sequence[this.#state.matched] !== symbol) {
+      this.#state.symbol = this.#sequence[this.#state.matched]
+      this.#state.phase = 'lost'
       this.#react('failure')
       this.#publish()
-      this.#options.onResult?.(this.#score)
+      this.#options.onResult?.(this.#state.score)
       return
     }
-    this.#matched++
-    this.#symbol = symbol
+    this.#state.matched++
+    this.#state.symbol = symbol
     // Lock input briefly, including the final answer, so one rapid burst cannot
     // answer repeated symbols or start the next round.
-    this.#phase = 'feedback'
+    this.#state.phase = 'feedback'
     this.#publish()
     this.#wait(220, () => {
-      this.#symbol = null
-      if (this.#matched === this.#sequence.length) {
-        this.#score = this.#sequence.length
-        this.#phase = this.#score === MEMORY_GAME_MAX_ROUNDS ? 'complete' : 'won'
+      this.#state.symbol = null
+      if (this.#state.matched === this.#sequence.length) {
+        this.#state.score = this.#sequence.length
+        this.#state.phase = this.#state.score === MEMORY_GAME_MAX_ROUNDS ? 'complete' : 'won'
         this.#react('success')
         this.#publish()
-        if (this.#phase === 'complete') this.#options.onResult?.(this.#score)
+        if (this.#state.phase === 'complete') this.#options.onResult?.(this.#state.score)
       } else {
-        this.#phase = 'input'
+        this.#state.phase = 'input'
         this.#publish()
       }
     })
   }
 
   setMotion(enabled: boolean): void {
-    if (this.#phase === 'closed') return
-    this.#motion = enabled
+    if (this.#state.phase === 'closed') return
+    this.#state.motion = enabled
     if (!enabled) this.#stopReaction()
-    this.#motionBlockReason = enabled ? (this.#options.motionBlockReason?.() ?? null) : null
+    this.#state.motionBlockReason = enabled ? (this.#options.motionBlockReason?.() ?? null) : null
     this.#publish()
   }
 
   close(): void {
-    if (this.#phase === 'closed') return
-    this.#phase = 'closed'
+    if (this.#state.phase === 'closed') return
+    this.#state.phase = 'closed'
     this.#stopPending()
     this.#sequence = []
-    this.#symbol = null
+    this.#state.symbol = null
     this.#listeners.clear()
   }
 
@@ -155,28 +160,28 @@ export class MemoryGame {
     const random = this.#options.random()
     const index = Number.isFinite(random) ? Math.min(2, Math.max(0, Math.floor(random * 3))) : 0
     this.#sequence.push(MEMORY_GAME_SYMBOLS[index])
-    this.#matched = 0
-    this.#symbol = null
-    this.#phase = 'gap'
+    this.#state.matched = 0
+    this.#state.symbol = null
+    this.#state.phase = 'gap'
     this.#publish()
     this.#wait(500, () => this.#show(0))
   }
 
   #show(index: number): void {
-    this.#phase = 'showing'
-    this.#symbol = this.#sequence[index]
-    this.#react(this.#symbol)
+    this.#state.phase = 'showing'
+    this.#state.symbol = this.#sequence[index]
+    this.#react(this.#state.symbol)
     this.#publish()
     // All three named reactions finish within this display interval.
     this.#wait(1600, () => {
       this.#stopReaction()
-      this.#symbol = null
-      this.#phase = 'gap'
+      this.#state.symbol = null
+      this.#state.phase = 'gap'
       this.#publish()
       this.#wait(350, () => {
         if (index + 1 < this.#sequence.length) this.#show(index + 1)
         else {
-          this.#phase = 'input'
+          this.#state.phase = 'input'
           this.#publish()
         }
       })
@@ -184,11 +189,11 @@ export class MemoryGame {
   }
 
   #wait(delayMs: number, callback: () => void): void {
-    if (this.#phase === 'closed') return
+    if (this.#state.phase === 'closed') return
     const generation = ++this.#generation
     this.#cancelTimer?.()
     this.#cancelTimer = this.#options.schedule(() => {
-      if (this.#phase === 'closed' || generation !== this.#generation) return
+      if (this.#state.phase === 'closed' || generation !== this.#generation) return
       this.#cancelTimer = undefined
       callback()
     }, delayMs)
@@ -196,8 +201,8 @@ export class MemoryGame {
 
   #react(name: MemoryGameSymbol | 'success' | 'failure'): void {
     this.#stopReaction()
-    this.#motionBlockReason = this.#motion ? (this.#options.motionBlockReason?.() ?? null) : null
-    if (this.#motion && !this.#motionBlockReason) this.#cancelReaction = this.#options.react?.(name)
+    this.#state.motionBlockReason = this.#state.motion ? (this.#options.motionBlockReason?.() ?? null) : null
+    if (this.#state.motion && !this.#state.motionBlockReason) this.#cancelReaction = this.#options.react?.(name)
   }
 
   #stopReaction(): void {

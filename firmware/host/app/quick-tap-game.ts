@@ -63,16 +63,19 @@ export function parseQuickTapRecord(raw: unknown): number | null {
 
 export class QuickTapGame {
   readonly #options: QuickTapGameOptions
-  #phase: QuickTapPhase = 'ready'
-  #round = 1
-  #lastMs: number | null = null
-  #bestMs: number | null = null
-  #recordMs: number | null
-  #newRecord = false
-  #hits = 0
-  #sound = true
-  #muted = false
-  #saveFailed = false
+  readonly #state: { -readonly [Key in keyof QuickTapSnapshot]: QuickTapSnapshot[Key] } = {
+    phase: 'ready',
+    round: 1,
+    lastMs: null,
+    bestMs: null,
+    recordMs: null,
+    newRecord: false,
+    hits: 0,
+    sound: true,
+    muted: false,
+    saveFailed: false,
+  }
+
   #goAt = 0
   #generation = 0
   #cancelTimer: (() => void) | undefined
@@ -87,26 +90,26 @@ export class QuickTapGame {
     } catch {
       raw = undefined
     }
-    this.#recordMs = parseQuickTapRecord(raw)
+    this.#state.recordMs = parseQuickTapRecord(raw)
   }
 
   snapshot(): QuickTapSnapshot {
     return {
-      phase: this.#phase,
-      round: this.#round,
-      lastMs: this.#lastMs,
-      bestMs: this.#bestMs,
-      recordMs: this.#recordMs,
-      newRecord: this.#newRecord,
-      hits: this.#hits,
-      sound: this.#sound,
-      muted: this.#muted,
-      saveFailed: this.#saveFailed,
+      phase: this.#state.phase,
+      round: this.#state.round,
+      lastMs: this.#state.lastMs,
+      bestMs: this.#state.bestMs,
+      recordMs: this.#state.recordMs,
+      newRecord: this.#state.newRecord,
+      hits: this.#state.hits,
+      sound: this.#state.sound,
+      muted: this.#state.muted,
+      saveFailed: this.#state.saveFailed,
     }
   }
 
   subscribe(listener: (snapshot: QuickTapSnapshot) => void): () => void {
-    if (this.#phase === 'closed') return () => undefined
+    if (this.#state.phase === 'closed') return () => undefined
     this.#listeners.add(listener)
     listener(this.snapshot())
     return () => this.#listeners.delete(listener)
@@ -114,55 +117,55 @@ export class QuickTapGame {
 
   /** Starts a set of rounds. Only an explicit call starts one; a set always ends after the last round. */
   start(): void {
-    if (this.#phase !== 'ready' && this.#phase !== 'complete') return
+    if (this.#state.phase !== 'ready' && this.#state.phase !== 'complete') return
     this.#stopPending()
-    this.#round = 1
-    this.#lastMs = null
-    this.#bestMs = null
-    this.#newRecord = false
-    this.#saveFailed = false
-    this.#hits = 0
+    this.#state.round = 1
+    this.#state.lastMs = null
+    this.#state.bestMs = null
+    this.#state.newRecord = false
+    this.#state.saveFailed = false
+    this.#state.hits = 0
     this.#arm()
   }
 
   /** Judge one press, stamped with the host clock at its input edge. */
   tap(at: number): void {
     if (!Number.isFinite(at)) return
-    if (this.#phase === 'waiting') {
+    if (this.#state.phase === 'waiting') {
       this.#verdict('early', null)
       return
     }
-    if (this.#phase !== 'go') return
+    if (this.#state.phase !== 'go') return
     const elapsed = at - this.#goAt
     if (elapsed < QUICK_TAP_TIMING.anticipation) {
       this.#verdict('early', null)
       return
     }
     const ms = Math.round(elapsed)
-    this.#hits++
-    if (this.#bestMs === null || ms < this.#bestMs) this.#bestMs = ms
+    this.#state.hits++
+    if (this.#state.bestMs === null || ms < this.#state.bestMs) this.#state.bestMs = ms
     this.#verdict('hit', ms)
   }
 
   setSound(enabled: boolean): void {
-    if (this.#phase === 'closed') return
-    this.#sound = enabled
-    this.#muted = false
+    if (this.#state.phase === 'closed') return
+    this.#state.sound = enabled
+    this.#state.muted = false
     if (!enabled) this.#stopTone()
     this.#publish()
   }
 
   close(): void {
-    if (this.#phase === 'closed') return
-    this.#phase = 'closed'
+    if (this.#state.phase === 'closed') return
+    this.#state.phase = 'closed'
     this.#stopPending()
     this.#listeners.clear()
   }
 
   #arm(): void {
-    this.#phase = 'waiting'
-    this.#lastMs = null
-    this.#muted = false
+    this.#state.phase = 'waiting'
+    this.#state.lastMs = null
+    this.#state.muted = false
     this.#publish()
     const random = this.#options.random()
     const fraction = Number.isFinite(random) ? Math.max(0, Math.min(1, random)) : 0.5
@@ -172,14 +175,14 @@ export class QuickTapGame {
   }
 
   #go(): void {
-    this.#phase = 'go'
+    this.#state.phase = 'go'
     this.#goAt = this.#options.now()
-    if (this.#sound) {
+    if (this.#state.sound) {
       try {
         this.#cancelTone = this.#options.tone?.()
-        this.#muted = !this.#cancelTone
+        this.#state.muted = !this.#cancelTone
       } catch {
-        this.#muted = true
+        this.#state.muted = true
       }
     }
     this.#publish()
@@ -188,39 +191,39 @@ export class QuickTapGame {
 
   #verdict(phase: 'hit' | 'early' | 'slow', ms: number | null): void {
     this.#stopTone()
-    this.#phase = phase
-    this.#lastMs = ms
+    this.#state.phase = phase
+    this.#state.lastMs = ms
     this.#publish()
     this.#wait(QUICK_TAP_TIMING.result, () => {
-      if (this.#round < QUICK_TAP_ROUNDS) {
-        this.#round++
+      if (this.#state.round < QUICK_TAP_ROUNDS) {
+        this.#state.round++
         this.#arm()
       } else this.#complete()
     })
   }
 
   #complete(): void {
-    this.#phase = 'complete'
-    if (this.#bestMs !== null && (this.#recordMs === null || this.#bestMs < this.#recordMs)) {
-      this.#newRecord = true
-      this.#recordMs = this.#bestMs
+    this.#state.phase = 'complete'
+    if (this.#state.bestMs !== null && (this.#state.recordMs === null || this.#state.bestMs < this.#state.recordMs)) {
+      this.#state.newRecord = true
+      this.#state.recordMs = this.#state.bestMs
       try {
-        this.#options.storage?.set(String(this.#bestMs))
-        this.#saveFailed = false
+        this.#options.storage?.set(String(this.#state.bestMs))
+        this.#state.saveFailed = false
       } catch {
-        this.#saveFailed = true
+        this.#state.saveFailed = true
       }
     }
     this.#publish()
-    this.#options.onResult?.(this.#hits)
+    this.#options.onResult?.(this.#state.hits)
   }
 
   #wait(delayMs: number, callback: () => void): void {
-    if (this.#phase === 'closed') return
+    if (this.#state.phase === 'closed') return
     const generation = ++this.#generation
     this.#cancelTimer?.()
     this.#cancelTimer = this.#options.schedule(() => {
-      if (this.#phase === 'closed' || generation !== this.#generation) return
+      if (this.#state.phase === 'closed' || generation !== this.#generation) return
       this.#cancelTimer = undefined
       callback()
     }, delayMs)
