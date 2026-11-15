@@ -149,3 +149,28 @@ test('loadPreferences reads the selected time zone from preferences', async () =
 
   assert.equal(loadPreferences(DOMAIN.time).timezone, 'london')
 })
+
+test('loadPreferences applies saved speech engine parameters with their declared types', async () => {
+  const { loadPreferences, preference } = await setup()
+  preference.resetPreference({
+    'tts.speakerId': '3',
+    'tts.speed': '0.75',
+    'tts.model': 'test-voice-model',
+    'tts.instructions': 'ゆっくり、明るく',
+  })
+  const tts = loadPreferences(DOMAIN.tts)
+  assert.equal(tts.speakerId, 3)
+  assert.equal(tts.speed, 0.75)
+  assert.equal(tts.model, 'test-voice-model')
+  assert.equal(tts.instructions, 'ゆっくり、明るく')
+})
+
+test('loadPreferences ignores retired generic servo settings without erasing stored data', async () => {
+  const { loadPreferences, preference } = await setup()
+  preference.resetPreference({ 'driver.baudrate': 115200, 'driver.offsetPan': 42, 'driver.offsetTilt': -10 })
+  const driver = loadPreferences(DOMAIN.driver)
+  for (const key of ['baudrate', 'offsetPan', 'offsetTilt']) assert.equal(Object.hasOwn(driver, key), false)
+  assert.equal(preference.default.get(DOMAIN.driver, 'offsetPan'), 42)
+  preference.resetPreference({ 'ai.context': 'obsolete prompt' })
+  assert.equal(Object.hasOwn(loadPreferences(DOMAIN.ai), 'context'), false)
+})

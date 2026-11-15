@@ -80,7 +80,6 @@ async function chatAndSay(robot, dialogue, message) {
 
 function onContextCreated(robot, option) {
   const aiPrefs = option.config.ai
-  trace(`ai.token: ${aiPrefs.token}\n`)
 
   const dialogue = new ChatGPTDialogue({
     apiKey: aiPrefs.token,

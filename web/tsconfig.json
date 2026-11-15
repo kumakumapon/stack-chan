@@ -31,6 +31,9 @@
       ],
       "quiz": [
         "../firmware/host/app/quiz.ts"
+      ],
+      "timezone-model": [
+        "../firmware/host/modules/preferences/timezone-model.ts"
       ]
     }
   },

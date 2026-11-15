@@ -20,7 +20,6 @@ const CONTEXT = [
 export function onContextCreated(robot, option) {
   // Integrate ChatGPT
   const aiPrefs = option.config.ai
-  trace(`ai.token: ${aiPrefs.token}\n`)
   const dialogue = new ChatGPTDialogue({
     apiKey: aiPrefs.token,
     model: MODEL,

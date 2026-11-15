@@ -68,6 +68,18 @@ describe('BlePreferenceClient', () => {
       target: { value: new TextEncoder().encode(JSON.stringify({ prop: 'wifi.ssid', value: 'stackchan' })) },
     })
     expect(onValue).toHaveBeenCalledOnce()
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    for (const contents of [
+      '{"prop":"tts.token","value":"secret-test-value"',
+      '{"prop":3,"value":"secret-test-value"}',
+    ]) {
+      tx.dispatch('characteristicvaluechanged', {
+        target: { value: new TextEncoder().encode(contents) },
+      })
+    }
+    expect(onValue).toHaveBeenCalledOnce()
+    expect(warn).toHaveBeenCalledTimes(2)
+    expect(JSON.stringify(warn.mock.calls)).not.toContain('secret-test-value')
 
     const message = { _batch: { 'workshop.command': 'a'.repeat(90) + '熊🐻'.repeat(100) } }
     await client.send(message)
@@ -81,6 +93,11 @@ describe('BlePreferenceClient', () => {
       })
       .join('')
     expect(JSON.parse(received.trim())).toEqual(message)
+    rx.writeValue.mockClear()
+    await expect(client.send({ _batch: { 'tts.instructions': 'x'.repeat(32768) } })).rejects.toMatchObject({
+      code: 'preference-too-large',
+    })
+    expect(rx.writeValue).not.toHaveBeenCalled()
 
     await client.disconnect()
     expect(device.listeners.get('gattserverdisconnected')?.size).toBe(0)

@@ -5,6 +5,7 @@ import { launcherRow, tapLauncherRow } from './simulator/lcd-test-helpers.mjs'
 
 import { resolveChromium, startPreview } from './test-preview-server.mjs'
 import { captureScreenshot } from './test-browser-screenshot.mjs'
+import { checkPreferenceBrowser } from './preference-browser-check.mjs'
 
 const port = Number(process.env.STACKCHAN_PAGES_TEST_PORT ?? 8097)
 const executablePath = resolveChromium()
@@ -37,6 +38,7 @@ try {
     headless: true,
     args: ['--no-sandbox', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'],
   })
+  await checkPreferenceBrowser(browser, baseUrl)
   const context = await browser.newContext()
   await context.addInitScript(() => {
     if (!localStorage.getItem('stackchan.locale')) localStorage.setItem('stackchan.locale', 'ja')
@@ -110,7 +112,10 @@ try {
 
   await page.goto(`${baseUrl}/preference/`, { waitUntil: 'networkidle' })
   assert.equal(
-    await page.getByRole('note').getByText('本体の設定画面', { exact: false }).count(),
+    await page
+      .getByRole('note')
+      .getByText(/接続する前に、.*本体の設定画面を開いてください。/)
+      .count(),
     1,
     'the React preference tool must explain the device-side pairing prerequisite'
   )

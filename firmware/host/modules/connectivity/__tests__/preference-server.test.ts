@@ -53,6 +53,22 @@ function notificationPayload(server: TestPreferenceServer, index = 0): Record<st
   return JSON.parse(new TextDecoder().decode(server.notifications[index]?.value))
 }
 
+test('preference writes persist credentials without copying their contents to the serial trace', async () => {
+  const { PreferenceServer, preference } = await setup()
+  const traces: string[] = []
+  ;(globalThis as typeof globalThis & { trace: (...messages: unknown[]) => void }).trace = (...messages) => {
+    traces.push(messages.map(String).join(''))
+  }
+  const server = new PreferenceServer({ keys: PREF_KEYS }) as TestPreferenceServer
+  server.receiveAndSetPreference(DOMAIN.gateway, 'token', 'private-test-token')
+  server.receiveAndSetPreference(DOMAIN.wifi, 'password', 'private-test-password')
+  assert.equal(preference.default.get(DOMAIN.gateway, 'token'), 'private-test-token')
+  assert.equal(preference.default.get(DOMAIN.wifi, 'password'), 'private-test-password')
+  assert.match(traces.join(''), /gateway\.token/)
+  assert.equal(traces.join('').includes('private-test-token'), false)
+  assert.equal(traces.join('').includes('private-test-password'), false)
+})
+
 test('starts connectable BLE advertising when ready', async () => {
   const { PreferenceServer } = await setup()
   const server = new PreferenceServer({}) as TestPreferenceServer
