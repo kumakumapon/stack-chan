@@ -9,7 +9,6 @@
     "$(MODDABLE)/examples/manifest_base.json",
     "$(MODDABLE)/examples/manifest_typings.json",
     "$(MODULES)/base/modules/manifest.json",
-    "$(MODULES)/data/crc/manifest.json",
     "../modules/motion/manifest.json",
     "../modules/audio/manifest.json",
     "../modules/connectivity/manifest.json",
