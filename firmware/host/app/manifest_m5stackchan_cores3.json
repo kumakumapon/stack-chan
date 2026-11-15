@@ -11,7 +11,11 @@
     }
   },
   "modules": {
-    "~": ["$(MODDABLE)/typings/*.json"],
+    "~": [
+      "$(MODDABLE)/typings/package.json",
+      "$(MODDABLE)/typings/tsconfig.es2024.json",
+      "$(MODDABLE)/typings/tsconfig.es2025.json"
+    ],
     "mod-installer": "./mod-installer",
     "mod-manager": "./mod-manager"
   },
