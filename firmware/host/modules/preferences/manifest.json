@@ -3,7 +3,6 @@
     "$(MODULES)/files/preference/manifest.json",
     "$(MODULES)/base/modules/manifest.json",
     "$(MODULES)/base/structuredClone/manifest.json",
-    "$(MODULES)/base/deepEqual/manifest.json",
     "$(MODDABLE)/examples/manifest_typings.json",
     "../../app/manifest_typings.json"
   ],
