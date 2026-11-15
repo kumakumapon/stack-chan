@@ -24,6 +24,7 @@ function placeholders(value: string): string[] {
 // explicit contract rather than being embedded in the key text.
 const placeholderContracts: Record<string, string[]> = {
   'mods.confirm': ['name'],
+  'settings.savedNetwork': ['ssid'],
   'settings.volumeValue': ['percent'],
   'settings.wifiStatus': ['status'],
   'splash.connecting': ['attempt', 'maxAttempts'],
