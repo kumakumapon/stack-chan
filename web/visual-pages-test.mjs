@@ -112,7 +112,10 @@ try {
 
   await page.goto(`${baseUrl}/preference/`, { waitUntil: 'networkidle' })
   assert.equal(
-    await page.getByRole('note').getByText('本体の設定画面', { exact: false }).count(),
+    await page
+      .getByRole('note')
+      .getByText(/接続する前に、.*本体の設定画面を開いてください。/)
+      .count(),
     1,
     'the React preference tool must explain the device-side pairing prerequisite'
   )
