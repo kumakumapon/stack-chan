@@ -11,6 +11,7 @@
     }
   },
   "modules": {
+    "~": ["$(MODDABLE)/typings/*.json"],
     "mod-installer": "./mod-installer",
     "mod-manager": "./mod-manager"
   },
