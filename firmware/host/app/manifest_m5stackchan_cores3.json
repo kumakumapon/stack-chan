@@ -11,6 +11,12 @@
     }
   },
   "modules": {
+    "~": [
+      "../modules/audio/tts-types",
+      "../modules/connectivity/local-peer-radio-types",
+      "../modules/connectivity/wifi-scan-types",
+      "../modules/ui/components/face/motions/types"
+    ],
     "mod-installer": "./mod-installer",
     "mod-manager": "./mod-manager"
   },
