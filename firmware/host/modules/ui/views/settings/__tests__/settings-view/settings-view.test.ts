@@ -182,18 +182,49 @@ mount(wifiView)
 const wifiHeader = wifiView.content.first as PiuContent
 const wifiLabel = wifiHeader.next as PiuContent & { string?: string }
 equal(wifiLabel.string, 'Wi-Fi: 未接続', 'Wi-Fi label should reflect status')
-const scanButton = wifiLabel.next as Touchable
+const savedNetworkLabel = wifiLabel.next as PiuContent & { string?: string }
+equal(savedNetworkLabel.string, '保存済み: stackchan-ap', 'saved SSID should remain visible before connecting')
+const scanButton = savedNetworkLabel.next as Touchable
 press(scanButton)
 equal(scanCount, 1, 'pressing the visible scan action should request Wi-Fi scan')
 
 const bootButton = scanButton.next as Touchable
-equal(bootButton.active, true, 'disconnected settings should enable the offline action')
+const bootLabel = (bootButton as unknown as PiuContainer).content('label') as PiuContent & { string?: string }
+equal(bootLabel.string, '保存設定で起動', 'disconnected saved settings should describe the normal boot action')
+equal(bootButton.active, true, 'saved credentials should allow starting before connecting')
 press(bootButton)
-equal(navigatedView, SettingsViewId.OFFLINE, 'disconnected settings should navigate to offline confirmation')
+equal(bootCount, 1, 'saved credentials should start normal boot without entering the erasure flow')
+const offlineButton = bootButton.next as Touchable
+press(offlineButton)
+equal(navigatedView, SettingsViewId.OFFLINE, 'explicit offline action should retain erasure confirmation')
+
+status['wifi.password'] = ''
+wifiView.update?.()
+press(bootButton)
+equal(bootCount, 1, 'incomplete credentials should not take the saved-connection boot path')
+equal(bootLabel.string, 'オフライン', 'incomplete credentials should not offer a saved-connection label')
+equal(navigatedView, SettingsViewId.OFFLINE, 'incomplete credentials should still offer offline confirmation')
+
+status['wifi.ssid'] = ''
+wifiView.update?.()
+equal(
+  savedNetworkLabel.string,
+  '保存済みWi-Fiなし',
+  'clearing saved credentials should refresh the saved-network label',
+)
+status['wifi.ssid'] = 'updated-ap'
+status['wifi.password'] = 'updated-secret'
+wifiView.update?.()
+equal(
+  savedNetworkLabel.string,
+  '保存済み: updated-ap',
+  'external preference changes should refresh the saved-network label',
+)
 
 status.wifi = SettingsStatusValue.SYNCING_TIME
 wifiView.update?.()
 equal(bootButton.active, false, 'time synchronization should keep boot and offline actions disabled')
+equal(offlineButton.active, false, 'explicit offline action should also be disabled while synchronizing')
 
 state.networks = [
   { ssid: 'stackchan-ap', signal: -42, label: 'stackchan-ap (-42 dBm)' },
@@ -201,6 +232,11 @@ state.networks = [
 ]
 wifiView.update?.()
 const networkScroller = wifiView.content.last as PiuContainer
+equal(
+  networkScroller.y + networkScroller.height <= offlineButton.y,
+  true,
+  'network rows must not overlap offline action',
+)
 const list = networkScroller.first as PiuContainer
 equal(list.length, 2, 'network list should retain every scanned SSID for scroller rows')
 press(list.first as Touchable)
@@ -210,10 +246,11 @@ const firstNetworkRow = list.first
 status.wifi = SettingsStatusValue.CONNECTED
 wifiView.update?.()
 equal(wifiLabel.string, 'Wi-Fi: 接続済み', 'Wi-Fi label should update')
+equal(bootLabel.string, '起動', 'connected state should replace the saved-boot label')
 equal(list.first, firstNetworkRow, 'status-only updates should preserve existing network rows')
 equal(bootButton.active, true, 'connected settings should enable the boot action')
 press(bootButton)
-equal(bootCount, 1, 'connected settings should continue to the main application')
+equal(bootCount, 2, 'connected settings should continue to the main application')
 wifiView.dispose?.()
 equal(cancelScanCount, 1, 'leaving the Wi-Fi view should cancel an active scan through the shared action')
 
@@ -294,6 +331,8 @@ mount(englishView)
 const englishHeader = englishView.content.first as PiuContent
 const englishLabel = englishHeader.next as PiuContent & { string?: string }
 equal(englishLabel.string, 'Wi-Fi: Disconnected', 'settings view should switch to English immediately')
+const englishSavedLabel = englishLabel.next as PiuContent & { string?: string }
+equal(englishSavedLabel.string, 'Saved: updated-ap', 'saved network should also switch to English')
 
 setLocalizationLanguage('zh-CN')
 status.wifi = SettingsStatusValue.CONNECTED

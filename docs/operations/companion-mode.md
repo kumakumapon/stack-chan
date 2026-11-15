@@ -6,6 +6,12 @@ The drawer groups conversation controls, play (greeting, song, dance, cheer, roc
 
 ## Setup
 
+The device startup Wi-Fi settings show the current connection state and the
+saved SSID separately. A disconnected state does not mean saved credentials
+have been erased. When both SSID and password are saved, **Start saved** proceeds
+to normal boot, which connects using those credentials. **Offline** remains a
+separate action with confirmation before clearing the saved credentials.
+
 In Web Preferences, select `conversation.backend`: `none` (default), `gateway`, or `usb`. Set `conversation.autoStart` to start the selected conversation after boot. For Gateway, supply `gateway.endpoint`, `gateway.deviceId`, `gateway.clientId`, and `gateway.token`. Enable `gateway.microphone` explicitly for voice input. Save and restart. AI provider credentials stay on the Gateway; the robot stores only its Gateway credential.
 
 Set `companion.greetingOnBoot` or `companion.idleReactions` to `0` to disable autonomous character actions. A `none` backend needs no network. Dedicated USB diagnostic manifests retain their default backend and auto-start settings when no preference overrides them.

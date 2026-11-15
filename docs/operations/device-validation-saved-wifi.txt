@@ -1,0 +1,75 @@
+M5StackChan CoreS3 saved Wi-Fi settings validation
+
+Result: user-reported basic physical checks PASS for saved-SSID display,
+layout, normal-boot navigation, erasure cancellation, scan scrolling and
+Japanese/English labels. Connection progress text and Wi-Fi association
+were not independently confirmed. Full release acceptance is not established.
+
+Source: working tree based on 7231c8b826e5f9021712282856b8349406d0b0c8,
+with the saved-SSID display / saved-credentials boot patch (not yet committed).
+Target: m5stackchan_cores3, standard release host, COM3.
+Local SDK: Moddable 9.5.0 / ESP-IDF 6.1.0.
+Binary SHA-256:
+f6751480c1a338a1160c08b27c5bbd119f48b048e2c22773a7bf5a9cd88ab7af
+
+Agent-captured checks:
+- CoreS3 build: PASS.
+- Capacity: 6,608,048 / 16,318,464 bytes; XS keys 7,904 / 8,192,
+  free 288 (minimum 256): PASS.
+- Deploy through npm run deploy -- --port COM3: exit 0,
+  Hash of data verified, then hard reset.
+- TypeScript test-project compilation and changed-file Biome checks: PASS.
+- Settings-status Node tests: 5 PASS.
+- Broad Node run: 790 PASS, 1 FAIL, 2 SKIPPED; failing app-behavior test
+  encountered Windows EPERM replacing an alias-package file. Isolated rerun
+  of that failing test: PASS. This is not a clean full-suite result.
+- Piu regression scenarios added; Linux XS runner unavailable locally.
+  Piu runtime and physical layout are not yet confirmed.
+
+Original physical checklist (completed outcomes follow):
+- Startup Wi-Fi settings show current disconnected state separately from
+  the saved SSID. Saved SSID need not be shared in the report.
+- Saved-network label, scan/start controls and offline control are readable,
+  without overlapping the scrollable network list.
+- Start saved credentials boots through Wi-Fi connection to the face.
+- Offline opens erasure confirmation; Cancel returns without erasing settings.
+- Scan, selection, language switching and BLE preference updates refresh the
+  display correctly. Do not erase working credentials just to run this check.
+
+User-reported physical checks:
+- Current disconnected state and saved SSID are shown separately: PASS.
+- Labels and buttons are readable with no reported clipping or overlap: PASS.
+- Start saved credentials proceeds to the face: PASS for normal-boot
+  navigation. User did not observe a Wi-Fi connecting status display.
+- The above does not independently prove Wi-Fi association or establish
+  that connection progress text was rendered. Connection status is unverified
+  for this particular boot and is not inferred solely from the face display.
+- Offline confirmation/cancel and preservation of saved settings remain
+  pending. No saved credentials have been deliberately erased.
+
+User-reported offline cancellation checks:
+- Offline action opens the erasure-confirmation screen: PASS.
+- Cancel returns to Wi-Fi settings: PASS.
+- Saved SSID remains displayed; Start saved credentials returns to the face:
+  PASS for preserved settings and normal-boot navigation.
+- No erasure was confirmed. This supersedes the pending cancellation entry.
+- Scanned-list scrolling, English layout and BLE-update refresh remain pending.
+
+User-reported scan and localization checks:
+- Scan displays a network list that can be scrolled vertically, with no
+  overlap with buttons: PASS.
+- English Wi-Fi screen displays readable Saved and Start saved labels: PASS.
+- Switching back to Japanese works normally: PASS.
+- This supersedes the pending scan/localization checks above.
+
+Final result for the instructed physical checks:
+- Saved SSID/current connection state separation, layout, saved-credentials
+  boot navigation, offline confirmation/cancel without erasure, scanned-list
+  scrolling and Japanese/English layout: PASS (user reported).
+- Wi-Fi association and progress rendering during saved-credentials boot
+  were not independently confirmed; the user did not see connection text.
+- Live BLE SSID-edit refresh was not physically exercised, and destructive
+  erasure was intentionally not tested. Piu regression execution remains
+  pending in a suitable Linux/CI environment.
+- The physical test used the uncommitted snapshot identified above and by
+  the binary hash; this record is being committed with that implementation.

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { writeFile } from 'node:fs/promises'
 import { chromium } from 'playwright-core'
-import { launcherRow, tapLauncherRow } from './simulator/lcd-test-helpers.mjs'
+import { dragLcd, launcherRow } from './simulator/lcd-test-helpers.mjs'
 
 import { resolveChromium, startPreview } from './test-preview-server.mjs'
 import { captureScreenshot } from './test-browser-screenshot.mjs'
@@ -162,6 +162,7 @@ try {
     .getByRole('log')
     .getByText('[MiniApp] loaded experimental archive definitions=2', { exact: false })
     .waitFor({ timeout: 45_000 })
+  await page.getByRole('log').getByText('[main] app behaviors ready', { exact: false }).waitFor()
   const miniGameScreen = page.locator('canvas[aria-hidden="true"]')
   // The LCD canvas is hidden after Three.js maps it onto the model. Give the touch bridge stable test bounds.
   await miniGameScreen.evaluate((canvas) => {
@@ -208,8 +209,14 @@ try {
   await tapMiniGameScreen(254, 22)
   await page.waitForTimeout(200)
   await captureCatchState('launcher')
-  // Every host app sorts before the sample games (see launcherRow). Scroll to CATCH.
-  await tapLauncherRow(page, tapMiniGameScreen, launcherRow('catch'), false)
+  // CATCH and JUMP are the last two entries. Clamp at the bottom instead of
+  // assuming every drag advances by its full distance: a missed move otherwise
+  // leaves the same coordinate over the focus timer (see Issue #89).
+  const launcherHeight = (launcherRow('jump') + 1) * 44
+  for (let distance = 0; distance < launcherHeight; distance += 132) {
+    await dragLcd(page, 215, 83, false)
+  }
+  await tapMiniGameScreen(140, 240 - 8 - 44 * 1.5)
   await page.waitForTimeout(300)
   const catchTitleFrame = await captureCatchState('title')
   await tapMiniGameScreen(160, 142)

@@ -18,8 +18,9 @@ function installBareSpecifierPackages(): void {
   writeAliasPackage(hostRoot, 'volume-model', resolve(modulesRoot, 'preferences/volume-model.js'))
 }
 
+installBareSpecifierPackages()
+
 async function setup() {
-  installBareSpecifierPackages()
   const [{ createInitialSettingsStatus }] = await Promise.all([import('../settings-status.js')])
 
   return {
@@ -47,6 +48,21 @@ test('settings status normalizes missing Wi-Fi credentials to empty strings', as
 
   assert.equal(status['wifi.ssid'], '')
   assert.equal(status['wifi.password'], '')
+})
+
+test('saved Wi-Fi readiness is independent of the current connection status', async () => {
+  const { createInitialSettingsStatus } = await setup()
+  const { hasSavedWiFiCredentials, SettingsStatusValue } = await import('settings-status-model')
+  const status = createInitialSettingsStatus({ wifi: { ssid: 'saved-ap', password: 'saved-secret' } })
+  for (const connectionState of Object.values(SettingsStatusValue)) {
+    status.wifi = connectionState
+    assert.equal(hasSavedWiFiCredentials(status), true)
+  }
+  status['wifi.password'] = ''
+  assert.equal(hasSavedWiFiCredentials(status), false)
+  status['wifi.password'] = 'saved-secret'
+  status['wifi.ssid'] = ''
+  assert.equal(hasSavedWiFiCredentials(status), false)
 })
 
 test('settings status exposes the resolved time zone selection', async () => {
