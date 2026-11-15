@@ -95,20 +95,24 @@ export function pickFrom<T>(items: readonly T[], random: number): T {
 
 export class JankenGame {
   readonly #options: JankenGameOptions
-  #phase: JankenPhase = 'ready'
-  #playerHand: JankenHand | null = null
-  #robotHand: JankenHand | null = null
-  #outcome: JankenOutcome | null = null
-  #draws = 0
-  #attacker: JankenSide | null = null
-  #playerDirection: HoiDirection | null = null
-  #robotDirection: HoiDirection | null = null
-  #hit: boolean | null = null
-  #timedOut = false
-  #playerPoints = 0
-  #robotPoints = 0
-  #motion = false
-  #motionBlockReason: JankenMotionBlockReason | null = null
+  // Snapshot keys already exist in XS. Grouping their data avoids a distinct
+  // private key for every field while keeping the mutable state private.
+  #state: { -readonly [Key in keyof JankenSnapshot]: JankenSnapshot[Key] } = {
+    phase: 'ready',
+    playerHand: null,
+    robotHand: null,
+    outcome: null,
+    draws: 0,
+    attacker: null,
+    playerDirection: null,
+    robotDirection: null,
+    hit: null,
+    timedOut: false,
+    playerPoints: 0,
+    robotPoints: 0,
+    motion: false,
+    motionBlockReason: null,
+  }
   #generation = 0
   #cancelTimer: (() => void) | undefined
   #cancelReaction: (() => void) | undefined
@@ -120,25 +124,25 @@ export class JankenGame {
 
   snapshot(): JankenSnapshot {
     return {
-      phase: this.#phase,
-      playerHand: this.#playerHand,
-      robotHand: this.#robotHand,
-      outcome: this.#outcome,
-      draws: this.#draws,
-      attacker: this.#attacker,
-      playerDirection: this.#playerDirection,
-      robotDirection: this.#robotDirection,
-      hit: this.#hit,
-      timedOut: this.#timedOut,
-      playerPoints: this.#playerPoints,
-      robotPoints: this.#robotPoints,
-      motion: this.#motion,
-      motionBlockReason: this.#motionBlockReason,
+      phase: this.#state.phase,
+      playerHand: this.#state.playerHand,
+      robotHand: this.#state.robotHand,
+      outcome: this.#state.outcome,
+      draws: this.#state.draws,
+      attacker: this.#state.attacker,
+      playerDirection: this.#state.playerDirection,
+      robotDirection: this.#state.robotDirection,
+      hit: this.#state.hit,
+      timedOut: this.#state.timedOut,
+      playerPoints: this.#state.playerPoints,
+      robotPoints: this.#state.robotPoints,
+      motion: this.#state.motion,
+      motionBlockReason: this.#state.motionBlockReason,
     }
   }
 
   subscribe(listener: (snapshot: JankenSnapshot) => void): () => void {
-    if (this.#phase === 'closed') return () => undefined
+    if (this.#state.phase === 'closed') return () => undefined
     this.#listeners.add(listener)
     listener(this.snapshot())
     return () => this.#listeners.delete(listener)
@@ -146,40 +150,40 @@ export class JankenGame {
 
   /** Starts a new match. Only an explicit call starts one; a finished match stays on its result. */
   start(): void {
-    if (this.#phase !== 'ready' && this.#phase !== 'won' && this.#phase !== 'lost') return
+    if (this.#state.phase !== 'ready' && this.#state.phase !== 'won' && this.#state.phase !== 'lost') return
     this.#stopPending()
-    this.#playerPoints = 0
-    this.#robotPoints = 0
+    this.#state.playerPoints = 0
+    this.#state.robotPoints = 0
     this.#call()
   }
 
   /** The robot's hand is drawn only after the player's choice is final, independent of it. */
   choose(hand: JankenHand): void {
-    if (this.#phase !== 'choose' || !isJankenHand(hand)) return
+    if (this.#state.phase !== 'choose' || !isJankenHand(hand)) return
     const robot = pickFrom(JANKEN_HANDS, this.#options.random())
-    this.#playerHand = hand
-    this.#robotHand = robot
-    this.#outcome = jankenOutcome(hand, robot)
-    this.#phase = 'reveal'
-    if (this.#outcome === 'draw') {
-      this.#draws++
+    this.#state.playerHand = hand
+    this.#state.robotHand = robot
+    this.#state.outcome = jankenOutcome(hand, robot)
+    this.#state.phase = 'reveal'
+    if (this.#state.outcome === 'draw') {
+      this.#state.draws++
       this.#publish()
       this.#wait(JANKEN_TIMING.draw, () => {
-        this.#playerHand = null
-        this.#robotHand = null
-        this.#outcome = null
-        this.#phase = 'choose'
+        this.#state.playerHand = null
+        this.#state.robotHand = null
+        this.#state.outcome = null
+        this.#state.phase = 'choose'
         this.#publish()
       })
       return
     }
-    this.#attacker = this.#outcome === 'win' ? 'player' : 'robot'
+    this.#state.attacker = this.#state.outcome === 'win' ? 'player' : 'robot'
     this.#publish()
     this.#wait(JANKEN_TIMING.reveal, () => {
-      this.#phase = 'hoi-call'
+      this.#state.phase = 'hoi-call'
       this.#publish()
       this.#wait(JANKEN_TIMING.hoiCall, () => {
-        this.#phase = 'hoi'
+        this.#state.phase = 'hoi'
         this.#publish()
         this.#wait(JANKEN_TIMING.hoiInput, () => this.#resolveHoi(null))
       })
@@ -188,76 +192,76 @@ export class JankenGame {
 
   /** The player's pointing (attacking) or facing (defending) direction for this "hoi". */
   look(direction: HoiDirection): void {
-    if (this.#phase !== 'hoi' || !isHoiDirection(direction)) return
+    if (this.#state.phase !== 'hoi' || !isHoiDirection(direction)) return
     this.#resolveHoi(direction)
   }
 
   setMotion(enabled: boolean): void {
-    if (this.#phase === 'closed') return
-    this.#motion = enabled
+    if (this.#state.phase === 'closed') return
+    this.#state.motion = enabled
     if (!enabled) this.#stopReaction()
-    this.#motionBlockReason = enabled ? (this.#options.motionBlockReason?.() ?? null) : null
+    this.#state.motionBlockReason = enabled ? (this.#options.motionBlockReason?.() ?? null) : null
     this.#publish()
   }
 
   close(): void {
-    if (this.#phase === 'closed') return
-    this.#phase = 'closed'
+    if (this.#state.phase === 'closed') return
+    this.#state.phase = 'closed'
     this.#stopPending()
     this.#listeners.clear()
   }
 
   #call(): void {
-    this.#playerHand = null
-    this.#robotHand = null
-    this.#outcome = null
-    this.#draws = 0
-    this.#attacker = null
-    this.#playerDirection = null
-    this.#robotDirection = null
-    this.#hit = null
-    this.#timedOut = false
-    this.#phase = 'call'
+    this.#state.playerHand = null
+    this.#state.robotHand = null
+    this.#state.outcome = null
+    this.#state.draws = 0
+    this.#state.attacker = null
+    this.#state.playerDirection = null
+    this.#state.robotDirection = null
+    this.#state.hit = null
+    this.#state.timedOut = false
+    this.#state.phase = 'call'
     this.#publish()
     this.#wait(JANKEN_TIMING.call, () => {
-      this.#phase = 'choose'
+      this.#state.phase = 'choose'
       this.#publish()
     })
   }
 
   #resolveHoi(direction: HoiDirection | null): void {
     const robot = pickFrom(HOI_DIRECTIONS, this.#options.random())
-    this.#playerDirection = direction
-    this.#robotDirection = robot
-    this.#timedOut = direction === null
-    this.#hit = direction !== null && direction === robot
-    if (this.#hit) {
-      if (this.#attacker === 'player') this.#playerPoints++
-      else this.#robotPoints++
+    this.#state.playerDirection = direction
+    this.#state.robotDirection = robot
+    this.#state.timedOut = direction === null
+    this.#state.hit = direction !== null && direction === robot
+    if (this.#state.hit) {
+      if (this.#state.attacker === 'player') this.#state.playerPoints++
+      else this.#state.robotPoints++
     }
-    this.#phase = 'hoi-reveal'
+    this.#state.phase = 'hoi-reveal'
     this.#react(HOI_REACTIONS[robot])
     this.#publish()
     this.#wait(JANKEN_TIMING.hoiReveal, () => {
-      if (this.#playerPoints >= JANKEN_TARGET_POINTS) this.#finish('won')
-      else if (this.#robotPoints >= JANKEN_TARGET_POINTS) this.#finish('lost')
+      if (this.#state.playerPoints >= JANKEN_TARGET_POINTS) this.#finish('won')
+      else if (this.#state.robotPoints >= JANKEN_TARGET_POINTS) this.#finish('lost')
       else this.#call()
     })
   }
 
   #finish(phase: 'won' | 'lost'): void {
-    this.#phase = phase
+    this.#state.phase = phase
     this.#react(phase === 'won' ? 'success' : 'proud')
     this.#publish()
-    this.#options.onResult?.(this.#playerPoints)
+    this.#options.onResult?.(this.#state.playerPoints)
   }
 
   #wait(delayMs: number, callback: () => void): void {
-    if (this.#phase === 'closed') return
+    if (this.#state.phase === 'closed') return
     const generation = ++this.#generation
     this.#cancelTimer?.()
     this.#cancelTimer = this.#options.schedule(() => {
-      if (this.#phase === 'closed' || generation !== this.#generation) return
+      if (this.#state.phase === 'closed' || generation !== this.#generation) return
       this.#cancelTimer = undefined
       callback()
     }, delayMs)
@@ -265,8 +269,8 @@ export class JankenGame {
 
   #react(name: JankenReaction): void {
     this.#stopReaction()
-    this.#motionBlockReason = this.#motion ? (this.#options.motionBlockReason?.() ?? null) : null
-    if (!this.#motion || this.#motionBlockReason) return
+    this.#state.motionBlockReason = this.#state.motion ? (this.#options.motionBlockReason?.() ?? null) : null
+    if (!this.#state.motion || this.#state.motionBlockReason) return
     try {
       this.#cancelReaction = this.#options.react?.(name)
     } catch {

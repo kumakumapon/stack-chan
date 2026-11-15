@@ -77,6 +77,25 @@ function harness(options: Partial<JankenGameOptions> = {}) {
   }
 }
 
+test('snapshots remain detached from updates and from other games', () => {
+  const first = harness()
+  const second = harness()
+  const before = first.game.snapshot()
+  const other = second.game.snapshot()
+
+  first.game.start()
+  assert.notEqual(first.game.snapshot().phase, before.phase)
+  assert.deepEqual(second.game.snapshot(), other)
+
+  const returned = first.game.snapshot()
+  ;(returned as { playerPoints: number }).playerPoints = 100
+  assert.notEqual(first.game.snapshot().playerPoints, returned.playerPoints)
+  assert.equal(before.phase, other.phase)
+
+  first.game.close()
+  assert.deepEqual(second.game.snapshot(), other)
+})
+
 test('jankenOutcome is a cyclic relation where every hand beats exactly one other', () => {
   for (const player of JANKEN_HANDS) {
     const outcomes = JANKEN_HANDS.map((robot) => jankenOutcome(player, robot))
