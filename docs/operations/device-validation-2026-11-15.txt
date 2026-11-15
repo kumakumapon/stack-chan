@@ -1,0 +1,85 @@
+M5StackChan CoreS3 firmware update and Web Preferences validation
+Session started 2026-11-15 JST.
+
+Result: PASS for the timezone/volume BLE read/write/reconnect/restart
+sequence (G-23). Original settings restored. This is partial acceptance,
+not full release sign-off. Results below distinguish user observations
+from agent-captured build and serial evidence.
+
+Firmware source: 2071c9748f8ba0ce827c2169d0133fe70353457a.
+Target: m5stackchan_cores3, standard host, release mode, COM3.
+Local SDK: Moddable 9.5.0 / ESP-IDF 6.1.0.
+This local toolchain differs from the CI SDK 9.0.0; CI capacity numbers
+are not substituted for local measurements.
+
+Completed by agent:
+- npm run build: PASS.
+- node scripts/report-firmware-size.mjs m5stackchan_cores3: PASS.
+- Local firmware: 6,608,048 / 16,318,464 bytes.
+- Local XS keys: 7,899 / 8,192; free 293, minimum 256.
+- npm run deploy -- --port COM3: exit 0, Hash of data verified,
+  followed by hard reset.
+- Allowlisted serial capture: CoreS3 power rails patched and
+  [main] app behaviors ready. This does not establish physical display,
+  Wi-Fi connection or BLE behavior.
+- No MOD installation or deliberate settings erasure performed.
+
+Web test method:
+- Published develop Web Preferences, including changes in PR #95/#96.
+- Computer-use helper failed with native-pipe unavailable after retry and
+  runtime reset; browser connection fallback failed identically.
+- Physical/browser observations were supplied by the user and are labeled
+  separately from agent-captured build/serial evidence.
+
+Test sequence (completed results recorded below):
+- Face and head-stroke response on the updated firmware.
+- Freshly reload published Web page, connect in device startup settings,
+  confirm timezone and current language/volume readback.
+- Change timezone and 1% volume, save, verify on device, reconnect/readback,
+  restart/persistence and restore original settings.
+- Avoid changing TTS service during these checks: service changes reset
+  dependent voice settings and clear the service token in the unsaved form.
+
+User-reported initial checks on updated firmware:
+- Face appears and stroking the head produces a response: PASS.
+- Device startup settings can be opened: PASS.
+- Published Web Preferences reloaded and BLE connection established: PASS.
+- Timezone field is present; language, volume and timezone read back with
+  values matching the device: PASS.
+
+User-reported Web write/reconnect checks:
+- Volume changed by 0.01 through Web and saved: PASS.
+- Timezone changed from Tokyo to Beijing through Web and saved: PASS.
+- Device startup settings show the changed volume and timezone: PASS.
+- After Web disconnect/reconnect, both changed values read back correctly:
+  PASS.
+- Clarification: Web volume saves update the setting but do not trigger a
+  confirmation tone. The tone occurs only when volume is adjusted in the
+  device startup settings. Immediate Web-triggered audio preview was not
+  observed and is not counted as passed.
+- Exact original and changed volume values were not reported.
+
+User-reported restart/persistence and restoration checks:
+- After device restart, changed volume and Beijing timezone remain in
+  startup settings: PASS.
+- Web reconnect reads the same changed values: PASS.
+- Restoring original volume and Tokyo timezone through Web saves normally:
+  PASS.
+- After another restart, device and Web both show restored original values:
+  PASS.
+
+Final result for this test sequence:
+- Updated firmware face/head-stroke smoke: PASS.
+- Published Web timezone presence and language/volume/timezone readback: PASS.
+- Timezone and 0.01 volume write/device reflection/reconnect: PASS.
+- Both settings survive restart and can be restored to their original values:
+  PASS. Original settings have been restored according to the user.
+- G-23: PASS for this timezone/volume BLE read/write/reconnect sequence.
+- Confirmation tone is triggered by device-side volume adjustment, not Web
+  saving. Actual audio loudness at the Web-selected 1% difference was not
+  independently measured.
+- Exact numeric volumes, browser version and per-case timestamps were not
+  recorded. Physical observations above are user-reported.
+- TTS services, quiet hours, low battery, long-duration operation, Gateway/USB
+  conversations, MOD/Gallery and full release acceptance remain outside this
+  sequence. No external TTS API was invoked by the agent.
