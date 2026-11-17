@@ -1,11 +1,9 @@
 import assert from 'node:assert/strict'
 import { readdirSync, readFileSync } from 'node:fs'
-import { createRequire } from 'node:module'
 import test from 'node:test'
+import { parse } from 'yaml'
 
-const require = createRequire(new URL('../../web/package.json', import.meta.url))
-const { parse } = require('yaml')
-const root = new URL('../../', import.meta.url)
+const root = new URL('../', import.meta.url)
 const readJson = (path) => JSON.parse(readFileSync(new URL(path, root), 'utf8'))
 
 test('direct application dependencies are exact and agree with the lockfile', () => {

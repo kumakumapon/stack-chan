@@ -12,6 +12,9 @@
 Firmwareの`scripts/lib/*.test.mjs`はglobで検出し、新しいテストを手書き一覧へ追加する必要はない。
 Pythonの2スイートは標準ライブラリだけで実行できる。音声モデルの取得、外部AI API、実機USBは使用しない。
 既存の[CI集約方針](ci-validation_ja.md)は維持する。
+依存とActionsの整合性テストは`web/repository-dependencies.test.mjs`に置き、
+YAML parserをインストール済みのWeb Nodeテストで実行する。
+配布物の最終組み立てジョブは追加のnpm依存なしでworkflowスクリプトのテストを実行できる。
 
 Webは既存のPrettier設定を`format` / `format:fix`とCIで共用する。
 生成物・vendor・npm生成のlockfileは`.prettierignore`に明記し、所有するソース・設定は検査する。
