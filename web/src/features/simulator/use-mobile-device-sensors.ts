@@ -1,7 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
-import { accelerationFromDeviceMotion, type DeviceAcceleration, type DeviceMotionSample } from './device-motion-transform'
-import { deviceMotionSupport, requestDeviceMotionPermission, type SensorPermissionState } from './mobile-sensor-permission'
+import {
+  accelerationFromDeviceMotion,
+  type DeviceAcceleration,
+  type DeviceMotionSample,
+} from './device-motion-transform'
+import {
+  deviceMotionSupport,
+  requestDeviceMotionPermission,
+  type SensorPermissionState,
+} from './mobile-sensor-permission'
 
 export type MobileDeviceSensorsOptions = {
   onAcceleration(vector: DeviceAcceleration): void

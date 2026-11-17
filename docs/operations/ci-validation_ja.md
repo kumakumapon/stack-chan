@@ -35,4 +35,6 @@ SDK と Emscripten のセットアップはビルド側だけで行い、Gateway
   ブラウザー assertion の失敗とはログ・ジョブが分かれる。
 
 スイート一覧の網羅性と集約の異常系は `node --test .github/scripts/ci-*.test.mjs`
-で確認する。ブラウザー検証は実 WASM を利用するが、CoreS3 実機検証を代替しない。
+で確認する。依存とActionsの固定・整合性はWebのNodeテストで検査する。
+対象別の整形・Pythonテスト・監査は[品質チェック運用](repository-quality_ja.md)を参照。
+ブラウザー検証は実 WASM を利用するが、CoreS3 実機検証を代替しない。

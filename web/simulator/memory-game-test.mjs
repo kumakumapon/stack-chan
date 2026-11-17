@@ -25,25 +25,30 @@ try {
     await page.addInitScript(() => localStorage.setItem('stackchan.locale', 'ja'))
     if (pet) {
       await page.goto(`${baseUrl}/mod-gallery/`)
-      await page.locator('[data-mod-id="sample.stackchan-pet"]')
-        .getByRole('button', { name: 'シミュレーターで試す' }).click()
+      await page
+        .locator('[data-mod-id="sample.stackchan-pet"]')
+        .getByRole('button', { name: 'シミュレーターで試す' })
+        .click()
       await page.waitForURL(/\/simulator\/\?gallery=sample\.stackchan-pet/)
     } else await page.goto(`${baseUrl}/simulator/`)
     await page.getByRole('log').getByText('[main] checking mod override', { exact: false }).waitFor({ timeout: 15000 })
     const ready = page.getByRole('log').getByText('[main] app behaviors ready', { exact: false })
-    for (let attempt = 0; attempt < 8 && await ready.count() === 0; attempt++) await page.clock.runFor(2000)
-    assert(await ready.count() > 0, 'host must boot')
+    for (let attempt = 0; attempt < 8 && (await ready.count()) === 0; attempt++) await page.clock.runFor(2000)
+    assert((await ready.count()) > 0, 'host must boot')
     await page.clock.runFor(3000)
     if (pet) await page.getByText(/適用済み/).waitFor({ timeout: 45000 })
 
     const lcd = page.locator('canvas[aria-hidden="true"]')
     const tap = async (x, y) => {
-      await lcd.evaluate((canvas, point) => {
-        const bounds = canvas.getBoundingClientRect()
-        const event = { clientX: bounds.left + point.x, clientY: bounds.top + point.y, bubbles: true }
-        canvas.dispatchEvent(new MouseEvent('mousedown', event))
-        canvas.dispatchEvent(new MouseEvent('mouseup', event))
-      }, { x, y })
+      await lcd.evaluate(
+        (canvas, point) => {
+          const bounds = canvas.getBoundingClientRect()
+          const event = { clientX: bounds.left + point.x, clientY: bounds.top + point.y, bubbles: true }
+          canvas.dispatchEvent(new MouseEvent('mousedown', event))
+          canvas.dispatchEvent(new MouseEvent('mouseup', event))
+        },
+        { x, y }
+      )
       await page.clock.runFor(70)
     }
     const open = async () => {
@@ -51,19 +56,22 @@ try {
       await tap(270, 22)
       await tapLauncherRow(page, tap, launcherRow('memory', pet))
     }
-    const highlighted = async () => lcd.evaluate((canvas) => {
-      const ctx = canvas.getContext('2d')
-      // The LCD uses RGB565, so rendered channels differ from CSS colors.
-      // A cue is the single pad whose fill differs from the other two.
-      const fills = [16, 120, 224].map((x) => Array.from(ctx.getImageData(x, 114, 1, 1).data).join(','))
-      return fills.findIndex((fill, index) =>
-        fill !== fills[(index + 1) % 3] && fills[(index + 1) % 3] === fills[(index + 2) % 3])
-    })
+    const highlighted = async () =>
+      lcd.evaluate((canvas) => {
+        const ctx = canvas.getContext('2d')
+        // The LCD uses RGB565, so rendered channels differ from CSS colors.
+        // A cue is the single pad whose fill differs from the other two.
+        const fills = [16, 120, 224].map((x) => Array.from(ctx.getImageData(x, 114, 1, 1).data).join(','))
+        return fills.findIndex(
+          (fill, index) => fill !== fills[(index + 1) % 3] && fills[(index + 1) % 3] === fills[(index + 2) % 3]
+        )
+      })
     const image = () => lcd.evaluate((canvas) => canvas.toDataURL('image/png'))
-    const capture = async (name) => writeFileSync(
-      join(tmpdir(), `stackchan-memory-${pet ? 'pet' : 'host'}-${name}.png`),
-      Buffer.from((await image()).split(',')[1], 'base64'),
-    )
+    const capture = async (name) =>
+      writeFileSync(
+        join(tmpdir(), `stackchan-memory-${pet ? 'pet' : 'host'}-${name}.png`),
+        Buffer.from((await image()).split(',')[1], 'base64')
+      )
     await open()
     const initial = await image()
     await capture('ready')
@@ -81,7 +89,7 @@ try {
     await page.clock.runFor(500)
     assert.equal(await highlighted(), first, 'next round retains the first cue')
     await page.clock.runFor(1950)
-    assert(await highlighted() >= 0, 'second cue must be visible')
+    assert((await highlighted()) >= 0, 'second cue must be visible')
     await page.clock.runFor(1950)
     await tap(56 + ((first + 1) % 3) * 104, 136)
     await capture('wrong')

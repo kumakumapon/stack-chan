@@ -34,7 +34,15 @@ export async function startPreview({ port, url }) {
     ? undefined
     : spawn(
         process.execPath,
-        [resolve('node_modules/vite/bin/vite.js'), 'preview', '--host', '127.0.0.1', '--port', String(port), '--strictPort'],
+        [
+          resolve('node_modules/vite/bin/vite.js'),
+          'preview',
+          '--host',
+          '127.0.0.1',
+          '--port',
+          String(port),
+          '--strictPort',
+        ],
         { cwd: process.cwd(), stdio: 'inherit' }
       )
   let startupFinished = false

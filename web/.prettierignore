@@ -1,0 +1,13 @@
+# Generated application, simulator, MOD archives and lockfile.
+dist/
+simulator/mc.js
+simulator/mc.wasm
+package-lock.json
+
+# Firmware-owned source mirrors must stay byte-identical to their examples.
+# Firmware Biome and Gallery drift tests validate these files.
+mod-gallery/samples/**/mod/
+mod-gallery/samples/**/miniapp/
+
+# Third-party build tools are checked by check:editor-artifacts.
+editor/vendor/

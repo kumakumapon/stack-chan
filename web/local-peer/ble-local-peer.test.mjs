@@ -227,22 +227,22 @@ test('BLE local-peer send preserves the GATT error when every write fails', asyn
           authenticated: false,
           sourceId: '001122334455',
           destinationId: 'FFFFFFFFFFFF',
-          payload: new Uint8Array(0)
+          payload: new Uint8Array(0),
         },
         undefined,
         webcrypto
       )
       notify({
         target: {
-          value: new DataView(record.buffer, record.byteOffset, record.byteLength)
-        }
+          value: new DataView(record.buffer, record.byteOffset, record.byteLength),
+        },
       })
     }
   )
   const capability = new BLELocalPeerCapability({
     bluetooth,
     crypto: webcrypto,
-    storage: undefined
+    storage: undefined,
   })
   const session = await capability.open({ service: 'test', transport: 'ble' })
   try {
@@ -272,12 +272,15 @@ test('concurrent BLE messages keep each fragmented record contiguous and GATT wr
   try {
     await Promise.all([
       session.broadcast('first', { text: 'a'.repeat(80) }),
-      session.broadcast('second', { text: 'b'.repeat(80) })
+      session.broadcast('second', { text: 'b'.repeat(80) }),
     ])
     assert.equal(maxWrites, 1)
     assert.equal(records.length, 2)
     const envelopes = records.map((record) => JSON.parse(new TextDecoder().decode(record.payload.subarray(18))))
-    assert.deepEqual(envelopes.map((value) => value.type), ['first', 'second'])
+    assert.deepEqual(
+      envelopes.map((value) => value.type),
+      ['first', 'second']
+    )
     assert.equal(envelopes[0].payload.text, 'a'.repeat(80))
     assert.equal(envelopes[1].payload.text, 'b'.repeat(80))
   } finally {

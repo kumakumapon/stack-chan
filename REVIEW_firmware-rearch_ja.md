@@ -1,5 +1,11 @@
 # firmware 再設計（refactor/rearch）レビュー — develop 差分
 
+> **対応済みの履歴**: この文書は再設計時点のレビュー記録です。全指摘は
+> [修正計画の完了条件](docs/architecture/firmware-rearchitecture-review-fix-plan_ja.md#最終完了条件)
+> で修正済み・意図的対応・担当付きの後続課題に分類済みです。
+> 以下の「マージ前」「CI 赤」などは当時の状態であり、現在の未解決課題一覧ではありません。
+> 現在の状態は[実装状況](docs/IMPLEMENTATION_STATUS_ja.md)とGitHubのOpen Issuesを参照してください。
+
 - **対象**: `develop`（merge-base `276f4791`）から現在の作業ツリーまでの全差分（未コミット変更を含む）。563 ファイル、+14,498 / -10,556 行。
 - **方法**: バグ検出 8 角度（正確性 3 + 再利用 / 簡素化 / 効率 / 抽象度 / 規約）＋設計レビュー 4 領域（app 層 / UI / audio・conversation / motion・ビルド基盤）のマルチエージェント調査 → 候補ごとの検証（コード読解・`check:architecture` / `test:unit` / biome の実行・merge-base との突合）。
 - **判定**: CONFIRMED = コード・実行で確認済み / PLAUSIBLE = 現実的な条件で発生し得るが実機依存。

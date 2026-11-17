@@ -1,7 +1,9 @@
 # 現在の実装状況
 
-整理日: 2026-09-19。対象は **PR #42を含むコード**（実装基準: `27af4cdb`）です。
-[PR #42](https://github.com/kumakumapon/stack-chan/pull/42)の内容を含むため、公開済みリリースの機能一覧とは区別してください。
+整理日: 2026-11-17。実装基準はdevelop `e2a1fbb5`（PR #98まで）です。
+対応・配布対象は**M5StackChan CoreS3のみ**。WASM / Linuxは開発・検証用です。
+公開済みリリースの機能一覧とは区別してください。
+過去の対象は[旧機種の対応終了記録](operations/retired-hardware_ja.md)にまとめています。
 
 ## 全体構成
 
@@ -13,9 +15,9 @@
 | Dock | Gateway / USBの接続先選択と会話の有効化・解除 | [conversation-router.ts](../firmware/host/app/docks/conversation-router.ts) |
 | Gateway | 会話セッション、VAD/STT/TTS、Agent、ツール、承認 | [Gateway](../gateway/README.md)、[日本語仕様](specs/conversation-gateway_ja.md) |
 | Web | 書き込み、設定、Gallery、ブロック／顔エディタ、WASMシミュレータ | [Webツール](../README_ja.md#webツール) |
-| 機種別実装 | サーボ、音声、入力、カメラなどのハードウェア差分 | [firmware/host/platforms](../firmware/host/platforms)、[開発ガイド](../firmware/README_ja.md) |
+| プラットフォーム実装 | CoreS3のサーボ・音声・入力・カメラ、および開発用WASM / Linux | [firmware/host/platforms](../firmware/host/platforms)、[開発ガイド](../firmware/README_ja.md) |
 
-上表はコードの所在と責務を整理したものです。各機能の実機での品質や、すべての機種での利用可否を保証する表ではありません。
+上表はコードの所在と責務を整理したものです。各機能の実機での品質やリリース受け入れ完了を保証する表ではありません。
 
 ```mermaid
 flowchart LR
@@ -85,25 +87,31 @@ MCP側のclose対策も維持しており、LGPLのSDK実装をvendorへ取り�
 
 ## 検証済み範囲と実機の残件
 
-以下は基準コミットに対する検証結果です。
+CIと実機記録は、使用したコミットとSDKを分けて参照してください。
 
-| 検証 | 確認できたこと |
+| 検証 | 確認できたこと・限界 |
 | --- | --- |
-| Firmware Node / XS / architecture / lint | 状態管理、PCMキュー、キャンセル、実HTTPサーバーへの連続アクセス、依存境界 |
-| Gateway | 144テスト成功。Echo / OpenAI / Hermesのキャンセルはモック通信で検証 |
-| Web / WASM + localhost Gateway | 応答完了前の再生、中断、次の会話、停止後のエラーなし、表情・動作ツール、合成マイク入力 |
-| リリースビルド | m5stack、m5stack_core2、m5stack_cores3、m5stackchan_cores3、stackchan_rt、takao_core2_sg90 |
-| 配布物 | バンドル生成とCoreS3の生成リンカー表で必要なモジュールを確認 |
+| Firmware Node / XS / architecture / lint | 基準コミットのBuild CI成功。実機動作は別途確認 |
+| Web / WASM | 11ブラウザースイートとReact / NodeテストをCIで実行。合成入力を含む |
+| リリースビルド・配布物 | M5StackChan CoreS3のみ。Bundle CI成功 |
+| Gateway | 専用workflowで型・Biome・Nodeテストを実行。外部AIとの実会話は別途確認 |
+| Web設定の実機検証 | 時差・音量のBLE読込／保存／再接続／再起動、元の設定への復元をユーザー報告で確認 |
+| 保存済みWi-Fi画面 | SSIDと接続状態の分離、通常起動への遷移、消去キャンセル、リスト・日英表示をユーザー報告で確認。接続成立と進捗表示は未確認 |
 
-CI記録:
-[Build / XS / WASM](https://github.com/kumakumapon/stack-chan/actions/runs/35434841943)、
-[Release / Bundle](https://github.com/kumakumapon/stack-chan/actions/runs/35434842118)、
-[Gateway](https://github.com/kumakumapon/stack-chan/actions/runs/35434841962)。
+基準コミットのCI記録:
+[Build / XS / WASM](https://github.com/kumakumapon/stack-chan/actions/runs/43729040486)、
+[Release / Bundle](https://github.com/kumakumapon/stack-chan/actions/runs/43729040553)。
 
-実機は未接続です。ビルド成功を実機動作確認とは扱いません。
-実マイクの音量・STT精度、スピーカーの途切れ・末尾、物理タップ、サーボ範囲、Wi-Fi復帰、USB切替などは
-[Issue #43](https://github.com/kumakumapon/stack-chan/issues/43)の未実施チェックリストで管理します。
-ブラウザの自動試験は合成入力を使い、物理マイクや有料AIサービスには接続していません。
+実機の詳細は[Web設定検証記録](operations/device-validation-2026-11-15.txt)と
+[保存済みWi-Fi検証記録](operations/device-validation-saved-wifi.txt)を参照してください。
+これらはローカルModdable 9.5.0 / ESP-IDF 6.1.0による部分確認で、CIのSDK 9.0.0と区別します。
+全リリース受け入れ完了を示すものではありません。
+
+実マイクの音量・STT精度、スピーカーの途切れ・末尾、応答中断などは
+[Issue #43](https://github.com/kumakumapon/stack-chan/issues/43)、
+時刻・おやすみ時間・低電池は[Issue #72](https://github.com/kumakumapon/stack-chan/issues/72)、
+サーボ診断は[Issue #17](https://github.com/kumakumapon/stack-chan/issues/17)の実機確認対象です。
+ブラウザー自動試験を物理マイク・サーボ・有料AIサービスの動作確認とは扱いません。
 
 ## 次に確認すること
 

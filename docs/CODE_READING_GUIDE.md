@@ -31,13 +31,13 @@
 
 **注目する関数・クラス**：
 - `createStackchanContext()` - コンポーネント組み立て
-- `drivers` Map (L125-135) - モーション実装の選択肢
+- `createHostMotionDriver()` - CoreS3 / desktopのモーション実装（`motion-driver-factory.ts`）
 - `ttsEngines` Map (L136-144) - TTS エンジンの選択肢
 - `uiControllers` Map (L145-156) - UI テーマの選択肢
 
 **読むべき流れ**：
 ```
-125-135行: ドライバの種類（scservo, m5stackchan, dynamixel等）
+モーション: m5stackchan（CoreS3、SCServo通信）、none（desktop）、WASM差し替え
 136-144行: TTS エンジンの種類（local, openai, voicevox等）
 145-156行: UI テーマの種類（dog, simple, image）
 160-192行: Preferences から実装を解決・インスタンス化
@@ -150,7 +150,7 @@ MOD logic (e.g., robot.motion.lookAt())
   ↓
 runtime-motion.ts: MotionController.lookAt()
   ↓
-Motion driver (e.g., scservo-driver.ts)
+Motion driver (m5stackchan-servo-driver.ts)
   ↓
 Servo motor rotation
 ```

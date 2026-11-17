@@ -108,9 +108,7 @@ export async function onContextCreated(robot) {
 })
 
 test('buildModArchive compiles the generated list-based singing helper', async () => {
-  const source = assembleModSource(
-    "await singScore(robot, 120, [['C4', 1, 'き'], ['C4', 1, 'ら'], ['R', 0.5, '']])\n"
-  )
+  const source = assembleModSource("await singScore(robot, 120, [['C4', 1, 'き'], ['C4', 1, 'ら'], ['R', 0.5, '']])\n")
   assert.match(source, /function singingScoreToKoe/)
   assert.match(source, /await singScore\(robot, 120/)
 

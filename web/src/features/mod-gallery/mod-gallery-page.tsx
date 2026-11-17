@@ -335,7 +335,8 @@ export function ModGalleryPage() {
                 />
               )
             }
-            const simulatorArtifact = mod.artifacts.find((candidate) => candidate.target === 'simulator') ?? mod.artifacts[0]
+            const simulatorArtifact =
+              mod.artifacts.find((candidate) => candidate.target === 'simulator') ?? mod.artifacts[0]
             const deviceArtifact = mod.artifacts.find((candidate) => candidate.target !== 'simulator')
             const supportsSimulator = mod.targets.includes('simulator')
             return (

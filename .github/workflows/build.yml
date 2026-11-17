@@ -47,13 +47,13 @@ jobs:
     outputs:
       firmware: ${{ steps.filter.outputs.firmware }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
       - name: Detect firmware-related changes
         if: github.event_name != 'workflow_dispatch'
         id: filter
-        uses: dorny/paths-filter@v4
+        uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4
         with:
           filters: |
             firmware:
@@ -68,7 +68,7 @@ jobs:
     if: needs.changes.outputs.firmware == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup
@@ -81,7 +81,7 @@ jobs:
   test-fast:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup
@@ -93,6 +93,15 @@ jobs:
       - name: Run firmware tests
         working-directory: ./firmware
         run: npm run test
+      - name: Run USB audio diagnostics Python tests
+        working-directory: ./firmware
+        run: npm run test:python
+      - name: Check web formatting
+        working-directory: ./web
+        run: npm run format
+      - name: Audit firmware dependencies
+        working-directory: ./firmware
+        run: npm audit --audit-level=high
       - name: Test CI result policy and browser suite coverage
         run: node --test .github/scripts/ci-*.test.mjs
       - name: Run legacy name checks
@@ -114,13 +123,13 @@ jobs:
       matrix:
         shard: [0, 1]
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup
         id: setup
       - name: Restore incremental Linux test builds
-        uses: actions/cache@v6
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: |
             ./firmware/dist/tmp/lin
@@ -138,7 +147,7 @@ jobs:
         run: source "$HOME/.local/share/xs-dev-export.sh" && npm run mod:build -- mods/examples/stackchan_pet/manifest.json --mode=release
       - name: Upload Virtual Pet MOD archive
         if: matrix.shard == 0
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: stackchan-pet-cores3
           path: firmware/dist/bin/esp32/release/stackchan_pet/stackchan_pet.xsa
@@ -163,13 +172,13 @@ jobs:
       C_FLAGS: -Wno-error=incompatible-pointer-types
       STACKCHAN_LIN_SMOKE_CLEAN: "0"
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup
         id: setup
       - name: Restore incremental Linux smoke builds
-        uses: actions/cache@v6
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: |
             ./firmware/dist/tmp/lin
@@ -196,10 +205,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version: 22
       - name: Verify test job results
@@ -213,10 +222,10 @@ jobs:
     outputs:
       suites: ${{ steps.matrix.outputs.suites }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version: 22
       - name: Select browser suites
@@ -245,13 +254,13 @@ jobs:
         working-directory: ./firmware
         run: npm --prefix ../web run build
       - name: Upload shared browser runtime
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: web-runtime-${{ github.sha }}
           path: web/dist
           if-no-files-found: error
       - name: Upload compiled simulator
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: companion-wasm
           path: |
@@ -267,10 +276,10 @@ jobs:
       fail-fast: false
       matrix: ${{ fromJSON(needs.web-build.outputs.suites) }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version: 22
           cache: npm
@@ -278,7 +287,7 @@ jobs:
       - name: Install browser test dependencies
         run: npm --prefix web ci
       - name: Download shared browser runtime
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: web-runtime-${{ github.sha }}
           path: web/dist
@@ -296,7 +305,7 @@ jobs:
           node .github/scripts/ci-web-suites.mjs run 2>&1 | tee "/tmp/stackchan-${STACKCHAN_WEB_SUITE}.log"
       - name: Upload browser diagnostics
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: web-visual-${{ matrix.suite }}-diagnostics
           path: |
@@ -312,10 +321,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version: 22
       - name: Verify browser job results

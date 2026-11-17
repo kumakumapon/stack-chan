@@ -4,3 +4,9 @@ pre-commit:
     check:
       root: firmware/
       run: npx biome check --staged --no-errors-on-unmatched --error-on-warnings
+    gateway:
+      root: gateway/
+      run: npm run check
+    web:
+      root: web/
+      run: npm run format

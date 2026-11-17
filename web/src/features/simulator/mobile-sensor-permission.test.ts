@@ -37,9 +37,9 @@ describe('requestDeviceMotionPermission', () => {
 
   it('resolves granted immediately when no prompt is required', async () => {
     class PlainDeviceMotionEvent {}
-    await expect(requestDeviceMotionPermission(fakeWindow({ DeviceMotionEvent: PlainDeviceMotionEvent }))).resolves.toBe(
-      'granted'
-    )
+    await expect(
+      requestDeviceMotionPermission(fakeWindow({ DeviceMotionEvent: PlainDeviceMotionEvent }))
+    ).resolves.toBe('granted')
   })
 
   it('resolves granted when the iOS prompt is accepted', async () => {
@@ -48,9 +48,9 @@ describe('requestDeviceMotionPermission', () => {
         return Promise.resolve('granted' as const)
       }
     }
-    await expect(
-      requestDeviceMotionPermission(fakeWindow({ DeviceMotionEvent: IosDeviceMotionEvent }))
-    ).resolves.toBe('granted')
+    await expect(requestDeviceMotionPermission(fakeWindow({ DeviceMotionEvent: IosDeviceMotionEvent }))).resolves.toBe(
+      'granted'
+    )
   })
 
   it('resolves denied when the iOS prompt is explicitly denied', async () => {
@@ -59,9 +59,9 @@ describe('requestDeviceMotionPermission', () => {
         return Promise.resolve('denied' as const)
       }
     }
-    await expect(
-      requestDeviceMotionPermission(fakeWindow({ DeviceMotionEvent: IosDeviceMotionEvent }))
-    ).resolves.toBe('denied')
+    await expect(requestDeviceMotionPermission(fakeWindow({ DeviceMotionEvent: IosDeviceMotionEvent }))).resolves.toBe(
+      'denied'
+    )
   })
 
   it('resolves denied, never throws, when requestPermission rejects (called outside a gesture)', async () => {
@@ -70,8 +70,8 @@ describe('requestDeviceMotionPermission', () => {
         return Promise.reject(new Error('NotAllowedError'))
       }
     }
-    await expect(
-      requestDeviceMotionPermission(fakeWindow({ DeviceMotionEvent: IosDeviceMotionEvent }))
-    ).resolves.toBe('denied')
+    await expect(requestDeviceMotionPermission(fakeWindow({ DeviceMotionEvent: IosDeviceMotionEvent }))).resolves.toBe(
+      'denied'
+    )
   })
 })

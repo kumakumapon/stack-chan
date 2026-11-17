@@ -49,7 +49,10 @@ function rotateForScreenAngle(x: number, y: number, screenAngle: number): { x: n
   }
 }
 
-export function accelerationFromDeviceMotion(sample: DeviceMotionSample, screenAngle = 0): DeviceAcceleration | undefined {
+export function accelerationFromDeviceMotion(
+  sample: DeviceMotionSample,
+  screenAngle = 0
+): DeviceAcceleration | undefined {
   const raw = sample?.accelerationIncludingGravity
   if (!raw) return undefined
 

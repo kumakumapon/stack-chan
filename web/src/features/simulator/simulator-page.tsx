@@ -15,7 +15,12 @@ const MOBILE_SURFACE_QUERY = '(pointer: coarse) and (max-width: 1023px)'
 export function SimulatorPage() {
   const isMobile = useMediaQuery(MOBILE_SURFACE_QUERY)
   const simulator = useSimulatorEngine(isMobile ? { performanceMode: 'mobile' } : undefined)
-  const conversationPanel = <><ConversationPanel controller={simulator} /><WorkshopPanel controller={simulator} /></>
+  const conversationPanel = (
+    <>
+      <ConversationPanel controller={simulator} />
+      <WorkshopPanel controller={simulator} />
+    </>
+  )
   return isMobile ? (
     <SimulatorMobileSurface controller={simulator} conversationPanel={conversationPanel} />
   ) : (

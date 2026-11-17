@@ -20,7 +20,7 @@
     "generate-apidoc": "npm exec --prefix tools/typedoc -- typedoc --skipErrorChecking --entryPointStrategy expand --plugin typedoc-plugin-markdown --out docs/api ./host",
     "vendor:stackchan-dock": "node scripts/vendor-stackchan-dock.mjs",
     "test": "npm run test:unit",
-    "test:unit": "rm -rf dist-tests && tsc --project tsconfig.test.json && node --test \"dist-tests/host/**/*.test.js\" scripts/lib/build-output.test.mjs scripts/lib/firmware-size-report.test.mjs scripts/lib/firmware-bundle.test.mjs scripts/lib/firmware-command.test.mjs scripts/lib/idf-dependencies.test.mjs scripts/lib/mod-flash.test.mjs scripts/lib/moddable-version.test.mjs scripts/lib/module-test-sharding.test.mjs scripts/lib/release-validation.test.mjs mods/examples/servo_selftest/selftest.test.mjs mods/examples/stackchan_pet/pet-state.test.mjs",
+    "test:unit": "rm -rf dist-tests && tsc --project tsconfig.test.json && node --test \"dist-tests/host/**/*.test.js\" \"scripts/lib/*.test.mjs\" mods/examples/servo_selftest/selftest.test.mjs mods/examples/stackchan_pet/pet-state.test.mjs",
     "test:moddable": "node scripts/run-module-tests.js",
     "test:opus-decoder-device:build": "node scripts/run-mcconfig.mjs -d -m -p esp32:./host/platforms/m5stackchan_cores3 -t build \"host/modules/audio/__tests__/opus-decoder-device/manifest.device.json\"",
     "test:web-radio-device:build": "node scripts/run-mcconfig.mjs -d -m -p esp32:./host/platforms/m5stackchan_cores3 -t build \"$PWD/host/modules/audio/__tests__/web-radio-device/manifest.json\"",
@@ -63,12 +63,13 @@
     "scan": "xs-dev scan",
     "erase-flash": "esptool erase-flash",
     "install-hook": "lefthook install",
-    "uninstall-hook": "lefthook uninstall"
+    "uninstall-hook": "lefthook uninstall",
+    "test:python": "python3 -m unittest discover -s scripts -p 'test_*.py'"
   },
   "type": "module",
   "repository": {
     "type": "git",
-    "url": "git+ssh://git@github.com/meganetaaan/stack-chan.git"
+    "url": "git+https://github.com/kumakumapon/stack-chan.git"
   },
   "keywords": [
     "M5Stack",
@@ -79,22 +80,24 @@
   "author": "Shinya Ishikawa",
   "license": "Apache-2.0",
   "bugs": {
-    "url": "https://github.com/meganetaaan/stack-chan/issues"
+    "url": "https://github.com/kumakumapon/stack-chan/issues"
   },
-  "homepage": "https://github.com/meganetaaan/stack-chan#readme",
+  "homepage": "https://github.com/kumakumapon/stack-chan#readme",
   "private": true,
-  "workspaces": ["tools/typedoc"],
+  "workspaces": [
+    "tools/typedoc"
+  ],
   "devDependencies": {
     "@biomejs/biome": "2.5.10",
-    "@google-cloud/text-to-speech": "^6.4.1",
+    "@google-cloud/text-to-speech": "6.4.1",
     "@moddable/typings": "9.0.1",
-    "cross-env": "^10.1.0",
-    "fontkit": "^2.0.2",
-    "lefthook": "^2.1.10",
-    "node-fetch": "^3.3.0",
-    "typescript": "^7.0.2",
-    "web-audio-engine": "^0.13.4",
-    "xs-dev": "^1.12.1",
-    "yargs": "^18.1.0"
+    "cross-env": "10.1.0",
+    "fontkit": "2.0.4",
+    "lefthook": "2.1.10",
+    "node-fetch": "3.3.2",
+    "typescript": "7.0.2",
+    "web-audio-engine": "0.13.4",
+    "xs-dev": "1.12.1",
+    "yargs": "18.1.0"
   }
 }

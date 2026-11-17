@@ -6,14 +6,14 @@
 
 ### ハードウェア
 
-- **M5StackChan CoreS3** または M5Stack（任意のモデル）
+- **M5StackChan CoreS3**（対応・配布対象はこの実機のみ）
 - **USB Type-C ケーブル** (データ通信対応)
 - **コンピュータ**（Windows / macOS / Linux）
 
 ### ソフトウェア
 
-- **Node.js** 18 以上 (LTS 推奨)
-- **npm** または **pnpm**
+- **Node.js** 22（CIと同じメジャー）
+- **npm**（コミット済みのpackage-lock.jsonを使用）
 - **Git**
 - **ブラウザ** (Chrome / Edge 推奨、USB/BLE API 対応)
 
@@ -32,7 +32,7 @@ cd stack-chan
 
 ```bash
 cd firmware
-npm install
+npm ci
 npm run setup
 npm run setup -- --device=esp32
 npm run doctor
@@ -48,8 +48,8 @@ npm run doctor
 #### Web ツールセットアップ
 
 ```bash
-cd web
-npm install
+cd ../web
+npm ci
 ```
 
 ## Environment Variables
@@ -100,12 +100,12 @@ npm run mod -- mods/examples/look_around/manifest.json
 
 出力：`firmware/dist/bin/stack-chan-host` (ホスト)、MOD アーカイブ
 
-#### その他のターゲット
+#### 対応範囲
 
-```bash
-npm run flash:stackchan_rt          # Stack-chan RT 用
-npm run flash:takao_core2_sg90      # Takao Core2 用
-```
+実機はM5StackChan CoreS3のみです。通常は`npm run flash`、明示する場合は
+`npm run flash:m5stackchan_cores3`を使います。汎用の`--target`指定は拒否されます。
+WASMとLinuxは開発・テスト用で、実機向け配布には含めません。
+過去の対応範囲は[旧機種の対応終了記録](operations/retired-hardware_ja.md)を参照してください。
 
 ### Web Tools
 
@@ -137,22 +137,25 @@ npm run build
 
 ### Firmware
 
-#### 全テスト実行
+#### Node.js単体テスト
 
 ```bash
 cd firmware
 npm test
 ```
 
-実行内容：
-- `npm run test:legacy` - Node.js 単体テスト（simulator, editor, etc）
-- `npm run test:react` - React Component テスト（vitest）
+TypeScriptのテストをコンパイルし、Node.jsで実行します。
+`scripts/lib/*.test.mjs`も自動検出します。
+USB音声診断のPythonテストは`npm run test:python`、依存境界は
+`npm run check:architecture`で検証します。
 
 #### モジュール個別テスト
 
 ```bash
-node --test host/app/__tests__/compose.test.ts
+STACKCHAN_MODULE_TEST_FILTER=settings-view npm run test:moddable
 ```
+
+Piu、Timer、ドライバなどのテストはModdable SDKとLinux実行環境が必要です。
 
 ### Web
 
@@ -191,9 +194,9 @@ npm run test:visual
 
 ```bash
 cd firmware
-npm run typecheck          # TypeScript 型チェック
-npx biome format .         # Formatter（biome）
-npx biome lint .           # Linter（biome）
+npm run check:architecture # 境界の型チェックとarchitectureテスト
+npm run format            # Formatter（Biome）
+npm run lint              # Linter（Biome）
 ```
 
 ### Web
@@ -201,8 +204,25 @@ npx biome lint .           # Linter（biome）
 ```bash
 cd web
 npm run typecheck          # TypeScript 型チェック
-npx prettier --write .     # Formatter（Prettier）
+npm run format             # Prettierの整形チェック（CIでも実行）
+npm run format:fix         # 整形の適用
 ```
+
+### Gateway
+
+```bash
+cd gateway
+npm ci
+npm run check              # src、scripts、設定のBiomeチェック
+npm run typecheck
+npm test
+npm run test:python        # モデルを取得しないHTTP契約テスト
+npm audit --audit-level=high
+```
+
+ルートのlefthookは変更のあるfirmware / gateway / webを検査します。
+Webの生成物・vendorは`.prettierignore`で除外します。
+依存更新の方針とRenovateの運用確認は[品質チェック運用](operations/repository-quality_ja.md)を参照してください。
 
 ## Build
 
@@ -210,10 +230,12 @@ npx prettier --write .     # Formatter（Prettier）
 
 ```bash
 cd firmware
-npm run bundle             # 全ターゲットビルド
+npm run bundle             # CoreS3をビルドして配布ZIPを作成
 ```
 
-出力：`firmware/dist/bundle-targets/` に各ターゲットの ZIP ファイル
+中間成果物：`firmware/dist/bundle-targets/`。
+配布ディレクトリとZIP：`firmware/host/app/`配下。
+出力先の詳細は[firmware README](../firmware/README_ja.md#ビルド出力)を参照してください。
 
 ### Web リリースビルド
 
@@ -230,7 +252,7 @@ npm run build
 
 ```bash
 cd firmware
-npm run flash              # 通常フラッシュ
+npm run debug              # デバッグビルドと書き込み
 # Device が起動し、xsbug で trace 出力が表示される
 ```
 
@@ -499,7 +521,7 @@ test('renders title', () => {
 
 **対策**：
 1. ターゲットボード設定確認（M5StackChan CoreS3 選択）
-2. `npm run flash -- --target=m5stackchan_cores3`
+2. `npm run flash:m5stackchan_cores3`（汎用の`--target`は使わない）
 
 ### Web ツール起動エラー
 
@@ -517,9 +539,8 @@ npm install
 **対策**：
 ```bash
 cd firmware
-npm run build:release:simulator_wasm
-# 出力を web/simulator/ にコピー
-cp -r dist/bin/mc.* ../web/simulator/
+npm run build:wasm
+# web/simulator/mc.js と mc.wasm へ自動コピーされる
 ```
 
 ### Blockly コンパイルエラー
@@ -545,21 +566,22 @@ cp -r dist/bin/mc.* ../web/simulator/
 
 ### 版番号管理
 
-```bash
-# バージョンを v1.1.0 にバンプ
-git tag v1.1.0
-git push origin v1.1.0
-```
+`develop`の候補を凍結し、releaseブランチでpackage versionとリリースノートを更新します。
+`main`へのPRで自動・実機検証を終えた後、そのマージコミットに安定版タグを付けます。
+タグを付けるだけではpackage versionは更新されません。
+詳細は[リリース手順](operations/release-flow_ja.md)を参照してください。
 
-CI が自動トリガー：
-- `.github/workflows/bundle.yml` で全ターゲット最適化ビルド
-- GitHub Releases に ZIP ファイル upload
+安定版タグでは`.github/workflows/release.yml`がCoreS3のバンドルを再構築し、
+検証済みZIPをGitHub Releasesへ公開します。
 
 ### Web ツール更新（GitHub Pages）
 
 ```bash
 cd web
 npm run build
-# dist/ が GitHub Pages で公開
+# ローカルのビルド確認（このコマンドだけでは公開されない）
 # https://kumakumapon.github.io/stack-chan/develop/web/
 ```
+
+`develop` / `main`へのpushでは`bundle.yml`がCoreS3配布物とWebを構築し、
+Build CI成功後に対応するGitHub Pagesディレクトリへデプロイします。

@@ -51,7 +51,7 @@ xsbugの書き込み経路を使わないため、ホストはデバッグビル
 - JavaScriptまたはTypeScriptでMODを開発できます。
 - ホストプログラムとMODが分離されているため、ホストを書き直さずにMODを短時間で更新できます。
 - 顔、モーション、入力、音声、カメラ、通信を機能単位のcontext APIから利用できます。
-- Feetech、FUTABA、DYNAMIXEL、PWMサーボを含む複数のモーター構成に対応します。
+- M5StackChan CoreS3の校正済みサーボを`m5stackchan`ドライバとSCServo通信で制御します。WASMとLinuxは開発用ドライバを使います。過去の対応範囲は[旧機種の対応終了記録](../docs/operations/retired-hardware_ja.md)を参照してください。
 - Stack-chan Voice、VOICEVOX、ElevenLabs、OpenAIを使った音声合成に対応します。
 - ファームウェア書き込み、BLE設定、MOD Gallery、ブロックエディタ、顔エディタ、WebAssemblyシミュレーターをブラウザーから利用できます。
 - ファームウェアとWeb UIは日本語、英語に対応します。

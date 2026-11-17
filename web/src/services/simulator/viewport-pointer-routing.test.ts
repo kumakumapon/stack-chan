@@ -13,7 +13,11 @@ type PointerEventLike = {
   stopImmediatePropagation(): void
 }
 
-function harness({ screenHit, headHit, withHeadTouch = true }: {
+function harness({
+  screenHit,
+  headHit,
+  withHeadTouch = true,
+}: {
   screenHit?: { x: number; y: number }
   headHit?: number
   withHeadTouch?: boolean
