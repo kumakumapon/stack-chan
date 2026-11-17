@@ -138,10 +138,9 @@ describe('useMobileDeviceSensors', () => {
   it('removes the listener when enabled goes false', async () => {
     const win = fakeWindow(GrantedDeviceMotionEvent)
     const onAcceleration = vi.fn()
-    const { result, rerender } = renderHook(
-      ({ enabled }) => useMobileDeviceSensors({ onAcceleration, win, enabled }),
-      { initialProps: { enabled: true } }
-    )
+    const { result, rerender } = renderHook(({ enabled }) => useMobileDeviceSensors({ onAcceleration, win, enabled }), {
+      initialProps: { enabled: true },
+    })
 
     await act(async () => {
       await result.current.enable()

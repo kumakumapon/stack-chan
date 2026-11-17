@@ -8,7 +8,7 @@
 graph TB
     User["User (Developer/End-user)"]
     Browser["Web Browser"]
-    Device["M5StackChan / M5Stack"]
+    Device["M5StackChan CoreS3"]
     ExtAPI["External APIs<br/>(OpenAI, VoiceVox, etc)"]
     Gateway["Conversation Gateway<br/>session / STT / TTS / Agent / tools"]
     
@@ -62,50 +62,17 @@ firmware/host/app/main.ts
 
 #### Key Service Pattern: Dependency Injection
 
-```typescript
-// firmware/host/app/compose.ts
-export function createStackchanContext(preferences: PreferenceConfig) {
-  // 1. Setup driver factory map
-  const drivers = new Map<string, (param: unknown) => MotionDriver>([
-    ['scservo', param => new SCServoDriver(param)],
-    ['m5stackchan', param => new M5StackChanServoDriver(param)],
-    ['dynamixel', param => new DynamixelDriver(param)],
-    // ...
-  ])
-  
-  // 2. Setup TTS factory map
-  const ttsEngines = new Map<string, (param: unknown) => TTS>([
-    ['local', param => new LocalTTS(param)],
-    ['openai', param => new OpenAITTS(param)],
-    ['voicevox', param => new VoiceVoxTTS(param)],
-    // ...
-  ])
-  
-  // 3. Setup UI factory map
-  const uiControllers = new Map<string, (param: unknown) => RobotUI>([
-    ['dog', param => createStackchanUI(new DogFace(), param)],
-    ['simple', param => createStackchanUI(new SimpleFace(), param)],
-    // ...
-  ])
-  
-  // 4. Resolve preferences to implementation
-  const driverKey = preferences.driver.type ?? 'scservo'
-  const ttsKey = preferences.tts.type ?? 'local'
-  const uiKey = preferences.ui.type ?? 'simple'
-  
-  // 5. Instantiate resolved implementations
-  const driver = drivers.get(driverKey)!(driverPrefs)
-  const tts = ttsEngines.get(ttsKey)!(ttsPrefs)
-  const ui = uiControllers.get(uiKey)!(uiPrefs)
-  
-  // 6. Compose into context
-  const context = new StackchanRuntimeContext({
-    driver, ui, tts, touch, imu, camera, microphone, speaker, ...
-  })
-  
-  return context
-}
-```
+`createStackchanContext()`は次の順に実装を合成します。
+
+1. `createHostMotionDriver(preferences.driver)`を呼び、実機の`m5stackchan`ドライバを作成する。
+   CoreS3は校正済みサーボをSCServoで制御し、`none`はdesktop用、WASMはmanifestでシミュレータ実装へ差し替える。
+2. `ttsEngines` Mapから設定されたTTSを選ぶ。未設定時は`local`。
+3. `uiControllers` Mapから顔UIを選ぶ。未設定時は`simple`。
+4. 入力・音声・カメラ・通信などとともに`StackchanRuntimeContext`へ渡す。
+
+実装の入口は[compose.ts](../firmware/host/app/compose.ts)と
+[motion-driver-factory.ts](../firmware/host/app/motion-driver-factory.ts)。
+対応終了したサーボ構成は[旧機種の対応終了記録](operations/retired-hardware_ja.md)を参照してください。
 
 ### 2. Web側コンポーネント
 
@@ -463,18 +430,17 @@ Preference.get(domain: string, key: string): any
 
 Domains:
   "wifi"     → SSID, password
-  "driver"   → Motor driver type, baud rate
+  "driver"   → Platform-locked type (m5stackchan on CoreS3)
   "ui"       → UI type, language
   "tts"      → TTS engine, API key, host/port
-  "ai"       → OpenAI token, context
-  "led"      → LED configuration
+  "ai"       → Direct-mode API token
   "mcp"      → Codex Voice token
   "time"     → Timezone
 ```
 
 **Persistent Locations**
 - M5StackChan Core S3: Internal Flash (`nvs` partition)
-- Other M5Stack: SD card or internal Flash depending on model
+- Other hardware targets are retired; see [retired hardware](operations/retired-hardware_ja.md).
 
 ### Web Side
 
@@ -752,11 +718,8 @@ buildMod(project) {
 firmware/
 ├─ Develop on `develop` branch
 ├─ Tag release (e.g., v1.1.0)
-└─ CI builds all targets
-   ├─ m5stack (original)
-   ├─ m5stack_core2
-   ├─ m5stack_cores3
-   ├─ m5stackchan_cores3 (primary)
+└─ CI builds the supported hardware target
+   ├─ m5stackchan_cores3
    └─ Publish to GitHub Releases as ZIP
 
 Web Flash Tool
@@ -793,9 +756,13 @@ GitHub Actions (.github/workflows/)
 │  └─ Artifacts stored for manual testing
 │
 ├─ bundle.yml
-│  ├─ Triggered on: tag push (release)
-│  ├─ Builds all firmware targets
-│  └─ Publishes release assets
+│  ├─ Triggered on: develop/main push, PR, manual run
+│  ├─ Builds and packages M5StackChan CoreS3
+│  └─ Deploys branch-specific GitHub Pages after build checks
+│
+├─ release.yml
+│  ├─ Validates main PRs and stable version tags
+│  └─ Publishes release assets on stable version tags
 │
 └─ cloudflare-preview.yml
    ├─ Preview deployment on each PR
@@ -805,7 +772,7 @@ GitHub Actions (.github/workflows/)
 ## Architectural Constraints
 
 1. **XS Version Pinned**: Moddable XS version fixed for firmware stability
-2. **ESP32 Only**: Hardware target is ESP32 (M5Stack family)
+2. **CoreS3 Only**: The supported hardware target is M5StackChan CoreS3; WASM / Linux are development environments
 3. **JavaScript Ecosystem**: Entire firmware in JavaScript (no C/Rust)
 4. **Network Optional**: MOD should work offline; network is optional
 5. **Low Memory**: Device has limited RAM; MODs should be <1 MB

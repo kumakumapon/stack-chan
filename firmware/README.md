@@ -51,7 +51,7 @@ Because it does not use the xsbug install channel, the installed host can be eit
 - Develop MODs in JavaScript or TypeScript.
 - Update a MOD quickly without rebuilding the host because the host program and MODs are separate.
 - Use capability-oriented context APIs for faces, motion, input, audio, camera, and connectivity.
-- Run Stack-chan with multiple motor configurations, including Feetech, FUTABA, DYNAMIXEL, and PWM servos.
+- Control the calibrated M5StackChan CoreS3 servos through the `m5stackchan` driver and SCServo transport. WASM and Linux use development drivers; see [retired hardware](../docs/operations/retired-hardware_ja.md) for former targets.
 - Generate speech through Stack-chan Voice, VOICEVOX, ElevenLabs, or OpenAI.
 - Access firmware installation, BLE preferences, the MOD Gallery, the block editor, the face editor, and the WebAssembly simulator from a browser.
 - Use the firmware and Web UI in Japanese or English.

@@ -2,11 +2,7 @@
   "compilerOptions": {
     "target": "ES2022",
     "useDefineForClassFields": true,
-    "lib": [
-      "ES2022",
-      "DOM",
-      "DOM.Iterable"
-    ],
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "allowJs": true,
     "skipLibCheck": true,
     "esModuleInterop": true,
@@ -20,26 +16,12 @@
     "noEmit": true,
     "jsx": "react-jsx",
     "paths": {
-      "@/editor/*": [
-        "./editor/*"
-      ],
-      "@/*": [
-        "./src/*"
-      ],
-      "reaction-types": [
-        "../firmware/host/modules/reaction/reaction-types.ts"
-      ],
-      "quiz": [
-        "../firmware/host/app/quiz.ts"
-      ],
-      "timezone-model": [
-        "../firmware/host/modules/preferences/timezone-model.ts"
-      ]
+      "@/editor/*": ["./editor/*"],
+      "@/*": ["./src/*"],
+      "reaction-types": ["../firmware/host/modules/reaction/reaction-types.ts"],
+      "quiz": ["../firmware/host/app/quiz.ts"],
+      "timezone-model": ["../firmware/host/modules/preferences/timezone-model.ts"]
     }
   },
-  "include": [
-    "src",
-    "vite.config.ts",
-    "vitest.config.ts"
-  ]
+  "include": ["src", "vite.config.ts", "vitest.config.ts"]
 }

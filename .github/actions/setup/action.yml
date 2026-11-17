@@ -20,11 +20,11 @@ inputs:
 runs:
   using: composite
   steps:
-    - uses: actions/setup-node@v4
+    - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
       with:
         node-version: 22
     - name: Cache node modules
-      uses: actions/cache@v4
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
       env:
         cache-name: cache-node-modules
       with:
@@ -44,7 +44,7 @@ runs:
       shell: bash
     - name: Setup Emscripten for WASM simulator
       if: inputs.install-emscripten == 'true'
-      uses: emscripten-core/setup-emsdk@v16
+      uses: emscripten-core/setup-emsdk@4528d102f7230f0e7b276855c01ea1159be0e984 # v16
       with:
         version: 5.0.1
     - name: Install Moddable Linux tool dependencies
@@ -99,7 +99,7 @@ runs:
     - name: Restore cache of Moddable and ESP32
       id: restore-cache-moddable
       if: inputs.install-moddable == 'true'
-      uses: actions/cache/restore@v4
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
       with:
         path: |
           /home/runner/.local/share
@@ -160,7 +160,7 @@ runs:
       if: inputs.install-moddable == 'true' && steps.restore-cache-moddable.outputs.cache-hit != 'true'
       id: save-cache-moddable
       continue-on-error: true
-      uses: actions/cache/save@v4
+      uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
       with:
         path: |
           /home/runner/.local/share

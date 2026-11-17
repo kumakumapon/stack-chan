@@ -51,7 +51,9 @@ function MobileSensorCard({ controller }: { controller: SimulatorSurfaceControll
         </Button>
         {blocked && (
           <p className="text-sm text-muted-foreground" role="status">
-            {t('端末を傾けたりシェイクしたりする代わりに、IMUのボタンで姿勢を、クイック操作のシェイクで振動を試せます。')}
+            {t(
+              '端末を傾けたりシェイクしたりする代わりに、IMUのボタンで姿勢を、クイック操作のシェイクで振動を試せます。'
+            )}
           </p>
         )}
       </CardContent>
@@ -105,9 +107,7 @@ function PerformanceModeCard({ controller }: { controller: SimulatorSurfaceContr
     <Card>
       <CardHeader>
         <CardTitle>{t('パフォーマンスモード')}</CardTitle>
-        <CardDescription>
-          {t('モバイル端末では描画負荷を抑え、デスクトップ相当の品質にも戻せます。')}
-        </CardDescription>
+        <CardDescription>{t('モバイル端末では描画負荷を抑え、デスクトップ相当の品質にも戻せます。')}</CardDescription>
       </CardHeader>
       <CardContent className="grid grid-cols-2 gap-2">
         <Button

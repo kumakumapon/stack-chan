@@ -57,11 +57,15 @@ let streamAudio = false
 let holdNextStreamedReply = false
 let finishStreamedReply
 const syntheticTts = {
-  get name() { return streamAudio ? 'synthetic' : 'null' },
+  get name() {
+    return streamAudio ? 'synthetic' : 'null'
+  },
   sampleRate: 16000,
   async *synthesize(text, signal) {
     if (!streamAudio) return
-    const audio = Int16Array.from({ length: text === 'long' ? 128000 : 8000 }, (_, i) => Math.round(Math.sin(i * 0.1) * 1000))
+    const audio = Int16Array.from({ length: text === 'long' ? 128000 : 8000 }, (_, i) =>
+      Math.round(Math.sin(i * 0.1) * 1000)
+    )
     // Hold completion until the browser observes playback. A short response
     // otherwise finishes between Playwright polls on a busy CI runner.
     const hold = holdNextStreamedReply
@@ -175,7 +179,11 @@ try {
   for (const { result } of results) assert.equal(result.ok, true, JSON.stringify(result))
   await page.getByRole('button', { name: '会話を停止', exact: true }).click()
   await status.filter({ hasText: 'standby' }).waitFor()
-  assert.equal(await status.locator('..').getByRole('alert').count(), 0, 'stop must not report a firmware cleanup error')
+  assert.equal(
+    await status.locator('..').getByRole('alert').count(),
+    0,
+    'stop must not report a firmware cleanup error'
+  )
   await page.evaluate(() => window.scrollTo(0, 0))
   await page.waitForTimeout(250)
   await page.screenshot({ path: join(tmpdir(), 'stackchan-companion-conversation.png') })
@@ -186,11 +194,19 @@ try {
   await page.getByText('シミュレーターを実行中').waitFor({ timeout: 45000 })
   await page.getByRole('button', { name: '会話を開始', exact: true }).click()
   await status.filter({ hasText: 'listening' }).waitFor({ timeout: 30000 })
-  await page.evaluate(() => { globalThis.playedBuffers = []; globalThis.gatewayFrames = [] })
+  await page.evaluate(() => {
+    globalThis.playedBuffers = []
+    globalThis.gatewayFrames = []
+  })
   await page.getByRole('textbox', { name: 'Conversation text' }).fill('long')
   await page.getByRole('button', { name: '送信', exact: true }).click()
-  await page.waitForFunction(() => globalThis.playedBuffers.some((buffer) => buffer.duration > 0 && buffer.duration < 0.1))
-  assert.equal(await page.evaluate(() => globalThis.gatewayFrames.some((frame) => frame.type === 'audio.completed')), false)
+  await page.waitForFunction(() =>
+    globalThis.playedBuffers.some((buffer) => buffer.duration > 0 && buffer.duration < 0.1)
+  )
+  assert.equal(
+    await page.evaluate(() => globalThis.gatewayFrames.some((frame) => frame.type === 'audio.completed')),
+    false
+  )
   await page.getByRole('button', { name: '応答を中断', exact: true }).click()
   await status.filter({ hasText: 'listening' }).waitFor({ timeout: 10000 })
   // The local UI can become ready before the Gateway acknowledges cancellation.
@@ -214,7 +230,11 @@ try {
   assert.ok(await page.evaluate(() => globalThis.gatewayFrames.some((frame) => frame.type === 'audio.completed')))
   await page.getByRole('button', { name: '会話を停止', exact: true }).click()
   await status.filter({ hasText: 'standby' }).waitFor()
-  assert.equal(await status.locator('..').getByRole('alert').count(), 0, 'stop must not report a firmware cleanup error')
+  assert.equal(
+    await status.locator('..').getByRole('alert').count(),
+    0,
+    'stop must not report a firmware cleanup error'
+  )
   await page.screenshot({ path: join(tmpdir(), 'stackchan-gateway-stream-interrupt.png') })
   // Chromium supplies synthetic audio; this test never opens a physical microphone.
   await page.getByLabel('ブラウザのマイク').check()
@@ -227,7 +247,11 @@ try {
   })
   await page.getByRole('button', { name: '会話を停止', exact: true }).click()
   await status.filter({ hasText: 'standby' }).waitFor()
-  assert.equal(await status.locator('..').getByRole('alert').count(), 0, 'stop must not report a firmware cleanup error')
+  assert.equal(
+    await status.locator('..').getByRole('alert').count(),
+    0,
+    'stop must not report a firmware cleanup error'
+  )
   const count = await page.evaluate(
     () => globalThis.companionFrames.filter((frame) => frame.type === 'audio.input').length
   )
@@ -249,7 +273,9 @@ try {
   assert.ok(await mobilePage.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1))
   await mobilePage.screenshot({ path: join(tmpdir(), 'stackchan-companion-mobile.png') })
   await mobile.close()
-  console.log('Companion WASM: text round trip, named tools, streamed PCM, interruption, restart, stop, and synthetic microphone passed')
+  console.log(
+    'Companion WASM: text round trip, named tools, streamed PCM, interruption, restart, stop, and synthetic microphone passed'
+  )
 } catch (error) {
   if (diagnosticPage) {
     console.error(await diagnosticPage.locator('body').innerText())

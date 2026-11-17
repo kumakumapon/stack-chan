@@ -58,7 +58,7 @@
 │  │                                                       │  │
 │  │  ┌─────────────────────────────────────────────┐    │  │
 │  │  │ Modules (Hardware Abstraction)               │    │  │
-│  │  │  - Motion Drivers (SCServo, PWM, etc)        │    │  │
+│  │  │  - CoreS3 Motion Driver (SCServo)            │    │  │
 │  │  │  - TTS Engines (OpenAI, VoiceVox, etc)       │    │  │
 │  │  │  - USB Audio, Connectivity                   │    │  │
 │  │  │  - Preferences (BLE settings server)         │    │  │
@@ -92,7 +92,7 @@
 | --- | --- | --- |
 | **Firmware** | Moddable SDK | JavaScript を ESP32 マイコンに実装 |
 | **Firmware Lang** | JavaScript / TypeScript | ファームウェア・MOD・ドライバ実装 |
-| **Hardware** | M5Stack Core S3 / M5StackChan | 標準ターゲット（複数対応） |
+| **Hardware** | M5StackChan CoreS3 | 対応・配布する唯一の実機。WASM / Linuxは開発用 |
 | **Web Frontend** | React 19 | ブラウザツール UI |
 | **Web Build** | Vite 8 | モジュールバンドラ・HMR |
 | **Web Styling** | Tailwind CSS 4 | UI デザイン |
@@ -298,10 +298,8 @@ createStackchanContext() で使用
 │  │                              └─ 音声ファイル → Speaker
 │  │
 │  ├─ context.motion.lookAt([x,y,z])  ──→ Motion Driver
-│  │                                      ├─ SCServo
-│  │                                      ├─ PWM
-│  │                                      ├─ Dynamixel
-│  │                                      └─ RS30X
+│  │                                      ├─ m5stackchan (CoreS3 / SCServo)
+│  │                                      └─ none / WASM (開発用)
 │  │                                          ↓ 物理サーボモータ
 │  │
 │  ├─ context.face.setEmotion()  ──→ Piu UI / Face
@@ -342,21 +340,24 @@ createStackchanContext() で使用
 | --- | --- | --- | --- |
 | `wifi` | `ssid` | String | ネットワーク名 |
 | | `password` | String | Wi-Fi パスワード |
-| `driver` | `type` | String | モーション制御「scservo」「m5stackchan」「pwm」「dynamixel」「rs30x」「none」 |
-| | `baudrate` | Number | シリアル通信速度 |
-| | `offsetPan`/`offsetTilt` | Number | サーボ角度キャリブレーション |
+| `driver` | `type` | String | 実機は「m5stackchan」に固定。「none」はdesktop/WASM開発用 |
 | `ui` | `type` | String | UI テーマ「dog」「simple」「image」「small-face」 |
-| | `language` | String | 言語「ja」「en」「zh」 |
+| | `language` | String | 言語「ja」「en」 |
 | `tts` | `type` | String | TTS バックエンド |
 | | `host`/`port` | String/Number | リモート TTS サーバ |
 | | `token` | String | API キー（OpenAI等） |
-| | `volume` | Number | 音量 0-100 |
+| | `volume` | Number | 音量 0-1 |
 | | `voice`/`speed` | String/Number | 音声キャラ・速度 |
+| | `speakerId`/`model`/`instructions` | Number/String/String | 選択したTTSに応じた話者・モデル・発話指示 |
 | `ai` | `token` | String | 外部 AI API キー（ChatGPT等） |
-| | `context` | String | AI プロンプトコンテキスト |
-| `led` | (カスタム) | Object | LED 設定（PIN、WS2812 等） |
 | `mcp` | `token` | String | Codex Voice API キー |
-| `time` | `timezone` | String | タイムゾーン（Asia/Tokyo等） |
+| `time` | `timezone` | String | UTCオフセット。Webでは都市の選択肢として表示 |
+| `conversation` | `backend`/`autoStart` | String/Number | none / gateway / usbと起動時の会話開始 |
+| `gateway` | `endpoint`/`deviceId`/`clientId`/`token`/`microphone` | String/Number | Gatewayの接続・認証とマイク送信 |
+| `companion` | `greetingOnBoot`/`idleReactions`/`lowBatteryNotice`/`quietHours`/`quietStart`/`quietEnd` | Number | 起動挨拶・待機動作・低電池・おやすみ時間 |
+
+保存キーの正本は`PREF_KEYS`です。旧サーボのbaudrate / offset設定と`ai.context`は利用しません。
+`led`はビルド時構成で、Webから編集する保存キーはありません。
 
 **読み込み順序** (`firmware/host/modules/preferences/loadPreference.ts`)
 1. ビルド時定数（`mc/config`）
@@ -374,7 +375,7 @@ VITE_WASM_BUILD_ID  // WASM ファームウェアビルドID（キャッシュ�
 
 **Flash マニフェスト** (`web/flash/manifest_*.json`)
 
-異なるハードウェア対象ごとにビルド出力パスを指定
+CoreS3向けのビルド出力パスを指定。旧機種の記録は対応対象ではありません。
 
 ## 13. テスト
 
@@ -432,11 +433,11 @@ web/
 - **firmware/typings/** で型定義追加
 - **web/editor/blocks.mjs** で使用可能ブロック更新
 
-### モーションドライバ追加時
+### モーション実装の変更時
 
-- **firmware/host/modules/motion/drivers/` に実装
-- **compose.ts** の drivers Map に登録
-- **firmware/docs/api.md** で座標系・制御方法記載
+- `firmware/host/modules/motion/`のCoreS3実装とSCServo通信を変更
+- `firmware/host/app/motion-driver-factory.ts`とWASM manifestの差し替えを確認
+- 実機の対応対象はCoreS3のみ。旧機種は[対応終了記録](operations/retired-hardware_ja.md)を参照
 - キャリブレーション MOD（`examples/calibration/`）動作確認
 
 ### UI テーマ追加時
@@ -454,7 +455,7 @@ web/
 | **Capability** | MOD に提供される実行時 API | context.motion, context.audio |
 | **Preference** | デバイスに保存された設定 | Wi-Fi SSID、TTS エンジン種別 |
 | **TTS** | テキスト音声合成 (Text-To-Speech) | OpenAI TTS、VoiceVox |
-| **Motion Driver** | サーボモータ制御ドライバ | SCServo、PWM サーボ（SG90等） |
+| **Motion Driver** | サーボモータ制御ドライバ | CoreS3の校正済みm5stackchanドライバとSCServo通信。none / WASMは開発用 |
 | **Piu** | Moddable SDK の UI フレームワーク | 液晶表示制御 |
 | **WASM** | WebAssembly | ブラウザシミュレータ用ファームウェアビルド |
 | **Blockly** | Google のビジュアルプログラミングエディタ | Block Editor で使用 |

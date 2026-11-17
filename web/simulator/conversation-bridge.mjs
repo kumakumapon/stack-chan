@@ -17,12 +17,17 @@ export function createConversationBridge({ WebSocketClass = globalThis.WebSocket
   let capture,
     captureGeneration = 0,
     captureError
-  let playback, playbackId = 0
+  let playback,
+    playbackId = 0
   const closePlayback = () => {
     if (!playback) return
     const current = playback
     playback = undefined
-    for (const source of current.sources) { source.onended = null; source.stop(); source.disconnect() }
+    for (const source of current.sources) {
+      source.onended = null
+      source.stop()
+      source.disconnect()
+    }
     void current.context.close()
   }
   const stopMic = () => {
@@ -150,7 +155,9 @@ export function createConversationBridge({ WebSocketClass = globalThis.WebSocket
           source.connect(gain).connect(current.context.destination)
           current.sources.add(source)
           source.onended = () => {
-            source.disconnect(); gain.disconnect(); current.sources.delete(source)
+            source.disconnect()
+            gain.disconnect()
+            current.sources.delete(source)
             if (playback === current) current.played++
           }
           current.next = Math.max(current.next, current.context.currentTime)

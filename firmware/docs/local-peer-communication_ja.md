@@ -1,10 +1,13 @@
 # ローカル P2P メッセージ通信
 
-ESP32 系のｽﾀｯｸﾁｬﾝでは、インターネットを経由しない近距離の P2P メッセージ通信を MOD から利用できます。
+M5StackChan CoreS3では、インターネットを経由しない近距離の P2P メッセージ通信を MOD から利用できます。
 通信方式の違いはホスト側が吸収するため、MOD は `context.connectivity.localPeer` だけを使用します。
 
 ESP-NOWとBLE Serialを選択できます。
-transport未指定時はESP-NOWを優先し、ESP-NOWを組み込まない`esp32/m5stack`ではBLEを使います。
+transport未指定時はESP-NOWを優先します。利用できない方式を明示した場合は
+`LocalPeerError.code === 'not-supported'`で拒否します。
+BLE専用だった4 MBの`esp32/m5stack`は対応終了済みです。
+[旧機種の対応終了記録](../../docs/operations/retired-hardware_ja.md)を参照してください。
 
 ## セッションを開く
 

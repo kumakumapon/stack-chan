@@ -8,6 +8,7 @@ on:
     paths:
       - "gateway/**"
       - ".github/workflows/gateway.yml"
+      - "lefthook.yml"
   pull_request:
     branches:
       - develop
@@ -15,6 +16,7 @@ on:
     paths:
       - "gateway/**"
       - ".github/workflows/gateway.yml"
+      - "lefthook.yml"
   workflow_dispatch:
 
 permissions:
@@ -28,10 +30,10 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version: 22
           cache: npm
@@ -41,10 +43,16 @@ jobs:
         run: npm ci
       - name: Check formatting and lint
         working-directory: ./gateway
-        run: npx biome ci src --error-on-warnings
+        run: npm run check
+      - name: Audit dependencies
+        working-directory: ./gateway
+        run: npm audit --audit-level=high
       - name: Typecheck
         working-directory: ./gateway
         run: npm run typecheck
       - name: Run tests
         working-directory: ./gateway
         run: npm test
+      - name: Run local speech Python tests
+        working-directory: ./gateway
+        run: npm run test:python
