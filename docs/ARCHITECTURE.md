@@ -758,7 +758,7 @@ GitHub Actions (.github/workflows/)
 ├─ bundle.yml
 │  ├─ Triggered on: develop/main push, PR, manual run
 │  ├─ Builds and packages M5StackChan CoreS3
-│  └─ Deploys branch-specific GitHub Pages after build checks
+│  └─ Deploys branch-specific GitHub Pages after its build job succeeds
 │
 ├─ release.yml
 │  ├─ Validates main PRs and stable version tags

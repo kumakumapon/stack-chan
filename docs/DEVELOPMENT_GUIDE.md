@@ -584,4 +584,4 @@ npm run build
 ```
 
 `develop` / `main`へのpushでは`bundle.yml`がCoreS3配布物とWebを構築し、
-Build CI成功後に対応するGitHub Pagesディレクトリへデプロイします。
+Bundle内の`build`ジョブ成功後に対応するGitHub Pagesディレクトリへデプロイします。
